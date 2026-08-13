@@ -317,6 +317,16 @@ package body Flyology.M3_Runtime is
          Stop;
       end if;
       Deliver_Pending_Abort_Locked;
+      if Tasks (Activator_Slot).Abort_Depth = 255 then
+         Leave_Kernel;
+         Stop;
+      end if;
+      --  Activation is an indivisible language-level cleanup boundary.  A
+      --  remote abort may become pending after publication, but it cannot
+      --  replace the exact activation-completion wake.  The matching
+      --  Abort_Undefer below delivers it immediately after group cleanup.
+      Tasks (Activator_Slot).Abort_Depth :=
+        Tasks (Activator_Slot).Abort_Depth + 1;
 
       --  Validate the complete chain and placement plan before publishing any
       --  Ready transition.  This is the production use of the proved mapping.
@@ -383,7 +393,7 @@ package body Flyology.M3_Runtime is
       if Outcome /= Waits.Object_Wake then
          Stop;
       end if;
-      pragma Unreferenced (Activator_Slot);
+      Abort_Undefer;
    end Activate_Tasks;
 
    procedure Complete_Activation is
@@ -529,7 +539,9 @@ package body Flyology.M3_Runtime is
       Wake_Core     : Core_Number := 0;
       Cancel_Status : Core.Timer_Cancel_Status;
       Matching_Call : Natural range 0 .. Max_Calls;
-      Accepted_Call : Boolean;
+      type Abort_Wait_Action is
+        (Resolve_Only, Resolve_And_Remove_Call, Retain_Natural_Wake);
+      Wait_Action : Abort_Wait_Action;
    begin
       if Members'Length /= 1 then
          Stop;
@@ -545,7 +557,7 @@ package body Flyology.M3_Runtime is
             Slot := Record_Of (Members (Index));
             Reference := To_Reference (Members (Index));
             State := Core.State_Locked (Reference);
-            Accepted_Call := False;
+            Wait_Action := Resolve_Only;
             if State = Dispatcher.Dormant then
                Leave_Kernel;
                Stop;
@@ -599,7 +611,7 @@ package body Flyology.M3_Runtime is
                      --  The blocked task is the accepting server, not a
                      --  caller.  Accept_Call owns publication cleanup after
                      --  this exact abort wake resumes it.
-                     null;
+                     Wait_Action := Resolve_Only;
                   elsif Matching_Call = 0 then
                      Leave_Kernel;
                      Stop;
@@ -607,15 +619,18 @@ package body Flyology.M3_Runtime is
                      Kicks
                        (Core.Assigned_Core_Locked
                           (Calls (Call_Number (Matching_Call)).Target)) := True;
-                     Accepted_Call := True;
-                  elsif Calls (Call_Number (Matching_Call)).Timed then
-                     Core.Cancel_Deadline_Locked (Token, Cancel_Status);
-                     if Cancel_Status /= Core.Cancelled then
-                        Leave_Kernel;
-                        Stop;
+                     Wait_Action := Retain_Natural_Wake;
+                  else
+                     if Calls (Call_Number (Matching_Call)).Timed then
+                        Core.Cancel_Deadline_Locked (Token, Cancel_Status);
+                        if Cancel_Status /= Core.Cancelled then
+                           Leave_Kernel;
+                           Stop;
+                        end if;
                      end if;
+                     Wait_Action := Resolve_And_Remove_Call;
                   end if;
-                  if not Accepted_Call then
+                  if Wait_Action = Resolve_And_Remove_Call then
                      Calls (Call_Number (Matching_Call)) := (others => <>);
                   end if;
                elsif Kind in Waits.Protected_Entry_Wait |
@@ -629,16 +644,17 @@ package body Flyology.M3_Runtime is
                      end if;
                   end if;
                elsif Kind in Waits.Master_Wait | Waits.Activation_Wait then
-                  --  These waits normally run with abort deferred.  Retain
-                  --  the pending request and let their exact natural wake
-                  --  complete cleanup even if a malformed caller reaches
-                  --  this branch without deferral.
-                  Accepted_Call := True;
+                  --  Master completion is compiler-bracketed by abort
+                  --  deferral, and Activate_Tasks establishes its own
+                  --  internal deferral.  Reaching either lifecycle wait at
+                  --  depth zero violates that contract.
+                  Leave_Kernel;
+                  Stop;
                else
                   Leave_Kernel;
                   Stop;
                end if;
-               if not Accepted_Call then
+               if Wait_Action /= Retain_Natural_Wake then
                   Core.Resolve_Exact_Locked
                     (Token, Waits.Abort_Wake, Status, Wake_Core);
                   if Status /= Waits.Made_Ready then
