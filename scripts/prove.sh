@@ -18,10 +18,11 @@ test -x "$gnatprove_command" || {
 }
 
 mkdir -p build/proof
+proof_jobs=${FLYOLOGY_PROOF_JOBS:-1}
 set +e
 proof_output=$(
     "$gnatprove_command" -P proof/flyology_proof.gpr \
-        -j0 --level=1 --output=oneline --output-header \
+        -j"$proof_jobs" --level=1 --output=oneline --output-header \
         --warnings=error 2>&1
 )
 proof_status=$?

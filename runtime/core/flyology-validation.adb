@@ -41,19 +41,4 @@ is
       return Base + Offset;
    end To_HHDM;
 
-   function Checked_Transition
-     (From : Task_State;
-      To   : Task_State) return Task_State
-   is
-      pragma Unreferenced (From);
-   begin
-      return To;
-   end Checked_Transition;
-
-   function Next_Generation
-     (Generation : Wake_Generation) return Wake_Generation
-   is
-   begin
-      return Generation + 1;
-   end Next_Generation;
 end Flyology.Validation;

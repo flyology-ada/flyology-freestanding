@@ -14,6 +14,17 @@ is
       return Result;
    end Enqueue;
 
+   function Try_Enqueue
+     (Queue : Ready_Queue;
+      Candidate : Task_Ref) return Enqueue_Attempt
+   is
+   begin
+      if Can_Enqueue (Queue, Candidate) then
+         return (Queue => Enqueue (Queue, Candidate), Accepted => True);
+      end if;
+      return (Queue => Queue, Accepted => False);
+   end Try_Enqueue;
+
    function Select_Next (Queue : Ready_Queue) return Selection
    is
       Result : Selection := (Selected => No_Task, Remainder => Queue);

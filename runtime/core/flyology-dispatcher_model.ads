@@ -23,7 +23,7 @@ is
    type Core_Id is range 0 .. 255;
    type Domain_Id is range 0 .. 255;
    type Priority is range 0 .. 255;
-   type Generation is mod 2 ** 64;
+   type Generation is range 0 .. 2 ** 63 - 1;
 
    type Task_State is (Dormant, Ready, Running, Blocked, Terminated);
 
@@ -46,17 +46,26 @@ is
           when Wake           => State = Blocked,
           when Terminate_Task => State in Ready | Running);
 
-   function Transition_Result
+   type Transition_Attempt is record
+      State    : Task_State := Dormant;
+      Accepted : Boolean := False;
+   end record;
+
+   function Try_Transition
      (State      : Task_State;
-      Transition : Transition_Kind) return Task_State
-   with Pre  => Transition_Is_Legal (State, Transition),
-        Post =>
-          Transition_Result'Result =
-            (case Transition is
-                when Admit | Yield | Wake => Ready,
-                when Dispatch             => Running,
-                when Block                => Blocked,
-                when Terminate_Task       => Terminated);
+      Transition : Transition_Kind) return Transition_Attempt
+   with Post =>
+          Try_Transition'Result.Accepted =
+            Transition_Is_Legal (State, Transition)
+          and then
+            (if Try_Transition'Result.Accepted
+             then Try_Transition'Result.State =
+               (case Transition is
+                   when Admit | Yield | Wake => Ready,
+                   when Dispatch             => Running,
+                   when Block                => Blocked,
+                   when Terminate_Task       => Terminated)
+             else Try_Transition'Result.State = State);
 
    type Wait_Phase is (No_Wait, Armed, Committed);
 
@@ -150,17 +159,4 @@ is
           and then Leave_Critical'Result.State.Deferred
             = (Before.Depth > 1 and then Before.Deferred);
 
-   type Ownership is record
-      Current : Task_Ref := No_Task;
-      Core    : Core_Id := Core_Id'First;
-      Domain  : Domain_Id := Domain_Id'First;
-   end record;
-
-   function Dispatch_Ownership_Is_Valid
-     (Before : Ownership;
-      After  : Ownership) return Boolean
-   is (Before.Core = After.Core
-       and then Before.Domain = After.Domain
-       and then Before.Current /= After.Current
-       and then Is_Valid_Task (After.Current));
 end Flyology.Dispatcher_Model;

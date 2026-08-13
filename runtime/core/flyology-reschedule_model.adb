@@ -3,6 +3,19 @@
 package body Flyology.Reschedule_Model
   with SPARK_Mode => On
 is
+   function Epoch_Of (Seen : Dispatch_Snapshot) return Request_Epoch is
+     (Seen.Epoch);
+
+   function Can_Acknowledge
+     (Before : Request_State;
+      Seen   : Dispatch_Snapshot) return Boolean
+   is (Is_Valid (Before)
+       and then Seen.Epoch <= Before.Requested
+       and then Seen.Epoch >= Before.Acknowledged
+       and then
+         (Seen.Epoch /= Before.Requested
+          or else Same_Reasons (Seen.Reasons, Before.Reasons)));
+
    function Post_Request
      (Before : Request_State;
       Reason : Reschedule_Reason) return Request_State
@@ -29,6 +42,7 @@ is
          Acknowledged => Seen.Epoch,
          Reasons      =>
            (if Before.Requested = Seen.Epoch
+              and then Same_Reasons (Before.Reasons, Seen.Reasons)
             then No_Reasons
             else Before.Reasons));
    end Acknowledge;

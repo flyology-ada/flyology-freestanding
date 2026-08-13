@@ -55,7 +55,32 @@ is
    with Pre  => Can_Enqueue (Queue, Candidate),
         Post => Is_Valid (Enqueue'Result)
           and then Enqueue'Result.Length = Queue.Length + 1
-          and then Contains (Enqueue'Result, Candidate);
+          and then Contains (Enqueue'Result, Candidate)
+          and then
+            (for all Index in Queue_Index =>
+               (if Index <= Queue.Length
+                then Enqueue'Result.Storage (Index) = Queue.Storage (Index)));
+
+   type Enqueue_Attempt is record
+      Queue    : Ready_Queue;
+      Accepted : Boolean := False;
+   end record;
+
+   function Try_Enqueue
+     (Queue : Ready_Queue;
+      Candidate : Task_Ref) return Enqueue_Attempt
+   with Post => Try_Enqueue'Result.Accepted = Can_Enqueue (Queue, Candidate)
+          and then
+            (if Try_Enqueue'Result.Accepted
+             then Is_Valid (Try_Enqueue'Result.Queue)
+               and then Try_Enqueue'Result.Queue.Length = Queue.Length + 1
+               and then Contains (Try_Enqueue'Result.Queue, Candidate)
+               and then
+                 (for all Index in Queue_Index =>
+                    (if Index <= Queue.Length
+                     then Try_Enqueue'Result.Queue.Storage (Index) =
+                       Queue.Storage (Index)))
+             else Try_Enqueue'Result.Queue = Queue);
 
    type Selection is record
       Selected  : Task_Ref := No_Task;
@@ -72,5 +97,13 @@ is
              else Select_Next'Result.Selected
                = Queue.Storage (Queue_Index'First)
                and then Select_Next'Result.Remainder.Length
-                 = Queue.Length - 1);
+                 = Queue.Length - 1
+               and then not Contains
+                 (Select_Next'Result.Remainder,
+                  Select_Next'Result.Selected)
+               and then
+                 (for all Index in Queue_Index =>
+                    (if Index <= Select_Next'Result.Remainder.Length
+                     then Select_Next'Result.Remainder.Storage (Index) =
+                       Queue.Storage (Queue_Index'Succ (Index)))));
 end Flyology.Scheduler_Contract;

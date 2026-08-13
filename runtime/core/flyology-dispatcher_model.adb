@@ -3,19 +3,24 @@
 package body Flyology.Dispatcher_Model
   with SPARK_Mode => On
 is
-   function Transition_Result
+   function Try_Transition
      (State      : Task_State;
-      Transition : Transition_Kind) return Task_State
+      Transition : Transition_Kind) return Transition_Attempt
    is
-      pragma Unreferenced (State);
    begin
+      if not Transition_Is_Legal (State, Transition) then
+         return (State => State, Accepted => False);
+      end if;
+
       return
-        (case Transition is
-            when Admit | Yield | Wake => Ready,
-            when Dispatch             => Running,
-            when Block                => Blocked,
-            when Terminate_Task       => Terminated);
-   end Transition_Result;
+        (State =>
+           (case Transition is
+               when Admit | Yield | Wake => Ready,
+               when Dispatch             => Running,
+               when Block                => Blocked,
+               when Terminate_Task       => Terminated),
+         Accepted => True);
+   end Try_Transition;
 
    function Begin_Wait (Before : Wait_State) return Wait_State is
    begin

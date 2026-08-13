@@ -101,32 +101,4 @@ is
        and then Unique_Hardware_Ids (Ids)
        and then Contains (Ids, BSP));
 
-   type Task_State is (Dormant, Ready, Running, Blocked, Terminated);
-
-   function Legal_Transition
-     (From : Task_State;
-      To   : Task_State) return Boolean
-   is (case From is
-          when Dormant    => To = Ready,
-          when Ready      => To = Running or else To = Terminated,
-          when Running    => To in Ready | Blocked | Terminated,
-          when Blocked    => To in Ready | Terminated,
-          when Terminated => False);
-
-   function Checked_Transition
-     (From : Task_State;
-      To   : Task_State) return Task_State
-   with Pre  => Legal_Transition (From, To),
-        Post => Checked_Transition'Result = To;
-
-   subtype Wake_Generation is Address_Value;
-
-   function Can_Advance (Generation : Wake_Generation) return Boolean
-   is (Generation < Wake_Generation'Last);
-
-   function Next_Generation
-     (Generation : Wake_Generation) return Wake_Generation
-   with Pre  => Can_Advance (Generation),
-        Post => Next_Generation'Result = Generation + 1
-          and then Next_Generation'Result > Generation;
 end Flyology.Validation;
