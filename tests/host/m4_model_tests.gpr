@@ -1,0 +1,12 @@
+project M4_Model_Tests is
+   for Languages use ("Ada");
+   for Source_Dirs use (".", "../../runtime/core");
+   for Object_Dir use "../../build/host-m4-model/obj";
+   for Exec_Dir use "../../build/host-m4-model/bin";
+   for Main use ("m4_model_tests.adb");
+
+   package Compiler is
+      for Default_Switches ("Ada") use
+        ("-gnat2022", "-gnata", "-gnato", "-gnatwa", "-gnatwe");
+   end Compiler;
+end M4_Model_Tests;

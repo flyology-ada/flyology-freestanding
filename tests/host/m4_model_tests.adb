@@ -1,0 +1,376 @@
+--  SPDX-License-Identifier: MIT OR Apache-2.0
+
+with Ada.Text_IO;
+with Flyology.Ceiling_Model;
+with Flyology.Clock_Model;
+with Flyology.Dispatcher_Model;
+with Flyology.Priority_Queue_Model;
+with Flyology.Task_Primitives_Contract;
+with Flyology.Timer_Model;
+with Flyology.Wait_Arbitration_Model;
+with Flyology.Wait_Queue_Model;
+
+procedure M4_Model_Tests is
+   package Ceiling renames Flyology.Ceiling_Model;
+   package Clock renames Flyology.Clock_Model;
+   package Dispatcher renames Flyology.Dispatcher_Model;
+   package Priority renames Flyology.Priority_Queue_Model;
+   package Primitives renames Flyology.Task_Primitives_Contract;
+   package Timers renames Flyology.Timer_Model;
+   package Waits renames Flyology.Wait_Arbitration_Model;
+   package Wait_Queue renames Flyology.Wait_Queue_Model;
+
+   use type Ceiling.Enter_Status;
+   use type Ceiling.Leave_Status;
+   use type Dispatcher.Generation;
+   use type Dispatcher.Priority;
+   use type Dispatcher.Task_Incarnation;
+   use type Dispatcher.Task_Ref;
+   use type Dispatcher.Task_State;
+   use type Priority.Change_Status;
+   use type Priority.Enqueue_Status;
+   use type Timers.Register_Status;
+   use type Wait_Queue.Enqueue_Status;
+   use type Waits.Arm_Status;
+   use type Waits.Commit_Status;
+   use type Waits.Resolve_Status;
+   use type Waits.Resolution;
+   use type Waits.Resume_Status;
+   use type Waits.Wait_State;
+   use type Clock.Nanoseconds;
+   use type Clock.Tick;
+
+   type Hash_Word is mod 2 ** 64;
+   Hash  : Hash_Word := 16#CBF29CE484222325#;
+   Edges : Natural := 0;
+
+   procedure Count (Value : Integer) is
+   begin
+      Hash := (Hash xor Hash_Word (Value + 32_768)) * 16#100000001B3#;
+      Edges := Edges + 1;
+   end Count;
+
+   function Reference
+     (Slot        : Positive;
+      Incarnation : Positive := 1) return Dispatcher.Task_Ref
+   is ((Slot        => Dispatcher.Task_Slot (Slot),
+        Incarnation => Dispatcher.Task_Incarnation (Incarnation)));
+
+   function Candidate_Reference (Choice : Natural) return Dispatcher.Task_Ref
+   is (case Choice is
+          when 0      => Dispatcher.No_Task,
+          when 1      => Reference (1),
+          when 2      => Reference (1, 2),
+          when others => Reference (2));
+
+   procedure Check_Wait_Enumeration is
+      Before : Waits.Wait_State;
+   begin
+      for Phase in Waits.Wait_Phase loop
+         for Kind in Waits.Wait_Kind loop
+            for Outcome in Waits.Resolution loop
+               for Generation in Dispatcher.Generation range 0 .. 2 loop
+                  Before :=
+                    (Reference  => Reference (1),
+                     Kind       => Kind,
+                     Phase      => Phase,
+                     Generation => Generation,
+                     Outcome    => Outcome);
+                  if Waits.Valid (Before) then
+                     for Task_State in Dispatcher.Task_State loop
+                        for New_Kind in Waits.Wait_Kind loop
+                           declare
+                              Result : constant Waits.Arm_Result :=
+                                Waits.Arm (Before, Task_State, New_Kind);
+                           begin
+                              pragma Assert (Waits.Valid (Result.State));
+                              pragma Assert
+                                (Result.Status = Waits.Armed_Now
+                                 or else Result.State = Before);
+                              Count
+                                (1_000 + Waits.Wait_Phase'Pos (Phase) * 100
+                                 + Waits.Wait_Kind'Pos (New_Kind) * 10
+                                 + Dispatcher.Task_State'Pos (Task_State));
+                           end;
+                        end loop;
+
+                        declare
+                           Result : constant Waits.Commit_Result :=
+                             Waits.Commit_Block (Before, Task_State);
+                        begin
+                           pragma Assert (Waits.Valid (Result.State));
+                           pragma Assert
+                             (Result.Status /= Waits.Not_Armed
+                              or else Result.State = Before);
+                           Count
+                             (2_000 + Waits.Wait_Phase'Pos (Phase) * 100
+                              + Dispatcher.Task_State'Pos (Task_State));
+                        end;
+
+                        for Choice in 0 .. 3 loop
+                           for Expected in Dispatcher.Generation range 0 .. 3
+                           loop
+                              for Resolution in Waits.Resolution loop
+                                 declare
+                                    Result : constant Waits.Resolve_Result :=
+                                      Waits.Resolve
+                                        (Before, Task_State,
+                                         Candidate_Reference (Choice),
+                                         Expected, Resolution);
+                                 begin
+                                    pragma Assert
+                                      (Waits.Valid (Result.State));
+                                    pragma Assert
+                                      (Result.Status in
+                                         Waits.Won_Before_Block |
+                                         Waits.Made_Ready
+                                       or else Result.State = Before);
+                                    Count
+                                      (3_000 + Choice * 100
+                                       + Integer (Expected) * 10
+                                       + Waits.Resolution'Pos (Resolution));
+                                 end;
+                              end loop;
+                           end loop;
+                        end loop;
+
+                        declare
+                           Result : constant Waits.Resume_Result :=
+                             Waits.Resume (Before, Task_State);
+                        begin
+                           pragma Assert (Waits.Valid (Result.State));
+                           pragma Assert
+                             (Result.Status = Waits.Consumed
+                              or else Result.State = Before);
+                           Count
+                             (4_000 + Waits.Wait_Phase'Pos (Phase) * 10
+                              + Dispatcher.Task_State'Pos (Task_State));
+                        end;
+                     end loop;
+                  end if;
+               end loop;
+            end loop;
+         end loop;
+      end loop;
+   end Check_Wait_Enumeration;
+
+   procedure Check_Winner_Orders is
+      Idle : constant Waits.Wait_State :=
+        (Reference => Reference (1), Kind => Waits.No_Wait,
+         Phase => Waits.Idle, Generation => 0, Outcome => Waits.Pending);
+   begin
+      for First in Waits.Resolution range
+        Waits.Object_Wake .. Waits.Abort_Wake
+      loop
+         for Second in Waits.Resolution range
+           Waits.Object_Wake .. Waits.Abort_Wake
+         loop
+            declare
+               Armed : constant Waits.Arm_Result :=
+                 Waits.Arm (Idle, Dispatcher.Running, Waits.Timed_Object_Wait);
+               Won_Early : constant Waits.Resolve_Result :=
+                 Waits.Resolve
+                   (Armed.State, Dispatcher.Running, Reference (1), 1, First);
+               Duplicate : constant Waits.Resolve_Result :=
+                 Waits.Resolve
+                   (Won_Early.State, Dispatcher.Running,
+                    Reference (1), 1, Second);
+               Commit_Early : constant Waits.Commit_Result :=
+                 Waits.Commit_Block (Won_Early.State, Dispatcher.Running);
+               Committed : constant Waits.Commit_Result :=
+                 Waits.Commit_Block (Armed.State, Dispatcher.Running);
+               Won_Late : constant Waits.Resolve_Result :=
+                 Waits.Resolve
+                   (Committed.State, Dispatcher.Blocked,
+                    Reference (1), 1, First);
+               Duplicate_Late : constant Waits.Resolve_Result :=
+                 Waits.Resolve
+                   (Won_Late.State, Dispatcher.Ready,
+                    Reference (1), 1, Second);
+            begin
+               pragma Assert (Armed.Status = Waits.Armed_Now);
+               pragma Assert (Won_Early.Status = Waits.Won_Before_Block);
+               pragma Assert (Won_Early.State.Outcome = First);
+               pragma Assert (Duplicate.Status = Waits.Duplicate);
+               pragma Assert (Duplicate.State = Won_Early.State);
+               pragma Assert (Commit_Early.Status = Waits.Already_Satisfied);
+               pragma Assert (Commit_Early.Outcome = First);
+               pragma Assert (Committed.Status = Waits.Blocked_Now);
+               pragma Assert (Won_Late.Status = Waits.Made_Ready);
+               pragma Assert (Won_Late.State.Outcome = First);
+               pragma Assert (Duplicate_Late.Status = Waits.Duplicate);
+               pragma Assert (Duplicate_Late.State = Won_Late.State);
+               Count
+                 (5_000 + Waits.Resolution'Pos (First) * 10
+                  + Waits.Resolution'Pos (Second));
+            end;
+         end loop;
+      end loop;
+   end Check_Winner_Orders;
+
+   procedure Check_Exact_Queues_And_Timers is
+      Queue : Wait_Queue.Wait_Queue;
+      Table : Timers.Timer_Table := Timers.Empty_Table;
+   begin
+      for Index in 1 .. Wait_Queue.Capacity loop
+         declare
+            Token : constant Primitives.Wait_Token :=
+              (Task_Reference => Reference (Index), Generation => 1);
+            Put : constant Wait_Queue.Enqueue_Result :=
+              Wait_Queue.Enqueue (Queue, Token);
+            Arm : constant Timers.Register_Result :=
+              Timers.Register
+                (Table, Token, Timers.Tick (Wait_Queue.Capacity - Index));
+         begin
+            pragma Assert (Put.Status = Wait_Queue.Enqueued);
+            pragma Assert (Arm.Status = Timers.Registered);
+            Queue := Put.Queue;
+            Table := Arm.Table;
+            Count (6_000 + Index);
+         end;
+      end loop;
+      pragma Assert
+        (Wait_Queue.Enqueue
+           (Queue, (Reference (1), 2)).Status =
+             Wait_Queue.Duplicate_Task);
+      pragma Assert
+        (Timers.Register
+           (Table, (Reference (1), 2), 0).Status =
+             Timers.Duplicate_Task);
+      Count (6_100);
+
+      for Index in 1 .. Wait_Queue.Capacity loop
+         declare
+            Head : constant Wait_Queue.Head_Result :=
+              Wait_Queue.Take_Head (Queue);
+            Due : constant Timers.Expiry_Result :=
+              Timers.Take_Due
+                (Table, Timers.Tick (Index - 1));
+         begin
+            pragma Assert (Head.Found);
+            pragma Assert (Head.Token.Task_Reference = Reference (Index));
+            pragma Assert (Due.Found);
+            pragma Assert
+              (Due.Token.Task_Reference =
+                 Reference (Wait_Queue.Capacity - Index + 1));
+            Queue := Head.Queue;
+            Table := Due.Table;
+            Count (6_200 + Index);
+         end;
+      end loop;
+      pragma Assert (Queue.Length = 0);
+      pragma Assert (not Timers.Earliest (Table).Found);
+   end Check_Exact_Queues_And_Timers;
+
+   procedure Check_Priority_And_Ceilings is
+      Queue : Priority.Ready_Queue;
+      State : Ceiling.Ceiling_State;
+   begin
+      for Index in 1 .. Priority.Capacity loop
+         declare
+            Put : constant Priority.Enqueue_Result :=
+              Priority.Enqueue
+                (Queue,
+                 (Reference => Reference (Index),
+                  Priority => Dispatcher.Priority (Index mod 4),
+                  Sequence => Priority.Arrival_Sequence (Index)));
+         begin
+            pragma Assert (Put.Status = Priority.Enqueued);
+            Queue := Put.Queue;
+            Count (7_000 + Index);
+         end;
+      end loop;
+      declare
+         Changed : constant Priority.Change_Result :=
+           Priority.Change_Priority (Queue, Reference (1), 9);
+         Choice : Priority.Selection;
+      begin
+         pragma Assert (Changed.Status = Priority.Changed);
+         Queue := Changed.Queue;
+         Choice := Priority.Select_Next (Queue);
+         pragma Assert (Choice.Found);
+         pragma Assert (Choice.Item.Reference = Reference (1));
+         Queue := Choice.Remainder;
+         Count (7_100);
+      end;
+      while Queue.Length > 0 loop
+         declare
+            Choice : constant Priority.Selection :=
+              Priority.Select_Next (Queue);
+         begin
+            pragma Assert (Choice.Found);
+            Queue := Choice.Remainder;
+            Count (7_200 + Integer (Queue.Length));
+         end;
+      end loop;
+
+      State :=
+        (Base => 2, Active => 2,
+         Previous => [others => Dispatcher.Priority'First], Depth => 0);
+      for Value in Dispatcher.Priority range 2 .. 9 loop
+         declare
+            Entered : constant Ceiling.Enter_Result :=
+              Ceiling.Enter (State, Value);
+         begin
+            pragma Assert (Entered.Status = Ceiling.Entered);
+            State := Entered.State;
+            Count (7_300 + Integer (Value));
+         end;
+      end loop;
+      pragma Assert
+        (Ceiling.Enter (State, 10).Status = Ceiling.Stack_Full);
+      pragma Assert
+        (Ceiling.Enter (State, 1).Status = Ceiling.Ceiling_Violation);
+      while State.Depth > 0 loop
+         declare
+            Left : constant Ceiling.Leave_Result := Ceiling.Leave (State);
+         begin
+            pragma Assert (Left.Status = Ceiling.Left);
+            State := Left.State;
+            Count (7_400 + Integer (State.Depth));
+         end;
+      end loop;
+      pragma Assert (State.Active = State.Base);
+   end Check_Priority_And_Ceilings;
+
+   procedure Check_Clock is
+      type Frequency_Array is array (Positive range <>) of Clock.Frequency;
+      type Nanosecond_Array is array (Positive range <>) of Clock.Nanoseconds;
+      Rates : constant Frequency_Array :=
+        [Clock.Frequency'First, Clock.Frequency (1_000_000_000),
+         Clock.Frequency'Last];
+      Intervals : constant Nanosecond_Array :=
+        [Clock.Nanoseconds'First, Clock.Nanoseconds (1),
+         Clock.Nanoseconds (999_999_999),
+         Clock.Nanoseconds (1_000_000_000)];
+   begin
+      for Rate of Rates loop
+         for Interval of Intervals loop
+            pragma Assert (Clock.Conversion_Fits (Interval, Rate));
+            declare
+               Converted : constant Clock.Tick :=
+                 Clock.To_Ticks_Ceiling (Interval, Rate);
+            begin
+               pragma Assert ((Interval = 0) = (Converted = 0));
+               Count
+                 (8_000 + Integer (Long_Long_Integer (Rate) mod 997)
+                  + Integer (Long_Long_Integer (Interval) mod 991));
+            end;
+         end loop;
+      end loop;
+      pragma Assert
+        (Clock.Add_Delay (Clock.Tick'Last - 1, 1) = Clock.Tick'Last);
+      pragma Assert (not Clock.Deadline_Fits (Clock.Tick'Last, 1));
+      Count (8_900);
+   end Check_Clock;
+
+begin
+   Check_Wait_Enumeration;
+   Check_Winner_Orders;
+   Check_Exact_Queues_And_Timers;
+   Check_Priority_And_Ceilings;
+   Check_Clock;
+   Ada.Text_IO.Put_Line
+     ("FLYOLOGY:M4:MODEL:PASS:EDGES" & Natural'Image (Edges) &
+        ":HASH" & Hash_Word'Image (Hash));
+end M4_Model_Tests;

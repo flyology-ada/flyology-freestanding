@@ -368,3 +368,25 @@ before `FLYOLOGY:M4:ABORT_PROTECTED:PASS`. SMP4 exercises the remote wake path
 while SMP1 exercises the same arbitration locally. This is deterministic
 separated-order evidence; simultaneous service/timeout/abort stress remains
 required before M4 closure.
+
+## Model and stress closure gates
+
+The authoritative M4 host model enumerates 27,113 deterministic operations
+over the production wait-arbitration, exact FIFO token, deadline, priority,
+ceiling, and clock kernels. It covers winner-before-block and winner-after-
+commit for normal wake, timeout, and abort; every second resolution is required
+to be a state-preserving duplicate. Stale task incarnations, stale/future wait
+generations, invalid phases, full/duplicate queues, deadline order, priority
+reordering, ceiling overflow/violation, and checked conversion boundaries are
+also enumerated. The gate pins both the edge count and serialized-state hash so
+an accidental search reduction fails.
+
+`scripts/stress-m4.sh` complements that pure model with ten complete SMP4
+ordinary-Ada runs per architecture. Each run repeats cross-core delay wakeups,
+conditional and timed protected entries, rendezvous and timed calls, dynamic
+priority changes, master observation, abort against delay/rendezvous/protected
+waits, execution-slot reclamation, and post-`adafinal` protected-object
+teardown. These runs exercise the production global lock, architecture timer,
+IPI/SGI, context switch, and compiler wrappers; they are bounded integration
+stress, not an exhaustive concurrent-state proof. Interrupt-time forced task
+preemption remains M5.

@@ -38,6 +38,15 @@ The first release is not complete. Work proceeds through the independently gated
   spaces and checks full-capacity FIFO and activation/master sequences.
 - `scripts/verify-m3-reproducible.sh` rebuilds both M3 ELF and FAT images in
   two separate output roots and compares their SHA-256 output.
+- `scripts/verify-m4.sh` proves and exhausts the deterministic synchronization
+  kernels, probes the clean-room M4 compiler surface, rebuilds and inspects
+  both images, boots both CPU counts, and repeats the SMP4 race scenarios.
+- `scripts/stress-m4.sh` repeatedly executes the ordinary-Ada delay,
+  protected-entry, rendezvous, priority, abort, termination, and reclamation
+  paths at SMP4 on both architectures.
+- `scripts/test-m4-models.sh` enumerates wait/wake/timeout/abort orders and
+  checks exact queues, timer cancellation, priorities, ceilings, and clock
+  arithmetic with a pinned edge count and state hash.
 - `scripts/prove.sh` proves the deterministic SPARK validation kernel.
 - `scripts/check.sh` performs shell/static and repository hygiene checks.
 
