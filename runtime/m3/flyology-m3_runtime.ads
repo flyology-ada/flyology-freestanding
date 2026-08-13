@@ -11,6 +11,7 @@ package Flyology.M3_Runtime is
      (Body_Procedure : System.Tasking.Task_Procedure_Access;
       Discriminants  : System.Address;
       Elaborated     : System.Tasking.Boolean_Access;
+      Priority       : Integer;
       CPU            : Integer;
       Master         : Integer;
       Created_Task   : out Task_Id);

@@ -51,8 +51,9 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     ada__task_identification__is_terminated \
     flyology__task_core__task_stacks \
     flyology__task_core__arm_wait_locked \
-    flyology__task_core__wake_exact_locked \
-    flyology__scheduler_contract__select_next \
+    flyology__task_core__resolve_exact_locked \
+    flyology__priority_queue_model__select_next \
+    flyology__wait_arbitration_model__resolve \
     flyology__dispatcher_model__try_transition \
     flyology__placement_model__place __gnat_personality_v0 \
     _Unwind_Resume __gnat_last_chance_handler; do

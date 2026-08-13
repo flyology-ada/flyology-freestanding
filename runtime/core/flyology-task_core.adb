@@ -1,16 +1,25 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Flyology.M2_Architecture;
-with Flyology.Scheduler_Contract;
+with Flyology.Priority_Queue_Model;
+with Flyology.Wait_Arbitration_Model;
 
 package body Flyology.Task_Core is
    package Architecture renames Flyology.M2_Architecture;
-   package Scheduler renames Flyology.Scheduler_Contract;
+   package Scheduler renames Flyology.Priority_Queue_Model;
+   package Waits renames Flyology.Wait_Arbitration_Model;
    use type Dispatcher.Task_Ref;
    use type Dispatcher.Task_Slot;
    use type Dispatcher.Task_State;
-   use type Dispatcher.Wait_Phase;
    use type Dispatcher.Generation;
+   use type Dispatcher.Priority;
+   use type Scheduler.Enqueue_Status;
+   use type Scheduler.Change_Status;
+   use type Scheduler.Arrival_Sequence;
+   use type Waits.Arm_Status;
+   use type Waits.Commit_Status;
+   use type Waits.Resolve_Status;
+   use type Waits.Resume_Status;
    use type System.Address;
 
    Dispatcher_Stack_Size : constant := 16 * 1_024;
@@ -37,8 +46,9 @@ package body Flyology.Task_Core is
       Reference     : Task_Ref := No_Task;
       State         : Task_State := Dispatcher.Dormant;
       Assigned_Core : Core_Number := 0;
-      Wait_Phase    : Dispatcher.Wait_Phase := Dispatcher.No_Wait;
-      Wait_Token    : Dispatcher.Generation := 0;
+      Base_Priority : Dispatcher.Priority := Dispatcher.Priority'First;
+      Active_Priority : Dispatcher.Priority := Dispatcher.Priority'First;
+      Wait          : Waits.Wait_State;
    end record;
    type Kernel_Task_Array is array (Task_Slot) of Kernel_Task;
    type Current_Array is array (Core_Number) of Task_Ref;
@@ -54,6 +64,8 @@ package body Flyology.Task_Core is
    Tasks               : Kernel_Task_Array;
    Current_Tasks       : Current_Array := [others => No_Task];
    Ready_Queues        : Queue_Array;
+   Next_Sequence       : Scheduler.Arrival_Sequence :=
+     Scheduler.Arrival_Sequence'First + 1;
    Configured          : Positive range 1 .. Max_Cores := 1;
 
    procedure Enter_Kernel
@@ -137,11 +149,34 @@ package body Flyology.Task_Core is
       Configured := CPU_Count;
       Current_Tasks := [others => No_Task];
       Ready_Queues := [others => (others => <>)];
+      Next_Sequence := Scheduler.Arrival_Sequence'First + 1;
       Dispatcher_Ready := [others => False];
       Tasks := [others => (others => <>)];
    end Initialize;
 
    function CPU_Count return Positive is (Configured);
+
+   procedure Enqueue_Locked
+     (Reference : Task_Ref;
+      Core      : Core_Number)
+   is
+      Slot    : constant Task_Slot := Slot_Of (Reference);
+      Attempt : Scheduler.Enqueue_Result;
+   begin
+      if Next_Sequence = Scheduler.Arrival_Sequence'Last then
+         Stop;
+      end if;
+      Attempt := Scheduler.Enqueue
+        (Ready_Queues (Core),
+         (Reference => Reference,
+          Priority  => Tasks (Slot).Active_Priority,
+          Sequence  => Next_Sequence));
+      if Attempt.Status /= Scheduler.Enqueued then
+         Stop;
+      end if;
+      Ready_Queues (Core) := Attempt.Queue;
+      Next_Sequence := Next_Sequence + 1;
+   end Enqueue_Locked;
 
    function Known_Locked (Reference : Task_Ref) return Boolean is
       Slot : Task_Slot;
@@ -164,7 +199,12 @@ package body Flyology.Task_Core is
       Tasks (Slot) :=
         (Present => True, Reference => Reference,
          State => Dispatcher.Running, Assigned_Core => 0,
-         Wait_Phase => Dispatcher.No_Wait, Wait_Token => 0);
+         Base_Priority => Dispatcher.Priority'First,
+         Active_Priority => Dispatcher.Priority'First,
+         Wait =>
+           (Reference => Reference, Kind => Waits.No_Wait,
+            Phase => Waits.Idle, Generation => 0,
+            Outcome => Waits.Pending));
       Current_Tasks (0) := Reference;
    end Register_Environment_Locked;
 
@@ -177,7 +217,12 @@ package body Flyology.Task_Core is
       Tasks (Slot) :=
         (Present => True, Reference => Reference,
          State => Dispatcher.Dormant, Assigned_Core => 0,
-         Wait_Phase => Dispatcher.No_Wait, Wait_Token => 0);
+         Base_Priority => Dispatcher.Priority'First,
+         Active_Priority => Dispatcher.Priority'First,
+         Wait =>
+           (Reference => Reference, Kind => Waits.No_Wait,
+            Phase => Waits.Idle, Generation => 0,
+            Outcome => Waits.Pending));
    end Register_Dormant_Locked;
 
    function State_Locked (Reference : Task_Ref) return Task_State is
@@ -202,14 +247,14 @@ package body Flyology.Task_Core is
    end Assigned_Core_Locked;
 
    function Queue_Space_Locked (Core : Core_Number) return Natural is
-     (Scheduler.Queue_Capacity - Ready_Queues (Core).Length);
+     (Scheduler.Capacity - Ready_Queues (Core).Length);
 
    procedure Activate_Locked
      (Reference : Task_Ref;
-      Core      : Core_Number)
+      Core      : Core_Number;
+      Priority  : Dispatcher.Priority)
    is
       Slot    : constant Task_Slot := Slot_Of (Reference);
-      Attempt : Scheduler.Enqueue_Attempt;
       Base    : constant System.Address :=
         Task_Stacks (Slot) (Task_Stack'First)'Address;
    begin
@@ -218,75 +263,88 @@ package body Flyology.Task_Core is
       end if;
       Tasks (Slot).State := Apply (Tasks (Slot).State, Dispatcher.Admit);
       Tasks (Slot).Assigned_Core := Core;
+      Tasks (Slot).Base_Priority := Priority;
+      Tasks (Slot).Active_Priority := Priority;
       Initialize_Canary (Slot);
       Architecture.Initialize
         (Task_Contexts (Slot), Base + System.Address (Task_Stack_Size),
          System.Address (Slot));
-      Attempt := Scheduler.Try_Enqueue (Ready_Queues (Core), Reference);
-      if not Attempt.Accepted then
-         Stop;
-      end if;
-      Ready_Queues (Core) := Attempt.Queue;
+      Enqueue_Locked (Reference, Core);
    end Activate_Locked;
 
    procedure Arm_Wait_Locked
      (Reference : Task_Ref;
+      Kind      : Wait_Kind;
       Token     : out Wait_Token)
    is
-      Slot : constant Task_Slot := Slot_Of (Reference);
+      Slot    : constant Task_Slot := Slot_Of (Reference);
+      Attempt : Waits.Arm_Result;
    begin
-      if not Known_Locked (Reference)
-        or else Tasks (Slot).State /= Dispatcher.Running
-        or else Tasks (Slot).Wait_Phase /= Dispatcher.No_Wait
-        or else Tasks (Slot).Wait_Token = Dispatcher.Generation'Last
-      then
+      if not Known_Locked (Reference) then
          Stop;
       end if;
-      Tasks (Slot).Wait_Token := Tasks (Slot).Wait_Token + 1;
-      Tasks (Slot).Wait_Phase := Dispatcher.Armed;
+      Attempt := Waits.Arm (Tasks (Slot).Wait, Tasks (Slot).State, Kind);
+      if Attempt.Status /= Waits.Armed_Now then
+         Stop;
+      end if;
+      Tasks (Slot).Wait := Attempt.State;
       Token :=
-        (Task_Reference => Reference, Generation => Tasks (Slot).Wait_Token);
+        (Task_Reference => Reference,
+         Generation => Tasks (Slot).Wait.Generation);
    end Arm_Wait_Locked;
 
-   procedure Wake_Exact_Locked
-     (Token : Wait_Token;
-      Core  : out Core_Number)
+   procedure Resolve_Exact_Locked
+     (Token   : Wait_Token;
+      Outcome : Wait_Resolution;
+      Status  : out Wait_Resolve_Status;
+      Core    : out Core_Number)
    is
       Reference : constant Task_Ref := Token.Task_Reference;
       Slot      : constant Task_Slot := Slot_Of (Reference);
-      Attempt : Scheduler.Enqueue_Attempt;
+      Attempt   : Waits.Resolve_Result;
    begin
-      if not Known_Locked (Reference)
-        or else Tasks (Slot).Wait_Phase /= Dispatcher.Committed
-        or else Tasks (Slot).Wait_Token /= Token.Generation
-      then
+      if not Known_Locked (Reference) then
          Stop;
       end if;
-      Tasks (Slot).State := Apply (Tasks (Slot).State, Dispatcher.Wake);
-      Tasks (Slot).Wait_Phase := Dispatcher.No_Wait;
       Core := Tasks (Slot).Assigned_Core;
-      Attempt := Scheduler.Try_Enqueue (Ready_Queues (Core), Reference);
-      if not Attempt.Accepted then
-         Stop;
+      Attempt := Waits.Resolve
+        (Tasks (Slot).Wait, Tasks (Slot).State, Reference,
+         Token.Generation, Outcome);
+      Tasks (Slot).Wait := Attempt.State;
+      Tasks (Slot).State := Attempt.Task_State;
+      Status := Attempt.Status;
+      if Status = Waits.Made_Ready then
+         Enqueue_Locked (Reference, Core);
       end if;
-      Ready_Queues (Core) := Attempt.Queue;
-   end Wake_Exact_Locked;
+   end Resolve_Exact_Locked;
 
    procedure Block_Current_And_Release
-     (Core  : Core_Number;
-      Token : Wait_Token)
+     (Core    : Core_Number;
+      Token   : Wait_Token;
+      Outcome : out Wait_Resolution)
    is
       Reference : constant Task_Ref := Token.Task_Reference;
-      Slot : constant Task_Slot := Slot_Of (Reference);
+      Slot      : constant Task_Slot := Slot_Of (Reference);
+      Commit    : Waits.Commit_Result;
+      Resume    : Waits.Resume_Result;
    begin
       if Current_Tasks (Core) /= Reference or else not Known_Locked (Reference)
-        or else Tasks (Slot).Wait_Phase /= Dispatcher.Armed
-        or else Tasks (Slot).Wait_Token /= Token.Generation
+        or else Tasks (Slot).Wait.Generation /= Token.Generation
       then
          Stop;
       end if;
-      Tasks (Slot).State := Apply (Tasks (Slot).State, Dispatcher.Block);
-      Tasks (Slot).Wait_Phase := Dispatcher.Committed;
+      Commit := Waits.Commit_Block (Tasks (Slot).Wait, Tasks (Slot).State);
+      if Commit.Status = Waits.Already_Satisfied then
+         Tasks (Slot).Wait := Commit.State;
+         Tasks (Slot).State := Commit.Task_State;
+         Outcome := Commit.Outcome;
+         Leave_Kernel;
+         return;
+      elsif Commit.Status /= Waits.Blocked_Now then
+         Stop;
+      end if;
+      Tasks (Slot).Wait := Commit.State;
+      Tasks (Slot).State := Commit.Task_State;
       Current_Tasks (Core) := No_Task;
       Leave_Kernel;
       Architecture.Switch
@@ -298,8 +356,49 @@ package body Flyology.Task_Core is
          Leave_Kernel;
          Stop;
       end if;
+      Resume := Waits.Resume (Tasks (Slot).Wait, Tasks (Slot).State);
+      if Resume.Status /= Waits.Consumed then
+         Leave_Kernel;
+         Stop;
+      end if;
+      Tasks (Slot).Wait := Resume.State;
+      Outcome := Resume.Outcome;
       Leave_Kernel;
    end Block_Current_And_Release;
+
+   procedure Change_Active_Priority_Locked
+     (Reference : Task_Ref;
+      Priority  : Dispatcher.Priority)
+   is
+      Slot    : constant Task_Slot := Slot_Of (Reference);
+      Core    : Core_Number;
+      Attempt : Scheduler.Change_Result;
+   begin
+      if not Known_Locked (Reference) then
+         Stop;
+      end if;
+      if Tasks (Slot).State = Dispatcher.Ready then
+         Core := Tasks (Slot).Assigned_Core;
+         Attempt := Scheduler.Change_Priority
+           (Ready_Queues (Core), Reference, Priority);
+         if Attempt.Status /= Scheduler.Changed then
+            Stop;
+         end if;
+         Ready_Queues (Core) := Attempt.Queue;
+      end if;
+      Tasks (Slot).Active_Priority := Priority;
+   end Change_Active_Priority_Locked;
+
+   function Active_Priority_Locked
+     (Reference : Task_Ref) return Dispatcher.Priority
+   is
+      Slot : constant Task_Slot := Slot_Of (Reference);
+   begin
+      if not Known_Locked (Reference) then
+         Stop;
+      end if;
+      return Tasks (Slot).Active_Priority;
+   end Active_Priority_Locked;
 
    procedure Terminate_Current_Locked
      (Core      : Core_Number;
@@ -431,13 +530,13 @@ package body Flyology.Task_Core is
       loop
          Enter_Kernel;
          Choice := Scheduler.Select_Next (Ready_Queues (Dense));
-         if Choice.Selected = No_Task then
+         if not Choice.Found then
             Prepare_Idle;
             Leave_Kernel;
             Idle;
          else
             Ready_Queues (Dense) := Choice.Remainder;
-            Reference := Choice.Selected;
+            Reference := Choice.Item.Reference;
             Slot := Slot_Of (Reference);
             if not Known_Locked (Reference)
               or else Current_Tasks (Dense) /= No_Task

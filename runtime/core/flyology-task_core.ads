@@ -2,6 +2,7 @@
 
 with Flyology.Dispatcher_Model;
 with Flyology.Task_Primitives_Contract;
+with Flyology.Wait_Arbitration_Model;
 with System;
 
 package Flyology.Task_Core is
@@ -16,6 +17,10 @@ package Flyology.Task_Core is
    subtype Task_Ref is Dispatcher.Task_Ref;
    subtype Task_State is Dispatcher.Task_State;
    subtype Wait_Token is Flyology.Task_Primitives_Contract.Wait_Token;
+   subtype Wait_Kind is Flyology.Wait_Arbitration_Model.Wait_Kind;
+   subtype Wait_Resolution is Flyology.Wait_Arbitration_Model.Resolution;
+   subtype Wait_Resolve_Status is
+     Flyology.Wait_Arbitration_Model.Resolve_Status;
 
    No_Task : Task_Ref renames Dispatcher.No_Task;
 
@@ -33,19 +38,31 @@ package Flyology.Task_Core is
 
    procedure Activate_Locked
      (Reference : Task_Ref;
-      Core      : Core_Number);
+      Core      : Core_Number;
+      Priority  : Dispatcher.Priority);
 
    procedure Arm_Wait_Locked
      (Reference : Task_Ref;
+      Kind      : Wait_Kind;
       Token     : out Wait_Token);
 
-   procedure Wake_Exact_Locked
-     (Token : Wait_Token;
-      Core  : out Core_Number);
+   procedure Resolve_Exact_Locked
+     (Token   : Wait_Token;
+      Outcome : Wait_Resolution;
+      Status  : out Wait_Resolve_Status;
+      Core    : out Core_Number);
 
    procedure Block_Current_And_Release
-     (Core  : Core_Number;
-      Token : Wait_Token);
+     (Core    : Core_Number;
+      Token   : Wait_Token;
+      Outcome : out Wait_Resolution);
+
+   procedure Change_Active_Priority_Locked
+     (Reference : Task_Ref;
+      Priority  : Dispatcher.Priority);
+
+   function Active_Priority_Locked
+     (Reference : Task_Ref) return Dispatcher.Priority;
 
    procedure Terminate_Current_Locked
      (Core      : Core_Number;

@@ -63,11 +63,13 @@ compile_ada runtime/core/flyology-validation.adb flyology-validation.o
 compile_ada runtime/core/flyology-boot_validation.adb flyology-boot_validation.o
 compile_ada runtime/core/flyology-dispatcher_model.adb \
     flyology-dispatcher_model.o
-compile_ada runtime/core/flyology-scheduler_contract.adb \
-    flyology-scheduler_contract.o
 compile_ada runtime/core/flyology-placement_model.adb flyology-placement_model.o
 compile_ada runtime/core/flyology-task_primitives_contract.ads \
     flyology-task_primitives_contract.o
+compile_ada runtime/core/flyology-priority_queue_model.adb \
+    flyology-priority_queue_model.o
+compile_ada runtime/core/flyology-wait_arbitration_model.adb \
+    flyology-wait_arbitration_model.o
 compile_ada "arch/$architecture/flyology-architecture_context.ads" \
     flyology-architecture_context.o
 compile_ada "arch/$architecture/flyology-m2_architecture.adb" \
@@ -125,7 +127,8 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/flyology-task_core.o" \
     "$output_directory/flyology-placement_model.o" \
     "$output_directory/flyology-task_primitives_contract.o" \
-    "$output_directory/flyology-scheduler_contract.o" \
+    "$output_directory/flyology-priority_queue_model.o" \
+    "$output_directory/flyology-wait_arbitration_model.o" \
     "$output_directory/flyology-dispatcher_model.o" \
     "$output_directory/s-taskin.o" \
     "$output_directory/s-tasinf.o" \

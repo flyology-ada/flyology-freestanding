@@ -48,10 +48,16 @@ is
       Previous : constant Ready_Queue := Queue;
    begin
       if Index < Previous.Length then
-         Queue.Storage
-           (Index .. Queue_Index (Previous.Length - 1)) :=
-             Previous.Storage
-               (Queue_Index'Succ (Index) .. Queue_Index (Previous.Length));
+         for Cursor in Queue_Index range
+           Index .. Queue_Index (Previous.Length - 1)
+         loop
+            Queue.Storage (Cursor) :=
+              Previous.Storage (Queue_Index'Succ (Cursor));
+            pragma Loop_Invariant
+              (Queue.Storage (Index .. Cursor) =
+                 Previous.Storage
+                   (Queue_Index'Succ (Index) .. Queue_Index'Succ (Cursor)));
+         end loop;
       end if;
       Queue.Storage (Queue_Index (Previous.Length)) := Empty_Entry;
       Queue.Length := Previous.Length - 1;

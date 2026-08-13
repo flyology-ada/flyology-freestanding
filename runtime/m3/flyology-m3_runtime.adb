@@ -3,11 +3,13 @@
 with Flyology.Dispatcher_Model;
 with Flyology.Placement_Model;
 with Flyology.Task_Core;
+with Flyology.Wait_Arbitration_Model;
 
 package body Flyology.M3_Runtime is
    package Dispatcher renames Flyology.Dispatcher_Model;
    package Placement renames Flyology.Placement_Model;
    package Core renames Flyology.Task_Core;
+   package Waits renames Flyology.Wait_Arbitration_Model;
    use type Dispatcher.Task_Ref;
    use type Dispatcher.Task_Slot;
    use type Dispatcher.Task_State;
@@ -15,6 +17,8 @@ package body Flyology.M3_Runtime is
    use type System.Tasking.Task_Id;
    use type System.Tasking.Task_Procedure_Access;
    use type System.Tasking.Boolean_Access;
+   use type Waits.Resolve_Status;
+   use type Waits.Resolution;
 
    Max_Cores   : constant := Core.Max_Cores;
    Max_Tasks   : constant := System.Tasking.Max_Tasks;
@@ -33,6 +37,7 @@ package body Flyology.M3_Runtime is
       Discriminants        : System.Address := System.Null_Address;
       Elaborated           : System.Tasking.Boolean_Access := null;
       Requested_CPU        : Integer := System.Tasking.Unspecified_CPU;
+      Priority             : Dispatcher.Priority := Dispatcher.Priority'First;
       Master               : Integer := 0;
       Group                : Integer := 0;
       Activation_Completed : Boolean := False;
@@ -160,18 +165,27 @@ package body Flyology.M3_Runtime is
      (Body_Procedure : System.Tasking.Task_Procedure_Access;
       Discriminants  : System.Address;
       Elaborated     : System.Tasking.Boolean_Access;
+      Priority       : Integer;
       CPU            : Integer;
       Master         : Integer;
       Created_Task   : out Task_Id)
    is
-      Slot  : Task_Slot := 1;
-      Found : Boolean := False;
+      Slot               : Task_Slot := 1;
+      Found              : Boolean := False;
+      Effective_Priority : Dispatcher.Priority;
    begin
       if Body_Procedure = null or else Elaborated = null
         or else Master not in Integer (Master_Number'First) ..
           Integer (Master_Number'Last)
+        or else Priority < System.Tasking.Unspecified_Priority
+        or else Priority > Integer (Dispatcher.Priority'Last)
       then
          Stop;
+      end if;
+      if Priority = System.Tasking.Unspecified_Priority then
+         Effective_Priority := Dispatcher.Priority'First;
+      else
+         Effective_Priority := Dispatcher.Priority (Priority);
       end if;
       Enter_Kernel;
       for Candidate in Task_Slot range 1 .. Task_Slot'Last loop
@@ -196,6 +210,7 @@ package body Flyology.M3_Runtime is
          Discriminants        => Discriminants,
          Elaborated           => Elaborated,
          Requested_CPU        => CPU,
+         Priority             => Effective_Priority,
          Master               => Master,
          Group                => 0,
          Activation_Completed => False,
@@ -218,6 +233,7 @@ package body Flyology.M3_Runtime is
       Plan           : Core_Plan (Members'Range);
       Needed         : array (Core_Number) of Natural := [others => 0];
       Cursor         : Placement.Core_Id := Placement.Core_Id (Placement_Next);
+      Outcome        : Waits.Resolution;
    begin
       if Members'Length = 0 then
          return;
@@ -270,13 +286,16 @@ package body Flyology.M3_Runtime is
       Group := Allocate_Group;
       Groups (Group).Activator := Activator;
       Groups (Group).Pending := Members'Length;
-      Core.Arm_Wait_Locked (Activator, Groups (Group).Wait);
+      Core.Arm_Wait_Locked
+        (Activator, Waits.Activation_Wait, Groups (Group).Wait);
       for Index in Members'Range loop
          declare
             Slot : constant Task_Slot := Record_Of (Members (Index));
          begin
             Tasks (Slot).Group := Integer (Group);
-            Core.Activate_Locked (To_Reference (Members (Index)), Plan (Index));
+            Core.Activate_Locked
+              (To_Reference (Members (Index)), Plan (Index),
+               Tasks (Slot).Priority);
             Kicks (Plan (Index)) := True;
          end;
       end loop;
@@ -287,7 +306,11 @@ package body Flyology.M3_Runtime is
          end if;
       end loop;
       --  Activation waits for every compiler wrapper to acknowledge entry.
-      Core.Block_Current_And_Release (Dense, Groups (Group).Wait);
+      Core.Block_Current_And_Release
+        (Dense, Groups (Group).Wait, Outcome);
+      if Outcome /= Waits.Object_Wake then
+         Stop;
+      end if;
       pragma Unreferenced (Activator_Slot);
    end Activate_Tasks;
 
@@ -298,6 +321,7 @@ package body Flyology.M3_Runtime is
       Group     : Group_Number;
       Wake_Core : Core_Number := 0;
       Wake      : Boolean := False;
+      Status    : Waits.Resolve_Status;
    begin
       Enter_Kernel;
       Reference := Core.Current_Locked (Dense);
@@ -317,7 +341,12 @@ package body Flyology.M3_Runtime is
       Tasks (Slot).Activation_Completed := True;
       Groups (Group).Pending := Groups (Group).Pending - 1;
       if Groups (Group).Pending = 0 then
-         Core.Wake_Exact_Locked (Groups (Group).Wait, Wake_Core);
+         Core.Resolve_Exact_Locked
+           (Groups (Group).Wait, Waits.Object_Wake, Status, Wake_Core);
+         if Status /= Waits.Made_Ready then
+            Leave_Kernel;
+            Stop;
+         end if;
          Wake := True;
          Groups (Group).Used := False;
       end if;
@@ -423,6 +452,7 @@ package body Flyology.M3_Runtime is
       Owner  : Dispatcher.Task_Ref;
       Slot   : Task_Slot;
       Master : Master_Number;
+      Outcome : Waits.Resolution;
    begin
       Enter_Kernel;
       Owner := Core.Current_Locked (Dense);
@@ -439,8 +469,13 @@ package body Flyology.M3_Runtime is
       Masters (Master).Open := False;
       if Masters (Master).Dependents > 0 then
          Masters (Master).Waiting := True;
-         Core.Arm_Wait_Locked (Owner, Masters (Master).Wait);
-         Core.Block_Current_And_Release (Dense, Masters (Master).Wait);
+         Core.Arm_Wait_Locked
+           (Owner, Waits.Master_Wait, Masters (Master).Wait);
+         Core.Block_Current_And_Release
+           (Dense, Masters (Master).Wait, Outcome);
+         if Outcome /= Waits.Object_Wake then
+            Stop;
+         end if;
          Enter_Kernel;
       end if;
       if Masters (Master).Dependents /= 0 then
@@ -503,6 +538,7 @@ package body Flyology.M3_Runtime is
       Wake_Core : Core_Number := 0;
       Wake      : Boolean := False;
       Master    : Master_Number;
+      Status    : Waits.Resolve_Status;
    begin
       if Task_Address > System.Address (Task_Slot'Last) then
          Stop;
@@ -534,7 +570,12 @@ package body Flyology.M3_Runtime is
       if not Masters (Master).Open and then Masters (Master).Waiting
         and then Masters (Master).Dependents = 0
       then
-         Core.Wake_Exact_Locked (Masters (Master).Wait, Wake_Core);
+         Core.Resolve_Exact_Locked
+           (Masters (Master).Wait, Waits.Object_Wake, Status, Wake_Core);
+         if Status /= Waits.Made_Ready then
+            Leave_Kernel;
+            Stop;
+         end if;
          Wake := True;
       end if;
       Leave_Kernel;
