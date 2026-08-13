@@ -1184,6 +1184,12 @@ flyology_m3_report_auto_master_pass:
     lea m3_auto_master_pass(%rip), %rdi
     jmp serial_puts_locked
 
+.global flyology_m4_report_reclamation_pass
+.type flyology_m4_report_reclamation_pass, @function
+flyology_m4_report_reclamation_pass:
+    lea m4_reclamation_pass(%rip), %rdi
+    jmp serial_puts_locked
+
 .global flyology_m4_report_delay_pass
 .type flyology_m4_report_delay_pass, @function
 flyology_m4_report_delay_pass:
@@ -1639,6 +1645,7 @@ m3_ordinary_pass: .asciz "FLYOLOGY:M3:ORDINARY_TASKS:PASS\n"
 m3_specific_pass: .asciz "FLYOLOGY:M3:SPECIFIC_CPU:PASS\n"
 m3_parallel_pass: .asciz "FLYOLOGY:M3:AUTO_PARALLEL:PASS\n"
 m3_auto_master_pass: .asciz "FLYOLOGY:M3:AUTO_MASTER:PASS\n"
+m4_reclamation_pass: .asciz "FLYOLOGY:M4:RECLAMATION:PASS\n"
 m3_master_pass: .asciz "FLYOLOGY:M3:NESTED_MASTER:PASS\n"
 m3_stack_pass: .asciz "FLYOLOGY:M3:TASK_STACKS:PASS\n"
 m4_delay_pass: .asciz "FLYOLOGY:M4:DELAYS:PASS\n"

@@ -3,6 +3,13 @@
 package body Flyology.Dispatcher_Model
   with SPARK_Mode => On
 is
+   function Next_Incarnation
+     (Value : Task_Incarnation) return Task_Incarnation
+   is
+   begin
+      return Value + 1;
+   end Next_Incarnation;
+
    function Try_Transition
      (State      : Task_State;
       Transition : Transition_Kind) return Transition_Attempt

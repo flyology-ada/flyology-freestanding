@@ -14,6 +14,7 @@ package body Flyology.M3_Runtime is
    package Waits renames Flyology.Wait_Arbitration_Model;
    use type Dispatcher.Task_Ref;
    use type Dispatcher.Task_Slot;
+   use type Dispatcher.Task_Incarnation;
    use type Dispatcher.Task_State;
    use type System.Address;
    use type System.Tasking.Task_Id;
@@ -98,6 +99,8 @@ package body Flyology.M3_Runtime is
    Masters        : Master_Array;
    Groups         : Group_Array;
    Calls          : Call_Array;
+   Next_Incarnation : array (Task_Slot) of Dispatcher.Task_Incarnation :=
+     [others => 1];
    Placement_Next : Core_Number := 0;
 
    function Current_Core_Raw return System.Address
@@ -137,16 +140,22 @@ package body Flyology.M3_Runtime is
    end Stop;
 
    function To_Reference (Item : Task_Id) return Dispatcher.Task_Ref is
-      Slot : Natural;
+      Slot        : Natural;
+      Incarnation : Natural;
    begin
       if Item = null then
          return Core.No_Task;
       end if;
-      Slot := System.Tasking.Slot_Of (Item);
-      if Slot >= Max_Tasks then
+      Slot := System.Tasking.Execution_Slot_Of (Item);
+      Incarnation := System.Tasking.Incarnation_Of (Item);
+      if Slot > Natural (Task_Slot'Last) or else Incarnation = 0
+        or else Incarnation > Natural (Dispatcher.Task_Incarnation'Last)
+      then
          return Core.No_Task;
       end if;
-      return (Slot => Dispatcher.Task_Slot (Slot), Incarnation => 1);
+      return
+        (Slot        => Dispatcher.Task_Slot (Slot),
+         Incarnation => Dispatcher.Task_Incarnation (Incarnation));
    end To_Reference;
 
    function To_Identity (Reference : Dispatcher.Task_Ref) return Task_Id is
@@ -168,10 +177,13 @@ package body Flyology.M3_Runtime is
    end Core_Of_Current;
 
    function Record_Of (Item : Task_Id) return Task_Slot is
-      Slot      : constant Natural := System.Tasking.Slot_Of (Item);
+      Slot      : constant Natural :=
+        System.Tasking.Execution_Slot_Of (Item);
       Reference : Dispatcher.Task_Ref;
    begin
-      if Slot >= Max_Tasks or else Tasks (Task_Slot (Slot)).Identity /= Item then
+      if Slot > Natural (Task_Slot'Last)
+        or else Tasks (Task_Slot (Slot)).Identity /= Item
+      then
          Stop;
       end if;
       Reference := To_Reference (Item);
@@ -237,7 +249,12 @@ package body Flyology.M3_Runtime is
          Leave_Kernel;
          Stop;
       end if;
-      Created_Task := System.Tasking.Identity_For_Slot (Natural (Slot));
+      Created_Task := System.Tasking.Create_Identity
+        (Natural (Slot), Natural (Next_Incarnation (Slot)));
+      if Created_Task = null then
+         Leave_Kernel;
+         raise Storage_Error;
+      end if;
       Tasks (Slot) :=
         (Identity             => Created_Task,
          Body_Procedure       => Body_Procedure,
@@ -522,6 +539,31 @@ package body Flyology.M3_Runtime is
          Leave_Kernel;
          Stop;
       end if;
+      for Candidate in Task_Slot range 1 .. Task_Slot'Last loop
+         if Tasks (Candidate).Identity /= null
+           and then Tasks (Candidate).Master = Integer (Master)
+         then
+            declare
+               Dependent : constant Task_Id := Tasks (Candidate).Identity;
+               Reference : constant Dispatcher.Task_Ref :=
+                 To_Reference (Dependent);
+            begin
+               if not System.Tasking.Identity_Is_Terminated (Dependent)
+                 or else Core.State_Locked (Reference) /= Dispatcher.Terminated
+                 or else not Dispatcher.Can_Advance_Incarnation
+                   (Next_Incarnation (Candidate))
+               then
+                  Leave_Kernel;
+                  Stop;
+               end if;
+               Core.Release_Terminated_Locked (Reference);
+               Tasks (Candidate) := (others => <>);
+               Next_Incarnation (Candidate) :=
+                 Dispatcher.Next_Incarnation
+                   (Next_Incarnation (Candidate));
+            end;
+         end if;
+      end loop;
       Masters (Master).Used := False;
       Masters (Master).Waiting := False;
       Tasks (Slot).Masters (Tasks (Slot).Master_Depth) := 0;
@@ -533,10 +575,22 @@ package body Flyology.M3_Runtime is
      (To_Identity (Core.Current (Core_Of_Current)));
 
    function Is_Callable (Item : Task_Id) return Boolean is
-     (Core.Is_Callable (To_Reference (Item)));
+      Result : Boolean;
+   begin
+      Enter_Kernel;
+      Result := System.Tasking.Identity_Is_Callable (Item);
+      Leave_Kernel;
+      return Result;
+   end Is_Callable;
 
    function Is_Terminated (Item : Task_Id) return Boolean is
-     (Core.Is_Terminated (To_Reference (Item)));
+      Result : Boolean;
+   begin
+      Enter_Kernel;
+      Result := System.Tasking.Identity_Is_Terminated (Item);
+      Leave_Kernel;
+      return Result;
+   end Is_Terminated;
 
    function Number_Of_CPUs return Natural is (Core.CPU_Count);
 
@@ -1083,6 +1137,7 @@ package body Flyology.M3_Runtime is
       Groups := [others => (others => <>)];
       Calls := [others => (others => <>)];
       Placement_Next := 0;
+      Next_Incarnation := [others => 1];
       Environment := System.Tasking.Identity_For_Slot (0);
       Tasks (0).Identity := Environment;
       Enter_Kernel;
@@ -1121,6 +1176,7 @@ package body Flyology.M3_Runtime is
       end if;
       Enter_Kernel;
       Core.Terminate_Current_Locked (Dense, Reference);
+      System.Tasking.Mark_Terminated (Tasks (Slot).Identity);
       Master := Master_Number (Tasks (Slot).Master);
       if not Masters (Master).Used or else Masters (Master).Dependents = 0 then
          Leave_Kernel;

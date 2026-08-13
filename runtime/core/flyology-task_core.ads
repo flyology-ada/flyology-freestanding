@@ -95,6 +95,8 @@ package Flyology.Task_Core is
      (Core      : Core_Number;
       Reference : Task_Ref);
 
+   procedure Release_Terminated_Locked (Reference : Task_Ref);
+
    function Current (Core : Core_Number) return Task_Ref;
    function Is_Callable (Reference : Task_Ref) return Boolean;
    function Is_Terminated (Reference : Task_Ref) return Boolean;

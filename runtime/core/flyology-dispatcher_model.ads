@@ -20,6 +20,17 @@ is
    function Is_Valid_Task (Reference : Task_Ref) return Boolean
    is (Reference.Incarnation /= Task_Incarnation'First);
 
+   function Can_Advance_Incarnation
+     (Value : Task_Incarnation) return Boolean
+   is (Value /= Task_Incarnation'First
+       and then Value /= Task_Incarnation'Last);
+
+   function Next_Incarnation
+     (Value : Task_Incarnation) return Task_Incarnation
+   with Pre  => Can_Advance_Incarnation (Value),
+        Post => Next_Incarnation'Result = Value + 1
+          and then Next_Incarnation'Result /= Task_Incarnation'First;
+
    type Core_Id is range 0 .. 255;
    type Domain_Id is range 0 .. 255;
    type Priority is range 0 .. 255;

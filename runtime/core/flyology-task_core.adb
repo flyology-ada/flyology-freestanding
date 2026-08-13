@@ -566,6 +566,27 @@ package body Flyology.Task_Core is
       Current_Tasks (Core) := No_Task;
    end Terminate_Current_Locked;
 
+   procedure Release_Terminated_Locked (Reference : Task_Ref) is
+      Slot : constant Task_Slot := Slot_Of (Reference);
+   begin
+      if not Known_Locked (Reference)
+        or else Tasks (Slot).State /= Dispatcher.Terminated
+        or else Tasks (Slot).Wait.Phase /= Waits.Idle
+        or else not Canary_Is_Valid (Slot)
+      then
+         Stop;
+      end if;
+      for Core in Core_Number loop
+         if Current_Tasks (Core) = Reference
+           or else Scheduler.Contains (Ready_Queues (Core), Reference)
+           or else Timers.Contains_Task (Timer_Tables (Core), Reference)
+         then
+            Stop;
+         end if;
+      end loop;
+      Tasks (Slot) := (others => <>);
+   end Release_Terminated_Locked;
+
    function Current (Core : Core_Number) return Task_Ref is
       Result : Task_Ref;
    begin

@@ -187,10 +187,8 @@ CPU-count cells. Adding the allocator also exposed and fixed an earlier
 lifecycle omission: the registered environment task now owns an open root
 master before application package elaboration can query `Current_Master`.
 
-This is deliberately not a reclamation claim. `Unchecked_Deallocation`,
-`Free_Task`, heap reuse, task-slot/stack reuse, incarnation advancement,
-unactivated-task expunging, and abort remain unsupported until their exact
-compiler interfaces and stale-reference races have dedicated gates.
+This allocation checkpoint deliberately does not claim `Unchecked_Deallocation`,
+`Free_Task`, allocation-pool reuse, unactivated-task expunging, or abort.
 
 The owned `selective_wait_probe.adb` confirms that both compilers construct an
 `Accept_List`, mark a null accept body in its `Accept_Alternative`, and call
@@ -210,3 +208,20 @@ openness/dependency rules that permit a terminate alternative to be selected;
 the demonstrated client always calls the accept alternative. Multiple
 alternatives, guarded alternatives, else/delay alternatives, timed selective
 wait, and priority queueing remain M4 work.
+
+Normal task destruction now separates the stable language identity from its
+bounded execution slot. After the owning master has observed every dependent
+termination, Task_Core verifies that the exact incarnation is terminated,
+not current, absent from every ready queue and timer table, has no active wait,
+and retains its stack canary. It then releases only the execution record,
+context, and stack slot. The next occupant receives the SPARK-checked successor
+incarnation; wrap or the reserved zero incarnation fails closed.
+
+The QEMU image creates more cumulative ordinary tasks than the 15 non-
+environment execution slots while retaining earlier standard `Task_Id` values.
+Later tasks validate their reused stack bounds, and the old identities remain
+pairwise distinct, terminated, and not callable before
+`FLYOLOGY:M4:RECLAMATION:PASS`. The stable identity table is bounded at 32 and
+is deliberately not reused yet. This does not claim `Unchecked_Deallocation`,
+`Free_Task`, allocation-pool reuse, or freeing an identity retained by user
+code; those require the explicit compiler deallocation hook and lifetime rules.

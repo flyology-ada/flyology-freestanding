@@ -68,6 +68,7 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     flyology__priority_queue_model__select_next \
     flyology__wait_arbitration_model__resolve \
     flyology__dispatcher_model__try_transition \
+    flyology__dispatcher_model__next_incarnation \
     flyology__placement_model__place __gnat_personality_v0 \
     __gnat_begin_handler_v1 __gnat_end_handler_v1 \
     __gnat_malloc \
@@ -85,6 +86,7 @@ fi
 for marker in 'FLYOLOGY:ADA:ELABORATION:PASS' \
     'FLYOLOGY:ADA:MAIN:PASS' 'FLYOLOGY:M3:SPECIFIC_CPU:PASS' \
     'FLYOLOGY:M3:AUTO_MASTER:PASS' 'FLYOLOGY:M3:AUTO_PARALLEL:PASS' \
+    'FLYOLOGY:M4:RECLAMATION:PASS' \
     'FLYOLOGY:M3:NESTED_MASTER:PASS' 'FLYOLOGY:M3:TASK_STACKS:PASS' \
     'FLYOLOGY:M4:DELAYS:PASS' \
     'FLYOLOGY:M4:ABSOLUTE_DELAY:PASS' \

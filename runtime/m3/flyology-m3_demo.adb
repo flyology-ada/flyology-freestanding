@@ -44,6 +44,9 @@ package body Flyology.M3_Demo is
      [others => Ada.Task_Identification.Null_Task_Id];
    Auto_Core     : Core_Array := [others => Natural'Last];
    Specific_Core : Core_Array := [others => Natural'Last];
+   Reclaim_Done   : Done_Array := [others => False];
+   Reclaim_Id     : Identity_Array :=
+     [others => Ada.Task_Identification.Null_Task_Id];
    Nested_Parent_Done : Boolean := False with Atomic;
    Nested_Child_Done  : Boolean := False with Atomic;
    Nested_Parent_Id : Ada.Task_Identification.Task_Id :=
@@ -63,6 +66,7 @@ package body Flyology.M3_Demo is
      with CPU => CPU_Number;
 
    task type Auto_Worker_Type (Index : Positive);
+   task type Reclaim_Worker_Type (Index : Positive);
    task type Nested_Child_Type;
    task type Nested_Parent_Type;
    task type Rendezvous_Server_Type
@@ -128,6 +132,21 @@ package body Flyology.M3_Demo is
       Shared_Counter.Increment;
       Auto_Done (Index) := True;
    end Auto_Worker_Type;
+
+   task body Reclaim_Worker_Type is
+      Self : constant Ada.Task_Identification.Task_Id :=
+        Ada.Task_Identification.Current_Task;
+      Stack_Probe : aliased Stack_Probe_Array := [others => 'R'];
+   begin
+      if Self = Ada.Task_Identification.Null_Task_Id
+        or else not Flyology.M3_Runtime.Validate_Current_Stack
+          (Stack_Probe'Address)
+      then
+         raise Program_Error;
+      end if;
+      Reclaim_Id (Index) := Self;
+      Reclaim_Done (Index) := True;
+   end Reclaim_Worker_Type;
 
    task body Nested_Child_Type is
       Self : constant Ada.Task_Identification.Task_Id :=
@@ -223,6 +242,10 @@ package body Flyology.M3_Demo is
    procedure Report_Auto_Master_Pass
    with Import, Convention => C,
         External_Name => "flyology_m3_report_auto_master_pass";
+
+   procedure Report_Reclamation_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_reclamation_pass";
 
    procedure Report_Delay_Pass
    with Import, Convention => C,
@@ -356,6 +379,34 @@ package body Flyology.M3_Demo is
          Auto_Object_Id (4) := Worker_4'Identity;
       end;
       Report_Auto_Master_Pass;
+
+      declare
+         Worker_1 : Reclaim_Worker_Type (1);
+         Worker_2 : Reclaim_Worker_Type (2);
+         Worker_3 : Reclaim_Worker_Type (3);
+         Worker_4 : Reclaim_Worker_Type (4);
+      begin
+         null;
+      end;
+      for Index in Reclaim_Id'Range loop
+         if not Reclaim_Done (Index)
+           or else Reclaim_Id (Index) =
+             Ada.Task_Identification.Null_Task_Id
+           or else not Ada.Task_Identification.Is_Terminated
+             (Reclaim_Id (Index))
+           or else Ada.Task_Identification.Is_Callable (Reclaim_Id (Index))
+         then
+            Report_Failure;
+         end if;
+         for Other in Specific_Id'Range loop
+            if Reclaim_Id (Index) = Specific_Id (Other)
+              or else Reclaim_Id (Index) = Auto_Id (Other)
+            then
+               Report_Failure;
+            end if;
+         end loop;
+      end loop;
+      Report_Reclamation_Pass;
       Report_Delay_Pass;
       declare
          use type Ada.Real_Time.Time;

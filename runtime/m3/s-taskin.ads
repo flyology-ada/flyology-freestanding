@@ -3,7 +3,7 @@
 package System.Tasking is
    pragma Preelaborate;
 
-   Max_Tasks : constant := 16;
+   Max_Tasks : constant := 32;
 
    type Ada_Task_Control_Block is limited private;
    type Task_Id is access all Ada_Task_Control_Block;
@@ -38,10 +38,22 @@ package System.Tasking is
 
    function Identity_For_Slot (Slot : Natural) return Task_Id;
    function Slot_Of (Item : Task_Id) return Natural;
+   function Create_Identity
+     (Execution_Slot : Natural;
+      Incarnation    : Natural) return Task_Id;
+   function Execution_Slot_Of (Item : Task_Id) return Natural;
+   function Incarnation_Of (Item : Task_Id) return Natural;
+   procedure Mark_Terminated (Item : Task_Id);
+   function Identity_Is_Terminated (Item : Task_Id) return Boolean;
+   function Identity_Is_Callable (Item : Task_Id) return Boolean;
 
 private
    type Ada_Task_Control_Block is limited record
-      Slot : Natural := 0;
+      Slot           : Natural := 0;
+      Execution_Slot : Natural := 0;
+      Incarnation    : Natural := 0;
+      Used           : Boolean := False;
+      Terminated     : Boolean := False;
    end record;
 
    type Task_Id_Array is array (Positive range 1 .. Max_Tasks) of Task_Id;
