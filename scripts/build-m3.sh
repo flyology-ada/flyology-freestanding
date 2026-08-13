@@ -91,6 +91,8 @@ compile_ada runtime/m3/s-multip.adb s-multip.o yes
 compile_ada runtime/m3/s-tassta.adb s-tassta.o yes
 compile_ada runtime/m3/s-soflin.adb s-soflin.o yes
 compile_ada runtime/m3/a-taside.adb a-taside.o yes
+compile_ada runtime/m3/a-taidco.adb a-taidco.o yes
+compile_ada runtime/m3/a-dynpri.adb a-dynpri.o yes
 compile_ada runtime/m3/flyology-m3_demo.adb flyology-m3_demo.o
 compile_ada runtime/bootstrap/flyology-binder_support.adb \
     flyology-binder_support.o
@@ -146,6 +148,8 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/flyology_m3.o" \
     "$output_directory/flyology-m3_demo.o" \
     "$output_directory/a-taside.o" \
+    "$output_directory/a-taidco.o" \
+    "$output_directory/a-dynpri.o" \
     "$output_directory/s-soflin.o" \
     "$output_directory/s-tassta.o" \
     "$output_directory/s-multip.o" \

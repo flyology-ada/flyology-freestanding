@@ -25,6 +25,10 @@ for architecture in x86_64 aarch64; do
           "$output/simple_rendezvous_probe.o" \
           "$output/simple_rendezvous_probe.expanded" \
           "$output/simple_rendezvous_probe.undefined"
+    rm -f "$output/dynamic_priority_probe.ali" \
+          "$output/dynamic_priority_probe.o" \
+          "$output/dynamic_priority_probe.expanded" \
+          "$output/dynamic_priority_probe.undefined"
 
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-gcc" -c "$repository/probes/m4/exception_probe.adb" \
@@ -99,6 +103,26 @@ for architecture in x86_64 aarch64; do
         "$output/simple_rendezvous_probe.expanded" >/dev/null
     grep -F 'system__tasking__rendezvous__call_simple (' \
         "$output/simple_rendezvous_probe.expanded" >/dev/null
+
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-gcc" -c \
+        "$repository/probes/m4/dynamic_priority_probe.adb" \
+        -o dynamic_priority_probe.o -nostdinc \
+        -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
+        -I"$repository/runtime/m3" -gnat2022 -gnatG -gnatf \
+        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        >"$output/dynamic_priority_probe.expanded" 2>&1
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-nm" -u dynamic_priority_probe.o \
+        >"$output/dynamic_priority_probe.undefined"
+    for symbol in ada__dynamic_priorities__get_priority \
+        ada__dynamic_priorities__set_priority \
+        ada__task_identification__current_task; do
+        grep -F " $symbol" "$output/dynamic_priority_probe.undefined" \
+            >/dev/null
+    done
+    grep -F 'ada__dynamic_priorities__set_priority (' \
+        "$output/dynamic_priority_probe.expanded" >/dev/null
     echo "FLYOLOGY:M4:PROBE:PASS:$architecture"
 done
 
@@ -122,4 +146,6 @@ grep -v ' __clear_cache$' \
     >"$output_root/aarch64/simple_rendezvous_probe.normalized"
 diff -u "$output_root/x86_64/simple_rendezvous_probe.undefined" \
     "$output_root/aarch64/simple_rendezvous_probe.normalized" >/dev/null
+diff -u "$output_root/x86_64/dynamic_priority_probe.undefined" \
+    "$output_root/aarch64/dynamic_priority_probe.undefined" >/dev/null
 echo 'FLYOLOGY:M4:PROBE:PASS'

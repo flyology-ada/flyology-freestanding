@@ -1,11 +1,13 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
+with Ada.Dynamic_Priorities;
 with Ada.Task_Identification;
 with Flyology.M3_Runtime;
 with System.Multiprocessors;
 
 package body Flyology.M3_Demo is
    use type Ada.Task_Identification.Task_Id;
+   use type System.Any_Priority;
 
    type Done_Array is array (Positive range 1 .. 4) of Boolean
      with Atomic_Components;
@@ -144,7 +146,8 @@ package body Flyology.M3_Demo is
    task body Rendezvous_Server_Type is
    begin
       accept Ping (Value : in out Integer) do
-         Value := Value + 1;
+         Value := Value + 1 +
+           Integer (Ada.Dynamic_Priorities.Get_Priority);
       end Ping;
    end Rendezvous_Server_Type;
 
@@ -175,6 +178,10 @@ package body Flyology.M3_Demo is
    procedure Report_Rendezvous_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_rendezvous_pass";
+
+   procedure Report_Priority_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_priority_pass";
 
    procedure Report_Master_Pass
    with Import, Convention => C,
@@ -283,12 +290,17 @@ package body Flyology.M3_Demo is
            (System.Multiprocessors.CPU_Range (CPU_Count));
          Value : Integer := 41;
       begin
+         Ada.Dynamic_Priorities.Set_Priority (7, Server'Identity);
+         if Ada.Dynamic_Priorities.Get_Priority (Server'Identity) /= 7 then
+            Report_Failure;
+         end if;
          Server.Ping (Value);
-         if Value /= 42 then
+         if Value /= 49 then
             Report_Failure;
          end if;
       end;
       Report_Rendezvous_Pass;
+      Report_Priority_Pass;
 
       for Index in Auto_Id'Range loop
          if not Auto_Done (Index)

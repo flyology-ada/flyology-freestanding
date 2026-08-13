@@ -11,4 +11,9 @@ package System is
    for Address'Size use 64;
 
    Null_Address : constant Address := 0;
+
+   type Any_Priority is range 0 .. 255;
+   subtype Priority is Any_Priority range 0 .. 239;
+   subtype Interrupt_Priority is Any_Priority range 240 .. 255;
+   Default_Priority : constant Priority := Priority'First;
 end System;

@@ -38,6 +38,9 @@ package Flyology.M3_Runtime is
    procedure Protected_Enter (Ceiling : Integer);
    procedure Protected_Leave;
 
+   procedure Set_Priority (Priority : Integer; Item : Task_Id);
+   function Get_Priority (Item : Task_Id) return Integer;
+
    procedure Call_Simple
      (Target      : Task_Id;
       Entry_Index : System.Tasking.Task_Entry_Index;

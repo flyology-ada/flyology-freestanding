@@ -106,3 +106,20 @@ Exceptional accept completion currently fails closed: exception-occurrence
 copying and propagation to the caller have not yet been implemented or tested.
 Conditional/timed calls, selective waits, entry families, requeue, abort, and
 priority-ordered entry queues remain later M4 gates.
+
+The language-defined `Ada.Dynamic_Priorities` facade follows
+[Ada RM D.5.1](https://www.adaic.org/resources/add_content/standards/22rm/html/RM-D-5-1.html).
+The owned `dynamic_priority_probe.adb` confirms that both targets retain
+`Set_Priority`, `Get_Priority`, and `Current_Task` calls with the RM parameter
+ordering. Flyology maps these calls to Task_Core's base-priority field; a Ready
+task is removed and reinserted by the proved priority policy, and a remote
+target receives a reschedule request. The proved ceiling model defers the
+active effect of a base-priority change while a protected action is in
+progress, then restores the new base at the outer leave.
+
+The QEMU demonstration changes the blocked rendezvous server's base priority
+from the environment task, verifies the target query, and has the server verify
+the same value through the default-current-task call before completing the
+cross-core rendezvous. `FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS` is emitted only
+after both observations. Interrupt-time priority preemption remains an M5
+gate; this M4 checkpoint requests rescheduling at cooperative safe boundaries.

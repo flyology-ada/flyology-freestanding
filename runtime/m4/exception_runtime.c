@@ -24,6 +24,7 @@ struct flyology_exception {
 u8 constraint_error;
 u8 program_error;
 u8 storage_error;
+u8 tasking_error;
 u8 __gnat_others_value;
 u8 __gnat_all_others_value;
 
@@ -236,6 +237,13 @@ void __gnat_rcheck_SE_Explicit_Raise(void *location, int line)
     (void)location;
     (void)line;
     raise_identity(&storage_error);
+}
+
+void __gnat_rcheck_TE_Explicit_Raise(void *location, int line)
+{
+    (void)location;
+    (void)line;
+    raise_identity(&tasking_error);
 }
 
 _Unwind_Reason_Code __gnat_personality_v0

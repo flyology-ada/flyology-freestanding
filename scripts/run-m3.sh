@@ -114,6 +114,7 @@ test "$(count_marker 'FLYOLOGY:M3:AUTO_MASTER:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:DELAYS:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:PROTECTED:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:RENDEZVOUS:PASS')" -eq 1
+test "$(count_marker 'FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:NESTED_MASTER:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:TASK_STACKS:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:BOOT_SUBSTRATE:PASS')" -eq 1

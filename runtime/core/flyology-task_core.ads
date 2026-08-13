@@ -61,9 +61,12 @@ package Flyology.Task_Core is
       Token   : Wait_Token;
       Outcome : out Wait_Resolution);
 
-   procedure Change_Active_Priority_Locked
+   procedure Change_Base_Priority_Locked
      (Reference : Task_Ref;
       Priority  : Dispatcher.Priority);
+
+   function Base_Priority_Locked
+     (Reference : Task_Ref) return Dispatcher.Priority;
 
    function Active_Priority_Locked
      (Reference : Task_Ref) return Dispatcher.Priority;

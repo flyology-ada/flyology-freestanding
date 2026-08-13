@@ -118,6 +118,11 @@ package body Flyology.M3_Runtime is
    procedure Report_Failure
    with Import, Convention => C, External_Name => "flyology_m2_report_failure";
 
+   procedure Raise_Tasking_Error (Location : System.Address; Line : Integer)
+   with Import, Convention => C,
+        External_Name => "__gnat_rcheck_TE_Explicit_Raise",
+        No_Return;
+
    procedure Stop is
    begin
       Report_Failure;
@@ -618,6 +623,49 @@ package body Flyology.M3_Runtime is
       Core.Leave_Protected_Locked (Reference);
       Leave_Kernel;
    end Protected_Leave;
+
+   procedure Set_Priority (Priority : Integer; Item : Task_Id) is
+      Reference : Dispatcher.Task_Ref;
+      State     : Dispatcher.Task_State;
+      Core_Id   : Core_Number := 0;
+      Kick      : Boolean := False;
+   begin
+      if Item = null then
+         raise Program_Error;
+      end if;
+      Enter_Kernel;
+      Reference := To_Reference (Item);
+      State := Core.State_Locked (Reference);
+      if State /= Dispatcher.Terminated then
+         Core.Change_Base_Priority_Locked
+           (Reference, Dispatcher.Priority (Priority));
+         Core_Id := Core.Assigned_Core_Locked (Reference);
+         Kick := State in Dispatcher.Ready | Dispatcher.Running |
+           Dispatcher.Blocked;
+      end if;
+      Leave_Kernel;
+      if Kick then
+         Kick_Core (System.Address (Core_Id));
+      end if;
+   end Set_Priority;
+
+   function Get_Priority (Item : Task_Id) return Integer is
+      Reference : Dispatcher.Task_Ref;
+      Result    : Dispatcher.Priority;
+   begin
+      if Item = null then
+         raise Program_Error;
+      end if;
+      Enter_Kernel;
+      Reference := To_Reference (Item);
+      if Core.State_Locked (Reference) = Dispatcher.Terminated then
+         Leave_Kernel;
+         Raise_Tasking_Error (System.Null_Address, 0);
+      end if;
+      Result := Core.Base_Priority_Locked (Reference);
+      Leave_Kernel;
+      return Integer (Result);
+   end Get_Priority;
 
    function Allocate_Call_Locked return Call_Number is
    begin

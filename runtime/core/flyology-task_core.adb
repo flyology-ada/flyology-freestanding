@@ -376,7 +376,7 @@ package body Flyology.Task_Core is
       Leave_Kernel;
    end Block_Current_And_Release;
 
-   procedure Change_Active_Priority_Locked
+   procedure Change_Base_Priority_Locked
      (Reference : Task_Ref;
       Priority  : Dispatcher.Priority)
    is
@@ -387,20 +387,29 @@ package body Flyology.Task_Core is
       if not Known_Locked (Reference) then
          Stop;
       end if;
+      Tasks (Slot).Priority :=
+        Ceilings.Change_Base (Tasks (Slot).Priority, Priority);
       if Tasks (Slot).State = Dispatcher.Ready then
          Core := Tasks (Slot).Assigned_Core;
          Attempt := Scheduler.Change_Priority
-           (Ready_Queues (Core), Reference, Priority);
+           (Ready_Queues (Core), Reference, Tasks (Slot).Priority.Active);
          if Attempt.Status /= Scheduler.Changed then
             Stop;
          end if;
          Ready_Queues (Core) := Attempt.Queue;
       end if;
-      Tasks (Slot).Priority.Active := Priority;
-      if Tasks (Slot).Priority.Depth = 0 then
-         Tasks (Slot).Priority.Base := Priority;
+   end Change_Base_Priority_Locked;
+
+   function Base_Priority_Locked
+     (Reference : Task_Ref) return Dispatcher.Priority
+   is
+      Slot : constant Task_Slot := Slot_Of (Reference);
+   begin
+      if not Known_Locked (Reference) then
+         Stop;
       end if;
-   end Change_Active_Priority_Locked;
+      return Tasks (Slot).Priority.Base;
+   end Base_Priority_Locked;
 
    function Active_Priority_Locked
      (Reference : Task_Ref) return Dispatcher.Priority

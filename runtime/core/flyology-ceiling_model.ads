@@ -26,10 +26,10 @@ is
          (for all Index in Stack_Index =>
             (if Index <= State.Depth
              then
-               (if Index = Stack_Index'First
-                then State.Previous (Index) = State.Base
-                else State.Previous (Index) >=
-                  State.Previous (Stack_Index'Pred (Index)))
+               (if Index > Stack_Index'First
+                then State.Previous (Index) >=
+                  State.Previous (Stack_Index'Pred (Index))
+                else True)
              else State.Previous (Index) = Priority'First))
        and then
          (if State.Depth > 0
@@ -54,6 +54,18 @@ is
                and then Enter'Result.State.Base = Before.Base
              else Enter'Result.State = Before);
 
+   function Change_Base
+     (Before   : Ceiling_State;
+      Priority : Ceiling_Model.Priority) return Ceiling_State
+   with Pre => Valid (Before),
+        Post => Valid (Change_Base'Result)
+          and then Change_Base'Result.Base = Priority
+          and then Change_Base'Result.Depth = Before.Depth
+          and then
+            (if Before.Depth = 0
+             then Change_Base'Result.Active = Priority
+             else Change_Base'Result.Active = Before.Active);
+
    type Leave_Status is (Left, Empty);
    type Leave_Result is record
       State  : Ceiling_State;
@@ -67,7 +79,9 @@ is
             (if Leave'Result.Status = Left
              then Leave'Result.State.Depth = Before.Depth - 1
                and then Leave'Result.State.Active =
-                 Before.Previous (Stack_Index (Before.Depth))
+                 (if Before.Depth = 1
+                  then Before.Base
+                  else Before.Previous (Stack_Index (Before.Depth)))
                and then Leave'Result.State.Base = Before.Base
              else Leave'Result.State = Before);
 end Flyology.Ceiling_Model;
