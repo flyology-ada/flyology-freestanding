@@ -174,8 +174,14 @@ scan_done:
     jne fatal
 
     call adainit
+#ifdef FLYOLOGY_M3
+    mov cpu_count(%rip), %edi
+    call flyology_m3_core_initialize
+#endif
 #ifdef FLYOLOGY_M2
+#ifndef FLYOLOGY_M3
     call _ada_flyology_m2
+#endif
 #else
     call _ada_flyology_m1
     call adafinal
@@ -211,12 +217,31 @@ wait_online:
     call initialize_task_fp
     call initialize_x2apic
     call initialize_cpu_tables
+#ifdef FLYOLOGY_M3
+    xor %edi, %edi
+    call flyology_m3_prepare_environment
+#else
     sti
     call flyology_m2_core_entry
     cli
     call m2_idle_reschedule_test
     lock incl m2_complete_count(%rip)
+#endif
 wait_m2_complete:
+#ifdef FLYOLOGY_M3
+    pause
+    mov dispatcher_ready_count(%rip), %eax
+    cmp %r13d, %eax
+    jne wait_m2_complete
+    sti
+    call _ada_flyology_m3
+    lea m3_boot_pass(%rip), %rdi
+    call serial_puts_locked
+    call adafinal
+    cli
+    call flyology_m3_environment_complete
+    jmp fatal
+#else
     pause
     mov m2_complete_count(%rip), %eax
     cmp %r13d, %eax
@@ -224,6 +249,7 @@ wait_m2_complete:
     lea m2_pass(%rip), %rdi
     call serial_puts_locked
     call adafinal
+#endif
 #else
     lea m1_pass(%rip), %rdi
     call serial_puts_locked
@@ -259,11 +285,17 @@ ap_entry:
     call initialize_task_fp
     call initialize_x2apic
     call initialize_cpu_tables
+#ifdef FLYOLOGY_M3
+    mov %gs:0, %rdi
+    call flyology_m3_prepare_ap
+    jmp fatal
+#else
     sti
     call flyology_m2_core_entry
     cli
     call m2_idle_reschedule_test
     lock incl m2_complete_count(%rip)
+#endif
 #endif
 ap_halt:
     hlt
@@ -1004,6 +1036,23 @@ flyology_current_core:
     mov %gs:0, %rax
     ret
 
+#ifdef FLYOLOGY_M3
+.global flyology_m3_dispatcher_ready
+.type flyology_m3_dispatcher_ready, @function
+flyology_m3_dispatcher_ready:
+    lock incl dispatcher_ready_count(%rip)
+    ret
+
+.global flyology_m3_idle
+.type flyology_m3_idle, @function
+flyology_m3_idle:
+1:
+    sti
+    hlt
+    cli
+    jmp 1b
+#endif
+
 .global flyology_m2_report_pass
 .type flyology_m2_report_pass, @function
 flyology_m2_report_pass:
@@ -1230,6 +1279,7 @@ m2_deferred_suffix: .asciz ":DEFERRED_REQUEST:PASS\n"
 m2_ipi_suffix: .asciz ":RESCHEDULE_IPI:PASS\n"
 m2_timer_suffix: .asciz ":TIMER:PASS\n"
 m2_pass:       .asciz "FLYOLOGY:M2:PASS\n"
+m3_boot_pass:  .asciz "FLYOLOGY:M3:BOOT_SUBSTRATE:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:X86_BOOT\n"
 last_chance_marker: .asciz "FLYOLOGY:LAST_CHANCE:X86_64\n"
@@ -1245,6 +1295,9 @@ m2_idle_ready_count: .skip 4
 m2_task_barrier_count: .skip 4
 cpu_count: .skip 4
 rts_lock: .skip 4
+#ifdef FLYOLOGY_M3
+dispatcher_ready_count: .skip 4
+#endif
 #endif
 memory_usable_found: .skip 1
 .balign 8

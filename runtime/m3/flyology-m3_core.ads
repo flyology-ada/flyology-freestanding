@@ -3,7 +3,10 @@
 with System;
 
 package Flyology.M3_Core is
-   procedure Initialize (CPU_Count : System.Address);
+   procedure Initialize (CPU_Count : System.Address)
+   with Export,
+        Convention    => C,
+        External_Name => "flyology_m3_core_initialize";
 
    procedure Prepare_Environment (Core : System.Address)
    with Export,

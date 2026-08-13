@@ -61,6 +61,7 @@ flyology_context_switch:
     msr fpsr, x2
     ret
 
+.section .text.flyology_context_start, "ax", %progbits
 .global flyology_context_start
 .type flyology_context_start, %function
 flyology_context_start:

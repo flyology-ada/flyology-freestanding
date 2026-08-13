@@ -188,8 +188,15 @@ scan_done:
     b.ne fatal
 
     bl adainit
+#ifdef FLYOLOGY_M3
+    address x0, cpu_count
+    ldr w0, [x0]
+    bl flyology_m3_core_initialize
+#endif
 #ifdef FLYOLOGY_M2
+#ifndef FLYOLOGY_M3
     bl _ada_flyology_m2
+#endif
 #else
     bl _ada_flyology_m1
     bl adafinal
@@ -244,11 +251,32 @@ wait_online:
     isb
     msr daifclr, #2
     isb
+#ifdef FLYOLOGY_M3
+    mov x0, xzr
+    bl flyology_m3_prepare_environment
+#else
     bl flyology_m2_core_entry
     msr daifset, #2
     bl m2_idle_reschedule_test
     bl m2_complete_increment
+#endif
 wait_m2_complete:
+#ifdef FLYOLOGY_M3
+    wfe
+    address x0, dispatcher_ready_count
+    ldar w1, [x0]
+    cmp x1, x20
+    b.ne wait_m2_complete
+    msr daifclr, #2
+    isb
+    bl _ada_flyology_m3
+    address x0, m3_boot_pass
+    bl serial_puts_locked
+    bl adafinal
+    msr daifset, #2
+    bl flyology_m3_environment_complete
+    b fatal
+#else
     wfe
     address x0, m2_complete_count
     ldar w1, [x0]
@@ -257,6 +285,7 @@ wait_m2_complete:
     address x0, m2_pass
     bl serial_puts_locked
     bl adafinal
+#endif
 #else
     address x0, m1_pass
     bl serial_puts_locked
@@ -322,10 +351,16 @@ ap_entry:
     isb
     msr daifclr, #2
     isb
+#ifdef FLYOLOGY_M3
+    mov x0, x20
+    bl flyology_m3_prepare_ap
+    b fatal
+#else
     bl flyology_m2_core_entry
     msr daifset, #2
     bl m2_idle_reschedule_test
     bl m2_complete_increment
+#endif
 #endif
 ap_halt:
     wfi
@@ -840,6 +875,30 @@ flyology_current_core:
     mrs x0, tpidr_el1
     ldr x0, [x0]
     ret
+
+#ifdef FLYOLOGY_M3
+.global flyology_m3_dispatcher_ready
+.type flyology_m3_dispatcher_ready, %function
+flyology_m3_dispatcher_ready:
+    address x0, dispatcher_ready_count
+1:
+    ldaxr w1, [x0]
+    add w1, w1, #1
+    stlxr w2, w1, [x0]
+    cbnz w2, 1b
+    sev
+    ret
+
+.global flyology_m3_idle
+.type flyology_m3_idle, %function
+flyology_m3_idle:
+2:
+    msr daifset, #2
+    wfi
+    msr daifclr, #2
+    isb
+    b 2b
+#endif
 
 .global flyology_m2_report_pass
 .type flyology_m2_report_pass, %function
@@ -1426,6 +1485,7 @@ m2_deferred_suffix: .asciz ":DEFERRED_REQUEST:PASS\n"
 m2_sgi_suffix: .asciz ":RESCHEDULE_SGI:PASS\n"
 m2_timer_suffix: .asciz ":TIMER:PASS\n"
 m2_pass:       .asciz "FLYOLOGY:M2:PASS\n"
+m3_boot_pass:  .asciz "FLYOLOGY:M3:BOOT_SUBSTRATE:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:AARCH64_BOOT\n"
 exception_marker: .asciz "FLYOLOGY:FAIL:AARCH64_EXCEPTION\n"
@@ -1446,6 +1506,9 @@ m2_idle_ready_count: .skip 4
 m2_task_barrier_count: .skip 4
 cpu_count: .skip 4
 rts_lock: .skip 4
+#ifdef FLYOLOGY_M3
+dispatcher_ready_count: .skip 4
+#endif
 #endif
 .balign 8
 uart_address: .skip 8

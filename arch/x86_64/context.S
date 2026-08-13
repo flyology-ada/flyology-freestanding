@@ -58,6 +58,7 @@ flyology_context_switch:
     mov CTX_RSP(%rsi), %rsp
     jmp *CTX_RIP(%rsi)
 
+.section .text.flyology_context_start, "ax", @progbits
 .global flyology_context_start
 .type flyology_context_start, @function
 flyology_context_start:
