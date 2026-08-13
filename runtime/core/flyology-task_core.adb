@@ -1,12 +1,14 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Flyology.M2_Architecture;
+with Flyology.Ceiling_Model;
 with Flyology.Priority_Queue_Model;
 with Flyology.Timer_Model;
 with Flyology.Wait_Arbitration_Model;
 
 package body Flyology.Task_Core is
    package Architecture renames Flyology.M2_Architecture;
+   package Ceilings renames Flyology.Ceiling_Model;
    package Scheduler renames Flyology.Priority_Queue_Model;
    package Timers renames Flyology.Timer_Model;
    package Waits renames Flyology.Wait_Arbitration_Model;
@@ -25,6 +27,8 @@ package body Flyology.Task_Core is
    use type Waits.Commit_Status;
    use type Waits.Resolve_Status;
    use type Waits.Resume_Status;
+   use type Ceilings.Enter_Status;
+   use type Ceilings.Leave_Status;
    use type System.Address;
 
    Dispatcher_Stack_Size : constant := 16 * 1_024;
@@ -51,8 +55,7 @@ package body Flyology.Task_Core is
       Reference     : Task_Ref := No_Task;
       State         : Task_State := Dispatcher.Dormant;
       Assigned_Core : Core_Number := 0;
-      Base_Priority : Dispatcher.Priority := Dispatcher.Priority'First;
-      Active_Priority : Dispatcher.Priority := Dispatcher.Priority'First;
+      Priority      : Ceilings.Ceiling_State;
       Wait          : Waits.Wait_State;
    end record;
    type Kernel_Task_Array is array (Task_Slot) of Kernel_Task;
@@ -177,7 +180,7 @@ package body Flyology.Task_Core is
       Attempt := Scheduler.Enqueue
         (Ready_Queues (Core),
          (Reference => Reference,
-          Priority  => Tasks (Slot).Active_Priority,
+          Priority  => Tasks (Slot).Priority.Active,
           Sequence  => Next_Sequence));
       if Attempt.Status /= Scheduler.Enqueued then
          Stop;
@@ -207,8 +210,7 @@ package body Flyology.Task_Core is
       Tasks (Slot) :=
         (Present => True, Reference => Reference,
          State => Dispatcher.Running, Assigned_Core => 0,
-         Base_Priority => Dispatcher.Priority'First,
-         Active_Priority => Dispatcher.Priority'First,
+         Priority => (others => <>),
          Wait =>
            (Reference => Reference, Kind => Waits.No_Wait,
             Phase => Waits.Idle, Generation => 0,
@@ -225,8 +227,7 @@ package body Flyology.Task_Core is
       Tasks (Slot) :=
         (Present => True, Reference => Reference,
          State => Dispatcher.Dormant, Assigned_Core => 0,
-         Base_Priority => Dispatcher.Priority'First,
-         Active_Priority => Dispatcher.Priority'First,
+         Priority => (others => <>),
          Wait =>
            (Reference => Reference, Kind => Waits.No_Wait,
             Phase => Waits.Idle, Generation => 0,
@@ -271,8 +272,9 @@ package body Flyology.Task_Core is
       end if;
       Tasks (Slot).State := Apply (Tasks (Slot).State, Dispatcher.Admit);
       Tasks (Slot).Assigned_Core := Core;
-      Tasks (Slot).Base_Priority := Priority;
-      Tasks (Slot).Active_Priority := Priority;
+      Tasks (Slot).Priority :=
+        (Base => Priority, Active => Priority,
+         Previous => [others => Dispatcher.Priority'First], Depth => 0);
       Initialize_Canary (Slot);
       Architecture.Initialize
         (Task_Contexts (Slot), Base + System.Address (Task_Stack_Size),
@@ -394,7 +396,10 @@ package body Flyology.Task_Core is
          end if;
          Ready_Queues (Core) := Attempt.Queue;
       end if;
-      Tasks (Slot).Active_Priority := Priority;
+      Tasks (Slot).Priority.Active := Priority;
+      if Tasks (Slot).Priority.Depth = 0 then
+         Tasks (Slot).Priority.Base := Priority;
+      end if;
    end Change_Active_Priority_Locked;
 
    function Active_Priority_Locked
@@ -405,8 +410,46 @@ package body Flyology.Task_Core is
       if not Known_Locked (Reference) then
          Stop;
       end if;
-      return Tasks (Slot).Active_Priority;
+      return Tasks (Slot).Priority.Active;
    end Active_Priority_Locked;
+
+   function Enter_Protected_Locked
+     (Reference : Task_Ref;
+      Ceiling   : Dispatcher.Priority) return Boolean
+   is
+      Slot    : constant Task_Slot := Slot_Of (Reference);
+      Attempt : Ceilings.Enter_Result;
+   begin
+      if not Known_Locked (Reference)
+        or else Tasks (Slot).State /= Dispatcher.Running
+      then
+         Stop;
+      end if;
+      Attempt := Ceilings.Enter (Tasks (Slot).Priority, Ceiling);
+      if Attempt.Status = Ceilings.Ceiling_Violation then
+         return False;
+      elsif Attempt.Status /= Ceilings.Entered then
+         Stop;
+      end if;
+      Tasks (Slot).Priority := Attempt.State;
+      return True;
+   end Enter_Protected_Locked;
+
+   procedure Leave_Protected_Locked (Reference : Task_Ref) is
+      Slot    : constant Task_Slot := Slot_Of (Reference);
+      Attempt : Ceilings.Leave_Result;
+   begin
+      if not Known_Locked (Reference)
+        or else Tasks (Slot).State /= Dispatcher.Running
+      then
+         Stop;
+      end if;
+      Attempt := Ceilings.Leave (Tasks (Slot).Priority);
+      if Attempt.Status /= Ceilings.Left then
+         Stop;
+      end if;
+      Tasks (Slot).Priority := Attempt.State;
+   end Leave_Protected_Locked;
 
    function Read_Clock return Tick is
       Value : constant Architecture.Tick := Architecture.Read_Clock;

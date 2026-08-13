@@ -1186,6 +1186,12 @@ flyology_m4_report_delay_pass:
     lea m4_delay_pass(%rip), %rdi
     jmp serial_puts_locked
 
+.global flyology_m4_report_protected_pass
+.type flyology_m4_report_protected_pass, @function
+flyology_m4_report_protected_pass:
+    lea m4_protected_pass(%rip), %rdi
+    jmp serial_puts_locked
+
 .global flyology_m3_report_master_pass
 .type flyology_m3_report_master_pass, @function
 flyology_m3_report_master_pass:
@@ -1588,6 +1594,7 @@ m3_auto_master_pass: .asciz "FLYOLOGY:M3:AUTO_MASTER:PASS\n"
 m3_master_pass: .asciz "FLYOLOGY:M3:NESTED_MASTER:PASS\n"
 m3_stack_pass: .asciz "FLYOLOGY:M3:TASK_STACKS:PASS\n"
 m4_delay_pass: .asciz "FLYOLOGY:M4:DELAYS:PASS\n"
+m4_protected_pass: .asciz "FLYOLOGY:M4:PROTECTED:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:X86_BOOT\n"
 last_chance_marker: .asciz "FLYOLOGY:LAST_CHANCE:X86_64\n"

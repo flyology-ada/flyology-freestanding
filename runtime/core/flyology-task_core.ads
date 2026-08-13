@@ -1,6 +1,7 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Flyology.Dispatcher_Model;
+with Flyology.Ceiling_Model;
 with Flyology.Task_Primitives_Contract;
 with Flyology.Timer_Model;
 with Flyology.Wait_Arbitration_Model;
@@ -66,6 +67,12 @@ package Flyology.Task_Core is
 
    function Active_Priority_Locked
      (Reference : Task_Ref) return Dispatcher.Priority;
+
+   function Enter_Protected_Locked
+     (Reference : Task_Ref;
+      Ceiling   : Dispatcher.Priority) return Boolean;
+
+   procedure Leave_Protected_Locked (Reference : Task_Ref);
 
    function Read_Clock return Tick;
    function Clock_Frequency return Positive;

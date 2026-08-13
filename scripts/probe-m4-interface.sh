@@ -17,6 +17,10 @@ for architecture in x86_64 aarch64; do
           "$output/exception_probe.expanded" \
           "$output/exception_probe.undefined" \
           "$output/exception_probe.sections"
+    rm -f "$output/base_protected_probe.ali" \
+          "$output/base_protected_probe.o" \
+          "$output/base_protected_probe.expanded" \
+          "$output/base_protected_probe.undefined"
 
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-gcc" -c "$repository/probes/m4/exception_probe.adb" \
@@ -40,9 +44,43 @@ for architecture in x86_64 aarch64; do
         >/dev/null
     grep -F 'Contents of section .gcc_except_table' \
         "$output/exception_probe.sections" >/dev/null
+
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-gcc" -c "$repository/probes/m4/base_protected_probe.adb" \
+        -o base_protected_probe.o -nostdinc \
+        -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
+        -I"$repository/runtime/m3" -gnat2022 -gnatG -gnatf \
+        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        >"$output/base_protected_probe.expanded" 2>&1
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-nm" -u base_protected_probe.o \
+        >"$output/base_protected_probe.undefined"
+    for symbol in system__tasking__protected_objects__initialize_protection \
+        system__tasking__protected_objects__lock \
+        system__tasking__protected_objects__lock_read_only \
+        system__tasking__protected_objects__unlock \
+        system__tasking__protected_objects__finalize_protection \
+        system__finalization_primitives__attach_object_to_node \
+        system__finalization_primitives__finalize_object; do
+        grep -F " $symbol" "$output/base_protected_probe.undefined" \
+            >/dev/null
+    done
+    grep -F 'system__tasking__protected_objects__lock (' \
+        "$output/base_protected_probe.expanded" >/dev/null
+    grep -F 'system__tasking__protected_objects__lock_read_only (' \
+        "$output/base_protected_probe.expanded" >/dev/null
     echo "FLYOLOGY:M4:PROBE:PASS:$architecture"
 done
 
 diff -u "$output_root/x86_64/exception_probe.undefined" \
     "$output_root/aarch64/exception_probe.undefined" >/dev/null
+test "$(grep -c ' __clear_cache$' \
+    "$output_root/x86_64/base_protected_probe.undefined" || true)" -eq 0
+test "$(grep -c ' __clear_cache$' \
+    "$output_root/aarch64/base_protected_probe.undefined")" -eq 1
+grep -v ' __clear_cache$' \
+    "$output_root/aarch64/base_protected_probe.undefined" \
+    >"$output_root/aarch64/base_protected_probe.normalized"
+diff -u "$output_root/x86_64/base_protected_probe.undefined" \
+    "$output_root/aarch64/base_protected_probe.normalized" >/dev/null
 echo 'FLYOLOGY:M4:PROBE:PASS'

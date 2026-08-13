@@ -63,3 +63,24 @@ image, rejects early resume by comparing the architecture clock with the
 registered absolute deadline, and emits one `FLYOLOGY:M4:DELAYS:PASS` marker
 only after their lexical master observes all completions. Absolute delays,
 timed entry calls, and cancellation races remain separate M4 gates.
+
+The owned `base_protected_probe.adb` forces aggregate protected state so GNAT
+cannot lower the object to scalar lock-free atomics. Both cross compilers then
+emit the same base lifecycle: `Protection` default initialization,
+`Initialize_Protection`, abort deferral, `Lock` or `Lock_Read_Only`, `Unlock`,
+and `Finalize_Protection`, plus attachment through the compiler-required
+finalization node. AArch64 additionally references `__clear_cache` for its
+local trampoline; the probe gate records this target-specific difference
+rather than hiding it. The product demonstration uses a library-level callback
+and has no cache-trampoline dependency.
+
+Flyology implements those profiles from owned declarations. Lock and unlock
+hold the existing nestable global RTS critical section across the protected
+body and update the current task's proved nested ceiling state. Thus protected
+actions are globally serialized while unrelated application code continues in
+parallel on other cores. The QEMU gate requires four automatically placed
+ordinary tasks to update a two-word protected counter after their delays and
+the master to observe the exact total before
+`FLYOLOGY:M4:PROTECTED:PASS`. This checkpoint does not claim protected entries,
+entry queues, priority-ordered entry service, ceiling-violation exception
+propagation, or finalized-object race behavior.

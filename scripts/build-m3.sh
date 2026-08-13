@@ -57,9 +57,12 @@ compile_ada runtime/m3/ada.ads ada.o yes
 compile_ada runtime/m3/a-calend.ads a-calend.o yes
 compile_ada runtime/m3/a-caldel.adb a-caldel.o yes
 compile_ada runtime/m3/a-reatim.ads a-reatim.o yes
+compile_ada runtime/m3/a-except.adb a-except.o yes
 compile_ada runtime/m3/s-parame.ads s-parame.o yes
 compile_ada runtime/m3/s-tasinf.ads s-tasinf.o yes
 compile_ada runtime/m3/s-taskin.adb s-taskin.o yes
+compile_ada runtime/m3/s-finpri.adb s-finpri.o yes
+compile_ada runtime/m3/s-taprob.adb s-taprob.o yes
 compile_ada runtime/core/flyology.ads flyology.o
 compile_ada runtime/core/flyology-validation.adb flyology-validation.o
 compile_ada runtime/core/flyology-boot_validation.adb flyology-boot_validation.o
@@ -70,6 +73,7 @@ compile_ada runtime/core/flyology-task_primitives_contract.ads \
     flyology-task_primitives_contract.o
 compile_ada runtime/core/flyology-clock_model.adb flyology-clock_model.o
 compile_ada runtime/core/flyology-timer_model.adb flyology-timer_model.o
+compile_ada runtime/core/flyology-ceiling_model.adb flyology-ceiling_model.o
 compile_ada runtime/core/flyology-priority_queue_model.adb \
     flyology-priority_queue_model.o
 compile_ada runtime/core/flyology-wait_arbitration_model.adb \
@@ -133,16 +137,20 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/flyology-task_primitives_contract.o" \
     "$output_directory/flyology-clock_model.o" \
     "$output_directory/flyology-timer_model.o" \
+    "$output_directory/flyology-ceiling_model.o" \
     "$output_directory/flyology-priority_queue_model.o" \
     "$output_directory/flyology-wait_arbitration_model.o" \
     "$output_directory/flyology-dispatcher_model.o" \
     "$output_directory/s-taskin.o" \
+    "$output_directory/s-taprob.o" \
+    "$output_directory/s-finpri.o" \
     "$output_directory/s-tasinf.o" \
     "$output_directory/s-parame.o" \
     "$output_directory/a-reatim.o" \
     "$output_directory/a-caldel.o" \
     "$output_directory/a-calend.o" \
     "$output_directory/ada.o" \
+    "$output_directory/a-except.o" \
     "$output_directory/flyology-m2_architecture.o" \
     "$output_directory/flyology-architecture_context.o" \
     "$output_directory/flyology-binder_support.o" \

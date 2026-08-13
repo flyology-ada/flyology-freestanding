@@ -14,6 +14,24 @@ package body Flyology.M3_Demo is
    type Core_Array is array (Positive range 1 .. 4) of Natural
      with Atomic_Components;
    type Stack_Probe_Array is array (Natural range 0 .. 255) of Character;
+   type Counter_Pair is array (Positive range 1 .. 2) of Natural;
+
+   protected Shared_Counter is
+      procedure Increment;
+      function Value return Natural;
+   private
+      Counts : Counter_Pair := [others => 0];
+   end Shared_Counter;
+
+   protected body Shared_Counter is
+      procedure Increment is
+      begin
+         Counts (1) := Counts (1) + 1;
+         Counts (2) := Counts (2) + 1;
+      end Increment;
+
+      function Value return Natural is (Counts (1) + Counts (2));
+   end Shared_Counter;
 
    Auto_Done     : Done_Array := [others => False];
    Specific_Done : Done_Array := [others => False];
@@ -79,6 +97,7 @@ package body Flyology.M3_Demo is
       Auto_Core (Index) := Flyology.M3_Runtime.Current_Core_Number;
       Flyology.M3_Runtime.Demo_Parallel_Barrier (2);
       delay 0.001;
+      Shared_Counter.Increment;
       Auto_Done (Index) := True;
    end Auto_Worker_Type;
 
@@ -135,6 +154,10 @@ package body Flyology.M3_Demo is
    procedure Report_Delay_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_delay_pass";
+
+   procedure Report_Protected_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_protected_pass";
 
    procedure Report_Master_Pass
    with Import, Convention => C,
@@ -233,6 +256,10 @@ package body Flyology.M3_Demo is
       end;
       Report_Auto_Master_Pass;
       Report_Delay_Pass;
+      if Shared_Counter.Value /= 8 then
+         Report_Failure;
+      end if;
+      Report_Protected_Pass;
 
       for Index in Auto_Id'Range loop
          if not Auto_Done (Index)

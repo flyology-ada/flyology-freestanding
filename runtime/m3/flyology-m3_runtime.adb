@@ -561,6 +561,37 @@ package body Flyology.M3_Runtime is
       end if;
    end Delay_For;
 
+   procedure Protected_Enter (Ceiling : Integer) is
+      Dense     : constant Core_Number := Core_Of_Current;
+      Reference : Dispatcher.Task_Ref;
+      Effective : Dispatcher.Priority;
+   begin
+      if Ceiling = System.Tasking.Unspecified_Priority then
+         Effective := Dispatcher.Priority'Last;
+      elsif Ceiling in Integer (Dispatcher.Priority'First) ..
+        Integer (Dispatcher.Priority'Last)
+      then
+         Effective := Dispatcher.Priority (Ceiling);
+      else
+         raise Program_Error;
+      end if;
+      Enter_Kernel;
+      Reference := Core.Current_Locked (Dense);
+      if not Core.Enter_Protected_Locked (Reference, Effective) then
+         Leave_Kernel;
+         raise Program_Error;
+      end if;
+   end Protected_Enter;
+
+   procedure Protected_Leave is
+      Dense     : constant Core_Number := Core_Of_Current;
+      Reference : Dispatcher.Task_Ref;
+   begin
+      Reference := Core.Current_Locked (Dense);
+      Core.Leave_Protected_Locked (Reference);
+      Leave_Kernel;
+   end Protected_Leave;
+
    procedure Core_Initialize (CPU_Count : System.Address) is
       Environment : Task_Id;
    begin
