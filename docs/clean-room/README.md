@@ -36,3 +36,5 @@ Validated compilers and output:
 No private target parameters, address types, priorities, or floating-point characteristics are required by this exact M0 program. They are therefore omitted. Later clean-room records must add only the surface demonstrated necessary by an owned language-feature probe. No GNAT runtime source was used in this evidence pass.
 
 M1 adds only the separately probed binder and diagnostic surface recorded in [m1-compiler-interface.md](m1-compiler-interface.md).
+
+M3 ordinary-task creation, activation, wrapper completion, placement values, and identity observations are recorded in [m3-tasking-interface.md](m3-tasking-interface.md).
