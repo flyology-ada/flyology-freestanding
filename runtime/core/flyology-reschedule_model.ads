@@ -70,10 +70,7 @@ is
           and then Acknowledge'Result.Acknowledged = Epoch_Of (Seen)
           and then Is_Pending (Acknowledge'Result)
             = (Before.Requested /= Epoch_Of (Seen))
-          and then
-            (if Before.Requested = Epoch_Of (Seen)
-             then Acknowledge'Result.Reasons = No_Reasons
-             else Acknowledge'Result.Reasons = Before.Reasons);
+          and then Acknowledge'Result.Reasons = Before.Reasons;
 
 private
    type Dispatch_Snapshot is record

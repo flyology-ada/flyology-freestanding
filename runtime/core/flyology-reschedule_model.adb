@@ -40,10 +40,6 @@ is
       return
         (Requested    => Before.Requested,
          Acknowledged => Seen.Epoch,
-         Reasons      =>
-           (if Before.Requested = Seen.Epoch
-              and then Same_Reasons (Before.Reasons, Seen.Reasons)
-            then No_Reasons
-            else Before.Reasons));
+         Reasons      => Before.Reasons);
    end Acknowledge;
 end Flyology.Reschedule_Model;

@@ -15,6 +15,21 @@ is
 
    type GPR_Array is array (Natural range 0 .. 14) of Unsigned_64
      with Convention => C;
+   R15_Index : constant := 0;
+   R14_Index : constant := 1;
+   R13_Index : constant := 2;
+   R12_Index : constant := 3;
+   R11_Index : constant := 4;
+   R10_Index : constant := 5;
+   R9_Index  : constant := 6;
+   R8_Index  : constant := 7;
+   RBP_Index : constant := 8;
+   RDI_Index : constant := 9;
+   RSI_Index : constant := 10;
+   RDX_Index : constant := 11;
+   RCX_Index : constant := 12;
+   RBX_Index : constant := 13;
+   RAX_Index : constant := 14;
    type Reserved_Array is array (Natural range 0 .. 4) of Unsigned_64
      with Convention => C;
 

@@ -118,12 +118,20 @@ core=0
 while test "$core" -lt "$cpu_count"; do
     test "$(count_marker "FLYOLOGY:CORE:ONLINE:$core")" -eq 1
     test "$(count_marker "FLYOLOGY:M2:CORE:$core:SUBSTRATE:PASS")" -eq 1
+    test "$(count_marker "FLYOLOGY:M2:CORE:$core:INTERRUPT_FRAME:PASS")" -eq 1
+    test "$(count_marker "FLYOLOGY:M2:CORE:$core:REQUEST_EPOCH:PASS")" -eq 1
+    test "$(count_marker "FLYOLOGY:M2:CORE:$core:PARALLEL:PASS")" -eq 1
+    test "$(count_marker "FLYOLOGY:M2:CORE:$core:DEFERRED_REQUEST:PASS")" -eq 1
     test "$(count_marker "FLYOLOGY:M2:CORE:$core:$reschedule_suffix:PASS")" -eq 1
     test "$(count_marker "FLYOLOGY:M2:CORE:$core:TIMER:PASS")" -eq 1
     core=$((core + 1))
 done
 test "$(count_marker 'FLYOLOGY:CORE:ONLINE:')" -eq "$cpu_count"
 test "$(count_marker ':SUBSTRATE:PASS')" -eq "$cpu_count"
+test "$(count_marker ':INTERRUPT_FRAME:PASS')" -eq "$cpu_count"
+test "$(count_marker ':REQUEST_EPOCH:PASS')" -eq "$cpu_count"
+test "$(count_marker ':PARALLEL:PASS')" -eq "$cpu_count"
+test "$(count_marker ':DEFERRED_REQUEST:PASS')" -eq "$cpu_count"
 test "$(count_marker ":$reschedule_suffix:PASS")" -eq "$cpu_count"
 test "$(count_marker ':TIMER:PASS')" -eq "$cpu_count"
 

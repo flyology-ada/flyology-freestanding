@@ -16,8 +16,13 @@ test -x "$gnatprove_command" || {
     echo "gnatprove not found; set FLYOLOGY_GNATPROVE" >&2
     exit 69
 }
+test "$("$gnatprove_command" --version | sed -n '1p')" = 'FSF 16.1.0' || {
+    echo "GNATprove version contract failed" >&2
+    exit 1
+}
 
 mkdir -p build/proof
+rm -rf build/proof/gnatprove
 proof_jobs=${FLYOLOGY_PROOF_JOBS:-1}
 set +e
 proof_output=$(

@@ -22,6 +22,7 @@ check_architecture() {
             voluntary_alignment=16
             frame_size=2048
             frame_alignment=64
+            expected_interrupt_layout='256 0 120 128 136 144 152 160 168 176 184 192 200 208 216'
             ;;
         aarch64)
             target=aarch64-elf
@@ -32,6 +33,7 @@ check_architecture() {
             voluntary_alignment=16
             frame_size=6656
             frame_alignment=16
+            expected_interrupt_layout='832 0 248 256 264 272 280 288 296 304 312 320'
             ;;
         *)
             echo "unsupported architecture: $architecture" >&2
@@ -107,6 +109,25 @@ check_architecture() {
     set -- $(od -An -tu2 "$output_directory/layout.bin")
     test "$*" = "$expected_layout" || {
         echo "assembly context layout mismatch: $*" >&2
+        exit 1
+    }
+
+    # Compile the production interrupt entry and compare the compact table
+    # emitted beside the exact offsets used by its save/restore instructions.
+    # shellcheck disable=SC2086
+    scripts/toolchain.sh exec "$architecture" "$target-gcc" \
+        -c "arch/$architecture/m1_entry.S" \
+        -o "$output_directory/interrupt-entry.o" \
+        -DFLYOLOGY_M2 -ffreestanding -fno-stack-protector -fno-pic -fno-pie \
+        $architecture_flags
+    scripts/toolchain.sh exec "$architecture" "$target-objcopy" \
+        --dump-section \
+        ".rodata.flyology_interrupt_layout=$output_directory/interrupt-layout.bin" \
+        "$output_directory/interrupt-entry.o"
+    # shellcheck disable=SC2046
+    set -- $(od -An -tu2 "$output_directory/interrupt-layout.bin")
+    test "$*" = "$expected_interrupt_layout" || {
+        echo "assembly interrupt layout mismatch: $*" >&2
         exit 1
     }
 

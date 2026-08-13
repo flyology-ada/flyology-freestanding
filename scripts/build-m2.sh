@@ -64,6 +64,8 @@ compile_ada runtime/core/flyology-scheduler_contract.adb \
     flyology-scheduler_contract.o
 compile_ada "arch/$architecture/flyology-architecture_context.ads" \
     flyology-architecture_context.o
+compile_ada "arch/$architecture/flyology-interrupt_frames.ads" \
+    flyology-interrupt_frames.o
 compile_ada "arch/$architecture/flyology-m2_architecture.adb" \
     flyology-m2_architecture.o
 compile_ada runtime/m2/flyology-m2_runtime.adb flyology-m2_runtime.o
@@ -121,6 +123,7 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/flyology-m2_runtime.o" \
     "$output_directory/flyology-m2_architecture.o" \
     "$output_directory/flyology-architecture_context.o" \
+    "$output_directory/flyology-interrupt_frames.o" \
     "$output_directory/flyology-scheduler_contract.o" \
     "$output_directory/flyology-reschedule_model.o" \
     "$output_directory/flyology-dispatcher_model.o" \

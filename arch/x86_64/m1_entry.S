@@ -2,7 +2,8 @@
 
 .set MAX_CORES, 4
 .set STACK_SHIFT, 16
-.set CORE_RECORD_SHIFT, 6
+.set EXCEPTION_STACK_SHIFT, 14
+.set CORE_RECORD_SHIFT, 7
 .set COM1, 0x3f8
 .set TIMER_VECTOR, 0xe0
 .set RESCHEDULE_VECTOR, 0xe1
@@ -204,7 +205,12 @@ wait_online:
     jne wait_online
 #ifdef FLYOLOGY_M2
     call initialize_task_fp
+    call initialize_x2apic
+    call initialize_cpu_tables
+    call activate_m2_idt
+    sti
     call flyology_m2_core_entry
+    cli
     call m2_idle_reschedule_test
     lock incl m2_complete_count(%rip)
 wait_m2_complete:
@@ -248,7 +254,12 @@ ap_entry:
     lock incl online_count(%rip)
 #ifdef FLYOLOGY_M2
     call initialize_task_fp
+    call initialize_x2apic
+    call initialize_cpu_tables
+    call activate_m2_idt
+    sti
     call flyology_m2_core_entry
+    cli
     call m2_idle_reschedule_test
     lock incl m2_complete_count(%rip)
 #endif
@@ -371,6 +382,19 @@ install_idt:
     lidt idt_descriptor(%rip)
     ret
 
+#ifdef FLYOLOGY_M2
+.type initialize_m2_idt, @function
+initialize_m2_idt:
+    lea idt_table(%rip), %rdi
+    mov $256, %ecx
+1:
+    movw $0x08, 2(%rdi)
+    movb $1, 4(%rdi)
+    add $16, %rdi
+    loop 1b
+    jmp install_idt
+#endif
+
 fatal_vector:
     cli
     /* The minimal M1 IDT reports but does not resume an exception. */
@@ -383,46 +407,15 @@ fatal_vector:
 #ifdef FLYOLOGY_M2
 .type reschedule_vector, @function
 reschedule_vector:
-    cld
-    push %rax
-    push %rbx
-    push %rcx
-    push %rdx
-    push %rsi
-    push %rdi
-    push %rbp
-    push %r8
-    push %r9
-    push %r10
-    push %r11
-    push %r12
-    push %r13
-    push %r14
-    push %r15
-    movq $1, %gs:48
-    mov $0x80b, %ecx
-    xor %eax, %eax
-    xor %edx, %edx
-    wrmsr
-    pop %r15
-    pop %r14
-    pop %r13
-    pop %r12
-    pop %r11
-    pop %r10
-    pop %r9
-    pop %r8
-    pop %rbp
-    pop %rdi
-    pop %rsi
-    pop %rdx
-    pop %rcx
-    pop %rbx
-    pop %rax
-    iretq
+    pushq $RESCHEDULE_VECTOR
+    jmp m2_interrupt_common
 
 .type timer_vector, @function
 timer_vector:
+    pushq $TIMER_VECTOR
+
+.type m2_interrupt_common, @function
+m2_interrupt_common:
     cld
     push %rax
     push %rbx
@@ -439,11 +432,123 @@ timer_vector:
     push %r13
     push %r14
     push %r15
-    movq $1, %gs:56
+
+    mov %gs:0, %rax
+    cmp $MAX_CORES, %rax
+    jae fatal
+    shl $8, %rax
+    lea interrupt_frames(%rip), %r12
+    add %rax, %r12
+    mov %rsp, %rsi
+    mov %r12, %rdi
+    mov $15, %ecx
+    rep movsq
+    mov $0xc0000100, %ecx
+    rdmsr
+    shl $32, %rdx
+    or %rdx, %rax
+    mov %rax, 120(%r12)
+    mov 128(%rsp), %rax
+    mov %rax, 128(%r12)
+    mov 136(%rsp), %rax
+    mov %rax, 136(%r12)
+    mov 144(%rsp), %rax
+    mov %rax, 144(%r12)
+    mov 152(%rsp), %rax
+    mov %rax, 152(%r12)
+    mov 160(%rsp), %rax
+    mov %rax, 160(%r12)
+    mov 120(%rsp), %rax
+    mov %rax, 168(%r12)
+    movq $0, 176(%r12)
+    cmpq $0x08, 136(%r12)
+    jne fatal
+    cmpq $0x10, 160(%r12)
+    jne fatal
+    testq $2, 144(%r12)
+    jz fatal
+    mov 128(%r12), %rax
+    mov %rax, %rdx
+    shl $16, %rdx
+    sar $16, %rdx
+    cmp %rax, %rdx
+    jne fatal
+    mov 152(%r12), %rax
+    test $7, %rax
+    jnz fatal
+    mov %rax, %rdx
+    shl $16, %rdx
+    sar $16, %rdx
+    cmp %rax, %rdx
+    jne fatal
+
+    mov %gs:0, %rax
+    shl $12, %rax
+    lea xsave_areas(%rip), %rdi
+    add %rax, %rdi
+    mov %rdi, 184(%r12)
+    mov $0x0d, %eax
+    xor %ecx, %ecx
+    cpuid
+    test %ebx, %ebx
+    jz fatal
+    cmp $4096, %ebx
+    ja fatal
+    mov %rbx, 192(%r12)
+    movq $3, 200(%r12)
+    mov %cr2, %rax
+    mov %rax, 208(%r12)
+    mov $3, %eax
+    xor %edx, %edx
+    xsave64 (%rdi)
+    cmpq $0, %gs:80
+    je 3f
+    cmpw $0x027f, 0(%rdi)
+    jne fatal
+    cmpl $0x1f80, 24(%rdi)
+    jne fatal
+    mov m2_simd_canary(%rip), %rax
+    cmp %rax, 160(%rdi)
+    jne fatal
+    mov m2_simd_canary + 8(%rip), %rax
+    cmp %rax, 168(%rdi)
+    jne fatal
+    mov m2_simd_canary + 16(%rip), %rax
+    cmp %rax, 400(%rdi)
+    jne fatal
+    mov m2_simd_canary + 24(%rip), %rax
+    cmp %rax, 408(%rdi)
+    jne fatal
+3:
+
+    mov 168(%r12), %rax
+    cmp $RESCHEDULE_VECTOR, %rax
+    jne 1f
+    lock orq $1, %gs:72
+    jmp 2f
+1:
+    cmp $TIMER_VECTOR, %rax
+    jne fatal
+    mov $0x832, %ecx
+    mov $(0x10000 | TIMER_VECTOR), %eax
+    xor %edx, %edx
+    wrmsr
+    lock orq $2, %gs:64
+    lock incq %gs:48
+    js fatal
+    lock orq $2, %gs:72
+    cmpq $0, %gs:88
+    je 2f
+    movq $1, %gs:96
+2:
     mov $0x80b, %ecx
     xor %eax, %eax
     xor %edx, %edx
     wrmsr
+    mov 184(%r12), %rdi
+    mov $3, %eax
+    xor %edx, %edx
+    xrstor64 (%rdi)
     pop %r15
     pop %r14
     pop %r13
@@ -459,6 +564,7 @@ timer_vector:
     pop %rcx
     pop %rbx
     pop %rax
+    add $8, %rsp
     iretq
 #endif
 
@@ -554,12 +660,213 @@ initialize_x2apic:
     wrmsr
     ret
 
+/* Install a private GDT, TSS, and IST1 stack for the current dense core. */
+.type initialize_cpu_tables, @function
+initialize_cpu_tables:
+    push %rbx
+    push %r12
+    mov %gs:0, %r12
+    cmp $MAX_CORES, %r12
+    jae fatal
+
+    lea tss_records(%rip), %rbx
+    mov %r12, %rax
+    shl $7, %rax
+    add %rax, %rbx
+    lea exception_stacks(%rip), %rax
+    mov %r12, %rcx
+    inc %rcx
+    shl $EXCEPTION_STACK_SHIFT, %rcx
+    add %rcx, %rax
+    mov %rax, 4(%rbx)
+    mov %rax, 36(%rbx)
+    movw $104, 102(%rbx)
+
+    lea gdt_tables(%rip), %rdi
+    mov %r12, %rax
+    shl $6, %rax
+    add %rax, %rdi
+    movq $0, 0(%rdi)
+    movabs $0x00af9a000000ffff, %rax
+    mov %rax, 8(%rdi)
+    movabs $0x00cf92000000ffff, %rax
+    mov %rax, 16(%rdi)
+    movw $103, 24(%rdi)
+    mov %rbx, %rax
+    movw %ax, 26(%rdi)
+    shr $16, %rax
+    movb %al, 28(%rdi)
+    movb $0x89, 29(%rdi)
+    movb $0, 30(%rdi)
+    mov %rbx, %rax
+    shr $24, %rax
+    movb %al, 31(%rdi)
+    mov %rbx, %rax
+    shr $32, %rax
+    movl %eax, 32(%rdi)
+    movl $0, 36(%rdi)
+    movw $39, 40(%rdi)
+    lea 0(%rdi), %rax
+    mov %rax, 42(%rdi)
+    lgdt 40(%rdi)
+    pushq $0x08
+    lea 1f(%rip), %rax
+    push %rax
+    lretq
+1:
+    mov $0x10, %eax
+    mov %ax, %ds
+    mov %ax, %es
+    mov %ax, %ss
+    mov $0x18, %eax
+    ltr %ax
+    pop %r12
+    pop %rbx
+    ret
+
+.type activate_m2_idt, @function
+activate_m2_idt:
+    lock incl m2_tables_ready_count(%rip)
+1:
+    mov m2_tables_ready_count(%rip), %eax
+    cmp cpu_count(%rip), %eax
+    jne 1b
+    cmpq $0, %gs:0
+    jne 3f
+    call initialize_m2_idt
+    movl $1, m2_idt_ready(%rip)
+    jmp 4f
+3:
+    cmpl $1, m2_idt_ready(%rip)
+    jne 3b
+    call install_idt
+4:
+    ret
+
+.type m2_arm_task_timer, @function
+m2_arm_task_timer:
+    andq $-3, %gs:72
+    mov $0x83e, %ecx
+    mov $3, %eax
+    xor %edx, %edx
+    wrmsr
+    mov $0x832, %ecx
+    mov $TIMER_VECTOR, %eax
+    xor %edx, %edx
+    wrmsr
+    mov $0x838, %ecx
+    mov $100000, %eax
+    xor %edx, %edx
+    wrmsr
+    ret
+
+.global flyology_m2_wait_for_timer_request
+.type flyology_m2_wait_for_timer_request, @function
+flyology_m2_wait_for_timer_request:
+    sub $24, %rsp
+    movw $0x027f, 0(%rsp)
+    fldcw 0(%rsp)
+    movq $1, %gs:80
+    movdqa m2_simd_canary(%rip), %xmm0
+    movdqa m2_simd_canary + 16(%rip), %xmm15
+    call m2_arm_task_timer
+    movabs $0x1122334455667788, %r8
+    movabs $0x8877665544332211, %r9
+    movabs $0x5aa55aa5a55aa55a, %r10
+    movabs $0xa55aa55a5aa55aa5, %r11
+1:
+    testq $2, %gs:72
+    jnz 2f
+    pause
+    jmp 1b
+2:
+    movabs $0x1122334455667788, %rax
+    cmp %rax, %r8
+    jne fatal
+    movabs $0x8877665544332211, %rax
+    cmp %rax, %r9
+    jne fatal
+    movabs $0x5aa55aa5a55aa55a, %rax
+    cmp %rax, %r10
+    jne fatal
+    movabs $0xa55aa55a5aa55aa5, %rax
+    cmp %rax, %r11
+    jne fatal
+    pcmpeqb m2_simd_canary(%rip), %xmm0
+    pmovmskb %xmm0, %eax
+    cmp $0xffff, %eax
+    jne fatal
+    pcmpeqb m2_simd_canary + 16(%rip), %xmm15
+    pmovmskb %xmm15, %eax
+    cmp $0xffff, %eax
+    jne fatal
+    fnstcw 2(%rsp)
+    cmpw $0x027f, 2(%rsp)
+    jne fatal
+    movw $0x037f, 4(%rsp)
+    fldcw 4(%rsp)
+    movq $0, %gs:80
+    add $24, %rsp
+    ret
+
+.global flyology_m2_acknowledge_requests
+.type flyology_m2_acknowledge_requests, @function
+flyology_m2_acknowledge_requests:
+    mov %gs:48, %rdx
+    mov %rdx, %gs:56
+    mov %gs:64, %rax
+    ret
+
+.global flyology_m2_parallel_task_barrier
+.type flyology_m2_parallel_task_barrier, @function
+flyology_m2_parallel_task_barrier:
+    lock incl m2_task_barrier_count(%rip)
+1:
+    mov m2_task_barrier_count(%rip), %eax
+    cmp cpu_count(%rip), %eax
+    je 2f
+    pause
+    jmp 1b
+2:
+    ret
+
+.global flyology_m2_arm_deferred_timer
+.type flyology_m2_arm_deferred_timer, @function
+flyology_m2_arm_deferred_timer:
+    andq $-3, %gs:72
+    call m2_arm_task_timer
+1:
+    testq $2, %gs:72
+    jnz 2f
+    pause
+    jmp 1b
+2:
+    ret
+
+.global flyology_m2_consume_deferred
+.type flyology_m2_consume_deferred, @function
+flyology_m2_consume_deferred:
+    xor %eax, %eax
+    xchg %rax, %gs:96
+    ret
+
+.global flyology_m2_disable_dispatch
+.type flyology_m2_disable_dispatch, @function
+flyology_m2_disable_dispatch:
+    cli
+    ret
+
+.global flyology_m2_enable_dispatch
+.type flyology_m2_enable_dispatch, @function
+flyology_m2_enable_dispatch:
+    sti
+    ret
+
 .type m2_idle_reschedule_test, @function
 m2_idle_reschedule_test:
     push %rbx
     push %r12
-    call initialize_x2apic
-    movq $0, %gs:48
+    movq $0, %gs:72
     lock incl m2_idle_ready_count(%rip)
     mov %gs:0, %ebx
     test %ebx, %ebx
@@ -577,6 +884,9 @@ m2_idle_reschedule_test:
     mov %r12, %rdx
     shl $CORE_RECORD_SHIFT, %rdx
     add %rdx, %rax
+    lock orq $1, 64(%rax)
+    lock incq 48(%rax)
+    js fatal
     mov 16(%rax), %edx
     mov $(0x4000 | RESCHEDULE_VECTOR), %eax
     mov $0x830, %ecx
@@ -584,16 +894,19 @@ m2_idle_reschedule_test:
     inc %r12d
     jmp 2b
 3:
-    cmpq $0, %gs:48
-    jne 4f
+    testq $1, %gs:72
+    jnz 4f
     sti
     hlt
     cli
     jmp 3b
 4:
+    call flyology_m2_acknowledge_requests
+    test $1, %eax
+    jz fatal
     mov %ebx, %edi
     call m2_report_ipi_pass
-    movq $0, %gs:56
+    andq $-3, %gs:72
     mov $0x83e, %ecx
     mov $3, %eax
     xor %edx, %edx
@@ -607,13 +920,16 @@ m2_idle_reschedule_test:
     xor %edx, %edx
     wrmsr
 5:
-    cmpq $0, %gs:56
-    jne 6f
+    testq $2, %gs:72
+    jnz 6f
     sti
     hlt
     cli
     jmp 5b
 6:
+    call flyology_m2_acknowledge_requests
+    test $2, %eax
+    jz fatal
     mov %ebx, %edi
     call m2_report_timer_pass
     pop %r12
@@ -671,6 +987,34 @@ flyology_m2_report_pass:
     call serial_putc
     lea m2_core_suffix(%rip), %rdi
     call serial_puts
+    lea m2_core_prefix(%rip), %rdi
+    call serial_puts
+    lea digits(%rip), %rax
+    mov (%rax,%rbx,1), %dil
+    call serial_putc
+    lea m2_frame_suffix(%rip), %rdi
+    call serial_puts
+    lea m2_core_prefix(%rip), %rdi
+    call serial_puts
+    lea digits(%rip), %rax
+    mov (%rax,%rbx,1), %dil
+    call serial_putc
+    lea m2_epoch_suffix(%rip), %rdi
+    call serial_puts
+    lea m2_core_prefix(%rip), %rdi
+    call serial_puts
+    lea digits(%rip), %rax
+    mov (%rax,%rbx,1), %dil
+    call serial_putc
+    lea m2_parallel_suffix(%rip), %rdi
+    call serial_puts
+    lea m2_core_prefix(%rip), %rdi
+    call serial_puts
+    lea digits(%rip), %rax
+    mov (%rax,%rbx,1), %dil
+    call serial_putc
+    lea m2_deferred_suffix(%rip), %rdi
+    call serial_puts
     call serial_lock_release
     pop %rbx
     ret
@@ -683,6 +1027,11 @@ flyology_m2_report_failure:
 .global flyology_rts_lock_acquire
 .type flyology_rts_lock_acquire, @function
 flyology_rts_lock_acquire:
+    cmpq $255, %gs:88
+    jae fatal
+    cmpq $0, %gs:88
+    jne 3f
+    incq %gs:88
     mov $1, %eax
 1:
     xchg %eax, rts_lock(%rip)
@@ -693,11 +1042,27 @@ flyology_rts_lock_acquire:
     jmp 1b
 2:
     ret
+3:
+    incq %gs:88
+    ret
 
 .global flyology_rts_lock_release
 .type flyology_rts_lock_release, @function
 flyology_rts_lock_release:
+    cmpq $0, %gs:88
+    je fatal
+    cmpq $1, %gs:88
+    je 2f
+    decq %gs:88
+    ret
+2:
     movl $0, rts_lock(%rip)
+    decq %gs:88
+    mov %gs:48, %rax
+    cmp %gs:56, %rax
+    je 1f
+    movq $1, %gs:96
+1:
     ret
 #endif
 
@@ -803,12 +1168,25 @@ fatal:
     jmp halt
 
 .section .rodata
+.section .rodata.flyology_interrupt_layout, "a", @progbits
+.short 256, 0, 120, 128, 136, 144, 152, 160
+.short 168, 176, 184, 192, 200, 208, 216
+
+.section .rodata
+.balign 16
+m2_simd_canary:
+.quad 0x0123456789abcdef, 0xfedcba9876543210
+.quad 0x55aa55aa33cc33cc, 0xaa55aa55cc33cc33
 online_prefix: .asciz "FLYOLOGY:CORE:ONLINE:"
 ada_pass:      .asciz "FLYOLOGY:ADA:MAIN:PASS\n"
 m1_pass:       .asciz "FLYOLOGY:M1:PASS\n"
 #ifdef FLYOLOGY_M2
 m2_core_prefix: .asciz "FLYOLOGY:M2:CORE:"
 m2_core_suffix: .asciz ":SUBSTRATE:PASS\n"
+m2_frame_suffix: .asciz ":INTERRUPT_FRAME:PASS\n"
+m2_epoch_suffix: .asciz ":REQUEST_EPOCH:PASS\n"
+m2_parallel_suffix: .asciz ":PARALLEL:PASS\n"
+m2_deferred_suffix: .asciz ":DEFERRED_REQUEST:PASS\n"
 m2_ipi_suffix: .asciz ":RESCHEDULE_IPI:PASS\n"
 m2_timer_suffix: .asciz ":TIMER:PASS\n"
 m2_pass:       .asciz "FLYOLOGY:M2:PASS\n"
@@ -824,6 +1202,9 @@ online_count: .skip 4
 #ifdef FLYOLOGY_M2
 m2_complete_count: .skip 4
 m2_idle_ready_count: .skip 4
+m2_task_barrier_count: .skip 4
+m2_tables_ready_count: .skip 4
+m2_idt_ready: .skip 4
 cpu_count: .skip 4
 rts_lock: .skip 4
 #endif
@@ -832,6 +1213,18 @@ memory_usable_found: .skip 1
 bsp_record: .skip 8
 .balign 64
 core_records: .skip MAX_CORES * (1 << CORE_RECORD_SHIFT)
+#ifdef FLYOLOGY_M2
+.balign 64
+interrupt_frames: .skip MAX_CORES * 256
+.balign 4096
+xsave_areas: .skip MAX_CORES * 4096
+.balign 128
+tss_records: .skip MAX_CORES * 128
+.balign 64
+gdt_tables: .skip MAX_CORES * 64
+.balign 16
+exception_stacks: .skip MAX_CORES * (1 << EXCEPTION_STACK_SHIFT)
+#endif
 .balign 16
 idt_descriptor: .skip 10
 .balign 4096

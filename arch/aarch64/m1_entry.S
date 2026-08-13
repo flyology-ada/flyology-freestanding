@@ -3,7 +3,7 @@
 .set MAX_CORES, 4
 .set STACK_SHIFT, 16
 .set EXCEPTION_STACK_SHIFT, 14
-.set CORE_RECORD_SHIFT, 6
+.set CORE_RECORD_SHIFT, 7
 .set UART_BASE, 0x09000000
 .set GICD_BASE, 0x08000000
 .set GICR_BASE, 0x080a0000
@@ -242,7 +242,10 @@ wait_online:
     mov sp, x2
     msr spsel, #0
     isb
+    msr daifclr, #2
+    isb
     bl flyology_m2_core_entry
+    msr daifset, #2
     bl m2_idle_reschedule_test
     bl m2_complete_increment
 wait_m2_complete:
@@ -317,7 +320,10 @@ ap_entry:
     mov sp, x2
     msr spsel, #0
     isb
+    msr daifclr, #2
+    isb
     bl flyology_m2_core_entry
+    msr daifset, #2
     bl m2_idle_reschedule_test
     bl m2_complete_increment
 #endif
@@ -523,6 +529,198 @@ m2_idle_ready_increment:
     sev
     ret
 
+/* x0 = core record, x1 = reason bit. Publish reason before epoch. */
+.type m2_post_request, %function
+m2_post_request:
+    add x2, x0, #64
+1:
+    ldaxr x3, [x2]
+    orr x3, x3, x1
+    stlxr w4, x3, [x2]
+    cbnz w4, 1b
+    add x2, x0, #48
+2:
+    ldaxr x3, [x2]
+    add x3, x3, #1
+    tbnz x3, #63, fatal
+    stlxr w4, x3, [x2]
+    cbnz w4, 2b
+    sev
+    ret
+
+.type m2_mark_delivered, %function
+m2_mark_delivered:
+    add x2, x0, #72
+1:
+    ldaxr x3, [x2]
+    orr x3, x3, x1
+    stlxr w4, x3, [x2]
+    cbnz w4, 1b
+    sev
+    ret
+
+.type m2_arm_task_timer, %function
+m2_arm_task_timer:
+    mrs x0, tpidr_el1
+    ldr x1, [x0, #72]
+    bic x1, x1, #2
+    str x1, [x0, #72]
+    mov x0, #0x4000
+    msr cntv_tval_el0, x0
+    mov x0, #1
+    msr cntv_ctl_el0, x0
+    isb
+    ret
+
+.global flyology_m2_wait_for_timer_request
+.type flyology_m2_wait_for_timer_request, %function
+flyology_m2_wait_for_timer_request:
+    sub sp, sp, #32
+    stp x29, x30, [sp]
+    mrs x2, fpcr
+    str x2, [sp, #16]
+    mov x2, #(1 << 22)
+    msr fpcr, x2
+    mrs x0, tpidr_el1
+    mov x1, #1
+    str x1, [x0, #80]
+    address x1, m2_simd_canary
+    ldr q0, [x1]
+    ldr q31, [x1, #16]
+    bl m2_arm_task_timer
+    movz x9, #0x7788
+    movk x9, #0x5566, lsl #16
+    movk x9, #0x3344, lsl #32
+    movk x9, #0x1122, lsl #48
+    movz x10, #0x2211
+    movk x10, #0x4433, lsl #16
+    movk x10, #0x6655, lsl #32
+    movk x10, #0x8877, lsl #48
+    movz x11, #0xa55a
+    movk x11, #0xa55a, lsl #16
+    movk x11, #0x5aa5, lsl #32
+    movk x11, #0x5aa5, lsl #48
+    mrs x0, tpidr_el1
+    add x0, x0, #72
+1:
+    ldar x1, [x0]
+    tbz x1, #1, 1b
+    movz x1, #0x7788
+    movk x1, #0x5566, lsl #16
+    movk x1, #0x3344, lsl #32
+    movk x1, #0x1122, lsl #48
+    cmp x9, x1
+    b.ne fatal
+    movz x1, #0x2211
+    movk x1, #0x4433, lsl #16
+    movk x1, #0x6655, lsl #32
+    movk x1, #0x8877, lsl #48
+    cmp x10, x1
+    b.ne fatal
+    movz x1, #0xa55a
+    movk x1, #0xa55a, lsl #16
+    movk x1, #0x5aa5, lsl #32
+    movk x1, #0x5aa5, lsl #48
+    cmp x11, x1
+    b.ne fatal
+    address x1, m2_simd_canary
+    ldr q1, [x1]
+    cmeq v2.16b, v0.16b, v1.16b
+    uminv b2, v2.16b
+    umov w2, v2.b[0]
+    cmp w2, #0xff
+    b.ne fatal
+    ldr q30, [x1, #16]
+    cmeq v2.16b, v31.16b, v30.16b
+    uminv b2, v2.16b
+    umov w2, v2.b[0]
+    cmp w2, #0xff
+    b.ne fatal
+    mrs x1, fpcr
+    cmp x1, #(1 << 22)
+    b.ne fatal
+    mrs x0, tpidr_el1
+    str xzr, [x0, #80]
+    ldr x2, [sp, #16]
+    msr fpcr, x2
+    ldp x29, x30, [sp]
+    add sp, sp, #32
+    ret
+
+.global flyology_m2_acknowledge_requests
+.type flyology_m2_acknowledge_requests, %function
+flyology_m2_acknowledge_requests:
+    mrs x1, tpidr_el1
+    add x2, x1, #48
+    ldar x3, [x2]
+    add x2, x1, #56
+    stlr x3, [x2]
+    add x2, x1, #64
+    ldar x0, [x2]
+    ret
+
+.global flyology_m2_parallel_task_barrier
+.type flyology_m2_parallel_task_barrier, %function
+flyology_m2_parallel_task_barrier:
+    address x0, m2_task_barrier_count
+1:
+    ldaxr w1, [x0]
+    add w1, w1, #1
+    stlxr w2, w1, [x0]
+    cbnz w2, 1b
+2:
+    ldar w1, [x0]
+    address x2, cpu_count
+    ldr w2, [x2]
+    cmp w1, w2
+    b.eq 3f
+    wfe
+    b 2b
+3:
+    sev
+    ret
+
+.global flyology_m2_arm_deferred_timer
+.type flyology_m2_arm_deferred_timer, %function
+flyology_m2_arm_deferred_timer:
+    stp x29, x30, [sp, #-16]!
+    mrs x0, tpidr_el1
+    ldr x1, [x0, #72]
+    bic x1, x1, #2
+    str x1, [x0, #72]
+    bl m2_arm_task_timer
+    mrs x0, tpidr_el1
+    add x0, x0, #72
+1:
+    ldar x1, [x0]
+    tbz x1, #1, 1b
+    ldp x29, x30, [sp], #16
+    ret
+
+.global flyology_m2_consume_deferred
+.type flyology_m2_consume_deferred, %function
+flyology_m2_consume_deferred:
+    mrs x0, tpidr_el1
+    add x1, x0, #96
+1:
+    ldaxr x0, [x1]
+    stlxr w2, xzr, [x1]
+    cbnz w2, 1b
+    ret
+
+.global flyology_m2_disable_dispatch
+.type flyology_m2_disable_dispatch, %function
+flyology_m2_disable_dispatch:
+    msr daifset, #2
+    ret
+
+.global flyology_m2_enable_dispatch
+.type flyology_m2_enable_dispatch, %function
+flyology_m2_enable_dispatch:
+    msr daifclr, #2
+    isb
+    ret
+
 .type m2_idle_reschedule_test, %function
 m2_idle_reschedule_test:
     stp x29, x30, [sp, #-48]!
@@ -530,7 +728,7 @@ m2_idle_reschedule_test:
     str x21, [sp, #32]
     mov x29, sp
     mrs x19, tpidr_el1
-    str xzr, [x19, #48]
+    str xzr, [x19, #72]
     bl m2_idle_ready_increment
     ldr x3, [x19]
     cbnz x3, 3f
@@ -548,23 +746,31 @@ m2_idle_reschedule_test:
     b.hs 3f
     address x5, core_records
     add x5, x5, x21, lsl #CORE_RECORD_SHIFT
+    mov x0, x5
+    mov x1, #1
+    bl m2_post_request
     ldr x0, [x5, #16]
     bl send_reschedule_sgi
     add x21, x21, #1
     b 2b
 3:
     msr daifset, #2
-    ldr x0, [x19, #48]
-    cbnz x0, 4f
+    add x0, x19, #72
+    ldar x0, [x0]
+    tbnz x0, #0, 4f
     wfi
     msr daifclr, #2
     isb
     msr daifset, #2
     b 3b
 4:
+    bl flyology_m2_acknowledge_requests
+    tbz x0, #0, fatal
     ldr x0, [x19]
     bl m2_report_sgi_pass
-    str xzr, [x19, #56]
+    ldr x0, [x19, #72]
+    bic x0, x0, #2
+    str x0, [x19, #72]
     mov x0, #0x86a0
     movk x0, #1, lsl #16
     msr cntv_tval_el0, x0
@@ -572,14 +778,17 @@ m2_idle_reschedule_test:
     msr cntv_ctl_el0, x0
 5:
     msr daifset, #2
-    ldr x0, [x19, #56]
-    cbnz x0, 6f
+    add x0, x19, #72
+    ldar x0, [x0]
+    tbnz x0, #1, 6f
     wfi
     msr daifclr, #2
     isb
     msr daifset, #2
     b 5b
 6:
+    bl flyology_m2_acknowledge_requests
+    tbz x0, #1, fatal
     ldr x0, [x19]
     bl m2_report_timer_pass
     ldp x19, x20, [sp, #16]
@@ -647,6 +856,34 @@ flyology_m2_report_pass:
     bl serial_putc
     address x0, m2_core_suffix
     bl serial_puts
+    address x0, m2_core_prefix
+    bl serial_puts
+    address x1, digits
+    ldrb w0, [x1, x19]
+    bl serial_putc
+    address x0, m2_frame_suffix
+    bl serial_puts
+    address x0, m2_core_prefix
+    bl serial_puts
+    address x1, digits
+    ldrb w0, [x1, x19]
+    bl serial_putc
+    address x0, m2_epoch_suffix
+    bl serial_puts
+    address x0, m2_core_prefix
+    bl serial_puts
+    address x1, digits
+    ldrb w0, [x1, x19]
+    bl serial_putc
+    address x0, m2_parallel_suffix
+    bl serial_puts
+    address x0, m2_core_prefix
+    bl serial_puts
+    address x1, digits
+    ldrb w0, [x1, x19]
+    bl serial_putc
+    address x0, m2_deferred_suffix
+    bl serial_puts
     bl serial_lock_release
     ldr x19, [sp, #16]
     ldp x29, x30, [sp], #32
@@ -660,6 +897,14 @@ flyology_m2_report_failure:
 .global flyology_rts_lock_acquire
 .type flyology_rts_lock_acquire, %function
 flyology_rts_lock_acquire:
+    mrs x3, tpidr_el1
+    ldr x4, [x3, #88]
+    cmp x4, #255
+    b.hs fatal
+    add x4, x4, #1
+    str x4, [x3, #88]
+    cmp x4, #1
+    b.ne 3f
     address x0, rts_lock
 1:
     ldaxr w1, [x0]
@@ -677,9 +922,23 @@ flyology_rts_lock_acquire:
 .global flyology_rts_lock_release
 .type flyology_rts_lock_release, %function
 flyology_rts_lock_release:
+    mrs x1, tpidr_el1
+    ldr x2, [x1, #88]
+    cbz x2, fatal
+    sub x2, x2, #1
+    str x2, [x1, #88]
+    cbnz x2, 1f
     address x0, rts_lock
     stlr wzr, [x0]
     sev
+    add x2, x1, #48
+    ldar x3, [x2]
+    ldr x4, [x1, #56]
+    cmp x3, x4
+    b.eq 1f
+    mov x2, #1
+    str x2, [x1, #96]
+1:
     ret
 #endif
 
@@ -927,19 +1186,33 @@ fatal:
 exception_fatal:
     /* M1 vectors are terminal diagnostics; complete frames arrive in M2. */
     msr daifset, #0xf
+    address x0, exception_marker
+    b exception_fatal_message
+
+frame_state_fatal:
+    address x0, frame_state_marker
+    b exception_fatal_message
+frame_fpcr_fatal:
+    address x0, frame_fpcr_marker
+    b exception_fatal_message
+frame_simd0_fatal:
+    address x0, frame_simd0_marker
+    b exception_fatal_message
+frame_simd31_fatal:
+    address x0, frame_simd31_marker
+exception_fatal_message:
     address x1, uart_address
     ldr x1, [x1]
     cbz x1, halt
-    address x0, serial_lock
-    stlr wzr, [x0]
-    address x0, exception_marker
+    address x1, serial_lock
+    stlr wzr, [x1]
     bl serial_puts
     b halt
 
 #ifdef FLYOLOGY_M2
 .type reschedule_irq, %function
 reschedule_irq:
-    sub sp, sp, #256
+    sub sp, sp, #832
     stp x0, x1, [sp, #0]
     stp x2, x3, [sp, #16]
     stp x4, x5, [sp, #32]
@@ -956,23 +1229,126 @@ reschedule_irq:
     stp x26, x27, [sp, #208]
     stp x28, x29, [sp, #224]
     str x30, [sp, #240]
-    mrs x0, icc_iar1_el1
-    and x1, x0, #0xffffff
+    mrs x0, sp_el0
+    str x0, [sp, #248]
+    mrs x0, elr_el1
+    str x0, [sp, #256]
+    mrs x0, spsr_el1
+    str x0, [sp, #264]
+    mrs x0, esr_el1
+    str x0, [sp, #272]
+    mrs x0, far_el1
+    str x0, [sp, #280]
+    mrs x0, tpidr_el0
+    str x0, [sp, #288]
+    mov x0, #1
+    str x0, [sp, #296]
+    mrs x0, fpcr
+    str x0, [sp, #304]
+    mrs x0, fpsr
+    str x0, [sp, #312]
+    stp q0, q1, [sp, #320]
+    stp q2, q3, [sp, #352]
+    stp q4, q5, [sp, #384]
+    stp q6, q7, [sp, #416]
+    stp q8, q9, [sp, #448]
+    stp q10, q11, [sp, #480]
+    stp q12, q13, [sp, #512]
+    stp q14, q15, [sp, #544]
+    stp q16, q17, [sp, #576]
+    stp q18, q19, [sp, #608]
+    stp q20, q21, [sp, #640]
+    stp q22, q23, [sp, #672]
+    stp q24, q25, [sp, #704]
+    stp q26, q27, [sp, #736]
+    stp q28, q29, [sp, #768]
+    stp q30, q31, [sp, #800]
+    ldr x0, [sp, #256]
+    cbz x0, frame_state_fatal
+    ldr x0, [sp, #248]
+    tst x0, #15
+    b.ne frame_state_fatal
+    ldr x0, [sp, #264]
+    and x0, x0, #15
+    cmp x0, #4
+    b.ne frame_state_fatal
+    mrs x0, tpidr_el1
+    ldr x0, [x0, #80]
+    cbz x0, 4f
+    ldr x0, [sp, #304]
+    cmp x0, #(1 << 22)
+    b.ne frame_fpcr_fatal
+    address x0, m2_simd_canary
+    ldr q0, [sp, #320]
+    ldr q1, [x0]
+    cmeq v2.16b, v0.16b, v1.16b
+    uminv b2, v2.16b
+    umov w0, v2.b[0]
+    cmp w0, #0xff
+    b.ne frame_simd0_fatal
+    address x0, m2_simd_canary
+    ldr q0, [sp, #816]
+    ldr q1, [x0, #16]
+    cmeq v2.16b, v0.16b, v1.16b
+    uminv b2, v2.16b
+    umov w0, v2.b[0]
+    cmp w0, #0xff
+    b.ne frame_simd31_fatal
+4:
+    mrs x20, icc_iar1_el1
+    and x1, x20, #0xffffff
     cmp x1, #RESCHEDULE_SGI
     b.ne 1f
-    mrs x2, tpidr_el1
-    mov x3, #1
-    str x3, [x2, #48]
+    mrs x0, tpidr_el1
+    mov x1, #1
+    bl m2_mark_delivered
     b 2f
 1:
     cmp x1, #27
     b.ne 3f
-    mrs x2, tpidr_el1
-    mov x3, #1
-    str x3, [x2, #56]
     msr cntv_ctl_el0, xzr
+    mrs x0, tpidr_el1
+    mov x1, #2
+    bl m2_post_request
+    mrs x0, tpidr_el1
+    ldr x1, [x0, #88]
+    cbz x1, 5f
+    mov x1, #1
+    str x1, [x0, #96]
+5:
+    mrs x0, tpidr_el1
+    mov x1, #2
+    bl m2_mark_delivered
 2:
-    msr icc_eoir1_el1, x0
+    msr icc_eoir1_el1, x20
+    ldp q0, q1, [sp, #320]
+    ldp q2, q3, [sp, #352]
+    ldp q4, q5, [sp, #384]
+    ldp q6, q7, [sp, #416]
+    ldp q8, q9, [sp, #448]
+    ldp q10, q11, [sp, #480]
+    ldp q12, q13, [sp, #512]
+    ldp q14, q15, [sp, #544]
+    ldp q16, q17, [sp, #576]
+    ldp q18, q19, [sp, #608]
+    ldp q20, q21, [sp, #640]
+    ldp q22, q23, [sp, #672]
+    ldp q24, q25, [sp, #704]
+    ldp q26, q27, [sp, #736]
+    ldp q28, q29, [sp, #768]
+    ldp q30, q31, [sp, #800]
+    ldr x0, [sp, #304]
+    msr fpcr, x0
+    ldr x0, [sp, #312]
+    msr fpsr, x0
+    ldr x0, [sp, #248]
+    msr sp_el0, x0
+    ldr x0, [sp, #256]
+    msr elr_el1, x0
+    ldr x0, [sp, #264]
+    msr spsr_el1, x0
+    ldr x0, [sp, #288]
+    msr tpidr_el0, x0
     ldp x0, x1, [sp, #0]
     ldp x2, x3, [sp, #16]
     ldp x4, x5, [sp, #32]
@@ -989,11 +1365,11 @@ reschedule_irq:
     ldp x26, x27, [sp, #208]
     ldp x28, x29, [sp, #224]
     ldr x30, [sp, #240]
-    add sp, sp, #256
+    add sp, sp, #832
     eret
 3:
-    msr icc_eoir1_el1, x0
-    add sp, sp, #256
+    msr icc_eoir1_el1, x20
+    add sp, sp, #832
     b exception_fatal
 #endif
 
@@ -1028,19 +1404,35 @@ vector_table:
     vector exception_fatal
     vector exception_fatal
 
+.section .rodata.flyology_interrupt_layout, "a", %progbits
+.short 832, 0, 248, 256, 264, 272, 280, 288
+.short 296, 304, 312, 320
+
 .section .rodata
+.balign 16
+m2_simd_canary:
+.quad 0x0123456789abcdef, 0xfedcba9876543210
+.quad 0x55aa55aa33cc33cc, 0xaa55aa55cc33cc33
 online_prefix: .asciz "FLYOLOGY:CORE:ONLINE:"
 ada_pass:      .asciz "FLYOLOGY:ADA:MAIN:PASS\n"
 m1_pass:       .asciz "FLYOLOGY:M1:PASS\n"
 #ifdef FLYOLOGY_M2
 m2_core_prefix: .asciz "FLYOLOGY:M2:CORE:"
 m2_core_suffix: .asciz ":SUBSTRATE:PASS\n"
+m2_frame_suffix: .asciz ":INTERRUPT_FRAME:PASS\n"
+m2_epoch_suffix: .asciz ":REQUEST_EPOCH:PASS\n"
+m2_parallel_suffix: .asciz ":PARALLEL:PASS\n"
+m2_deferred_suffix: .asciz ":DEFERRED_REQUEST:PASS\n"
 m2_sgi_suffix: .asciz ":RESCHEDULE_SGI:PASS\n"
 m2_timer_suffix: .asciz ":TIMER:PASS\n"
 m2_pass:       .asciz "FLYOLOGY:M2:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:AARCH64_BOOT\n"
 exception_marker: .asciz "FLYOLOGY:FAIL:AARCH64_EXCEPTION\n"
+frame_state_marker: .asciz "FLYOLOGY:FAIL:AARCH64_FRAME_STATE\n"
+frame_fpcr_marker: .asciz "FLYOLOGY:FAIL:AARCH64_FRAME_FPCR\n"
+frame_simd0_marker: .asciz "FLYOLOGY:FAIL:AARCH64_FRAME_SIMD0\n"
+frame_simd31_marker: .asciz "FLYOLOGY:FAIL:AARCH64_FRAME_SIMD31\n"
 last_chance_marker: .asciz "FLYOLOGY:LAST_CHANCE:AARCH64\n"
 digits:        .ascii "0123"
 
@@ -1051,6 +1443,7 @@ online_count: .skip 4
 #ifdef FLYOLOGY_M2
 m2_complete_count: .skip 4
 m2_idle_ready_count: .skip 4
+m2_task_barrier_count: .skip 4
 cpu_count: .skip 4
 rts_lock: .skip 4
 #endif

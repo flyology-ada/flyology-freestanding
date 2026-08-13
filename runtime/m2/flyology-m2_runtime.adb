@@ -2,13 +2,11 @@
 
 with Flyology.Dispatcher_Model;
 with Flyology.M2_Architecture;
-with Flyology.Reschedule_Model;
 with Flyology.Scheduler_Contract;
 
 package body Flyology.M2_Runtime is
    package Model renames Flyology.Dispatcher_Model;
    package Architecture renames Flyology.M2_Architecture;
-   package Requests renames Flyology.Reschedule_Model;
    package Scheduler renames Flyology.Scheduler_Contract;
    use type Model.Task_Incarnation;
    use type Model.Generation;
@@ -16,14 +14,13 @@ package body Flyology.M2_Runtime is
    use type Model.Task_State;
    use type Model.Wait_Phase;
    use type Model.Wait_State;
-   use type Requests.Request_Epoch;
    use type System.Address;
 
    Max_Cores       : constant := 4;
    Task_Stack_Size : constant := 16 * 1_024;
 
    type Core_Number is range 0 .. Max_Cores - 1;
-   type Step_Count is range 0 .. 2;
+   type Step_Count is range 0 .. 3;
    type Stack_Byte is mod 2 ** 8 with Size => 8;
    type Task_Stack is array (Natural range 0 .. Task_Stack_Size - 1)
      of Stack_Byte
@@ -36,7 +33,6 @@ package body Flyology.M2_Runtime is
    type Reference_Array is array (Core_Number) of Model.Task_Ref;
    type Queue_Array is array (Core_Number) of Scheduler.Ready_Queue;
    type Wait_Array is array (Core_Number) of Model.Wait_State;
-   type Request_Array is array (Core_Number) of Requests.Request_State;
 
    Task_Stacks        : Stack_Array;
    Task_Contexts      : Context_Array;
@@ -46,7 +42,6 @@ package body Flyology.M2_Runtime is
    Current_Tasks      : Reference_Array := [others => Model.No_Task];
    Ready_Queues       : Queue_Array;
    Wait_States        : Wait_Array;
-   Request_States     : Request_Array;
 
    function Current_Core return System.Address
    with Import,
@@ -72,6 +67,41 @@ package body Flyology.M2_Runtime is
    with Import,
         Convention    => C,
         External_Name => "flyology_rts_lock_release";
+
+   procedure Wait_For_Timer_Request
+   with Import,
+        Convention    => C,
+        External_Name => "flyology_m2_wait_for_timer_request";
+
+   function Acknowledge_Requests return System.Address
+   with Import,
+        Convention    => C,
+        External_Name => "flyology_m2_acknowledge_requests";
+
+   procedure Parallel_Task_Barrier
+   with Import,
+        Convention    => C,
+        External_Name => "flyology_m2_parallel_task_barrier";
+
+   procedure Arm_Deferred_Timer
+   with Import,
+        Convention    => C,
+        External_Name => "flyology_m2_arm_deferred_timer";
+
+   function Consume_Deferred return System.Address
+   with Import,
+        Convention    => C,
+        External_Name => "flyology_m2_consume_deferred";
+
+   procedure Disable_Dispatch
+   with Import,
+        Convention    => C,
+        External_Name => "flyology_m2_disable_dispatch";
+
+   procedure Enable_Dispatch
+   with Import,
+        Convention    => C,
+        External_Name => "flyology_m2_enable_dispatch";
 
    procedure Fail is
    begin
@@ -127,6 +157,12 @@ package body Flyology.M2_Runtime is
       end if;
       Ready_Queues (Core) := Choice.Remainder;
       Apply_Transition (Task_States (Core), Model.Dispatch);
+      if Wait_States (Core).Phase /= Model.No_Wait
+        or else Wait_States (Core).Wake_Saved
+      then
+         Fail;
+      end if;
+      Wait_States (Core).State := Model.Running;
       Current_Tasks (Core) := Choice.Selected;
    end Dispatch_Next;
 
@@ -148,13 +184,14 @@ package body Flyology.M2_Runtime is
    end Arm_Wait;
 
    procedure Make_Ready_Exact
-     (Core  : Core_Number;
-      Token : Model.Generation;
-      Won   : out Boolean)
+     (Core      : Core_Number;
+      Reference : Model.Task_Ref;
+      Token     : Model.Generation;
+      Won       : out Boolean)
    is
       Before : constant Model.Wait_State := Wait_States (Core);
       After  : constant Model.Wait_State :=
-        Model.Wake_Exact (Before, Reference_For (Core), Token);
+        Model.Wake_Exact (Before, Reference, Token);
    begin
       Won := After /= Before;
       if not Won then
@@ -201,12 +238,18 @@ package body Flyology.M2_Runtime is
       if Blocked then
          Apply_Transition (Task_States (Core), Model.Block);
          Current_Tasks (Core) := Model.No_Task;
+         Disable_Dispatch;
       elsif Published.State /= Model.Running
         or else Published.Phase /= Model.No_Wait
       then
          Fail;
       end if;
       Leave_Kernel;
+      if Blocked then
+         Architecture.Switch
+           (Task_Contexts (Core)'Access, Dispatcher_Contexts (Core)'Access);
+         Enable_Dispatch;
+      end if;
    end Block_Current_And_Release;
 
    procedure Initialize is
@@ -217,11 +260,6 @@ package body Flyology.M2_Runtime is
       Ready_Queues :=
         [others =>
            (Storage => [others => Model.No_Task], Length => 0)];
-      Request_States :=
-        [others =>
-           (Requested    => Requests.Request_Epoch'First,
-            Acknowledged => Requests.Request_Epoch'First,
-            Reasons      => Requests.No_Reasons)];
       for Core in Core_Number loop
          Wait_States (Core) :=
            (Reference  => Reference_For (Core),
@@ -232,24 +270,6 @@ package body Flyology.M2_Runtime is
       end loop;
    end Initialize;
 
-   procedure Check_Request_Model (Core : Core_Number) is
-      Seen  : Requests.Dispatch_Snapshot;
-   begin
-      Request_States (Core) := Requests.Post_Request
-        (Request_States (Core), Requests.Remote_Ready);
-      Seen := Requests.Snapshot (Request_States (Core));
-      Request_States (Core) := Requests.Post_Request
-        (Request_States (Core), Requests.Timer);
-      Request_States (Core) := Requests.Acknowledge
-        (Request_States (Core), Seen);
-      if not Requests.Is_Pending (Request_States (Core))
-        or else Request_States (Core).Acknowledged /= Requests.Epoch_Of (Seen)
-        or else Request_States (Core).Requested = Requests.Epoch_Of (Seen)
-      then
-         Fail;
-      end if;
-   end Check_Request_Model;
-
    procedure Core_Entry is
       Raw_Core  : constant System.Address := Current_Core;
       Core      : Core_Number;
@@ -259,8 +279,6 @@ package body Flyology.M2_Runtime is
          Fail;
       end if;
       Core := Core_Number (Raw_Core);
-
-      Check_Request_Model (Core);
 
       if Task_Stacks (Core) (Task_Stack'First)'Address
         > System.Address'Last - System.Address (Task_Stack_Size)
@@ -279,6 +297,9 @@ package body Flyology.M2_Runtime is
       Architecture.Switch
         (Dispatcher_Contexts (Core)'Access, Task_Contexts (Core)'Access);
 
+      if (Acknowledge_Requests and 2) = 0 then
+         Fail;
+      end if;
       Enter_Kernel;
       if Task_States (Core) /= Model.Blocked
         or else Task_Steps (Core) /= 1
@@ -289,7 +310,38 @@ package body Flyology.M2_Runtime is
       declare
          Won : Boolean;
       begin
-         Make_Ready_Exact (Core, Wait_States (Core).Token, Won);
+         Make_Ready_Exact
+           (Core,
+            (Slot        => Reference_For (Core).Slot,
+             Incarnation => Reference_For (Core).Incarnation + 1),
+            Wait_States (Core).Token,
+            Won);
+         if Won then
+            Fail;
+         end if;
+         Make_Ready_Exact
+           (Core, Reference_For (Core), Wait_States (Core).Token, Won);
+         if not Won then
+            Fail;
+         end if;
+      end;
+      Dispatch_Next (Core);
+      Leave_Kernel;
+      Architecture.Switch
+        (Dispatcher_Contexts (Core)'Access, Task_Contexts (Core)'Access);
+
+      Enter_Kernel;
+      if Task_States (Core) /= Model.Blocked
+        or else Task_Steps (Core) /= 2
+        or else Current_Tasks (Core) /= Model.No_Task
+      then
+         Fail;
+      end if;
+      declare
+         Won : Boolean;
+      begin
+         Make_Ready_Exact
+           (Core, Reference_For (Core), Wait_States (Core).Token, Won);
          if not Won then
             Fail;
          end if;
@@ -301,7 +353,7 @@ package body Flyology.M2_Runtime is
 
       Enter_Kernel;
       if Task_States (Core) /= Model.Terminated
-        or else Task_Steps (Core) /= 2
+        or else Task_Steps (Core) /= 3
         or else Current_Tasks (Core) /= Model.No_Task
       then
          Fail;
@@ -320,6 +372,8 @@ package body Flyology.M2_Runtime is
          Fail;
       end if;
       Core := Core_Number (Core_Value);
+      Wait_For_Timer_Request;
+      Parallel_Task_Barrier;
       Enter_Kernel;
       if Task_States (Core) /= Model.Running
         or else Task_Steps (Core) /= 0
@@ -329,7 +383,7 @@ package body Flyology.M2_Runtime is
       end if;
 
       Arm_Wait (Core, Token);
-      Make_Ready_Exact (Core, Token, Won);
+      Make_Ready_Exact (Core, Reference_For (Core), Token, Won);
       if not Won then
          Fail;
       end if;
@@ -345,8 +399,6 @@ package body Flyology.M2_Runtime is
       if not Did_Block then
          Fail;
       end if;
-      Architecture.Switch
-        (Task_Contexts (Core)'Access, Dispatcher_Contexts (Core)'Access);
 
       Enter_Kernel;
       if Task_States (Core) /= Model.Running
@@ -355,7 +407,41 @@ package body Flyology.M2_Runtime is
       then
          Fail;
       end if;
+      Leave_Kernel;
+
+      Enter_Kernel;
+      Enter_Kernel;
+      Arm_Deferred_Timer;
+      Leave_Kernel;
+      Leave_Kernel;
+      if Consume_Deferred = 0
+        or else (Acknowledge_Requests and 2) = 0
+      then
+         Fail;
+      end if;
+
+      Enter_Kernel;
+      if Task_States (Core) /= Model.Running
+        or else Task_Steps (Core) /= 1
+        or else Current_Tasks (Core) /= Reference_For (Core)
+      then
+         Fail;
+      end if;
+      Arm_Wait (Core, Token);
       Task_Steps (Core) := 2;
+      Block_Current_And_Release (Core, Token, Did_Block);
+      if not Did_Block then
+         Fail;
+      end if;
+
+      Enter_Kernel;
+      if Task_States (Core) /= Model.Running
+        or else Task_Steps (Core) /= 2
+        or else Current_Tasks (Core) /= Reference_For (Core)
+      then
+         Fail;
+      end if;
+      Task_Steps (Core) := 3;
       Apply_Transition (Task_States (Core), Model.Terminate_Task);
       Current_Tasks (Core) := Model.No_Task;
       Leave_Kernel;
