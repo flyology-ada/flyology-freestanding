@@ -47,6 +47,9 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     flyology_m4_program_timer flyology_m4_cancel_timer \
     system__tasking__protected_objects__lock \
     system__tasking__protected_objects__unlock \
+    system__tasking__rendezvous__call_simple \
+    system__tasking__rendezvous__accept_call \
+    system__tasking__rendezvous__complete_rendezvous \
     system__tasking__stages__activate_tasks \
     system__tasking__stages__complete_activation \
     system__tasking__stages__complete_task \
@@ -60,7 +63,9 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     flyology__wait_arbitration_model__resolve \
     flyology__dispatcher_model__try_transition \
     flyology__placement_model__place __gnat_personality_v0 \
-    _Unwind_Resume __gnat_last_chance_handler; do
+    __gnat_begin_handler_v1 __gnat_end_handler_v1 \
+    __gnat_all_others_value _Unwind_Resume \
+    __gnat_last_chance_handler; do
     printf '%s\n' "$nm_output" | grep -E "[[:space:]]$symbol$" >/dev/null
 done
 
@@ -76,6 +81,7 @@ for marker in 'FLYOLOGY:ADA:ELABORATION:PASS' \
     'FLYOLOGY:M3:NESTED_MASTER:PASS' 'FLYOLOGY:M3:TASK_STACKS:PASS' \
     'FLYOLOGY:M4:DELAYS:PASS' \
     'FLYOLOGY:M4:PROTECTED:PASS' \
+    'FLYOLOGY:M4:RENDEZVOUS:PASS' \
     'FLYOLOGY:M3:ORDINARY_TASKS:PASS' \
     'FLYOLOGY:M3:BOOT_SUBSTRATE:PASS'; do
     scripts/toolchain.sh exec "$architecture" "$target-strings" "$elf" | \

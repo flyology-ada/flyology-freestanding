@@ -12,10 +12,12 @@ case "$architecture" in
     x86_64)
         target=x86_64-elf
         architecture_flags='-mno-red-zone -mcmodel=large'
+        libgcc_digest=b6d172e843239c3fa3906c0d972936a48ebf3d4249a0d0e723f83ecb18ff2304
         ;;
     aarch64)
         target=aarch64-elf
         architecture_flags='-mcmodel=large -mgeneral-regs-only'
+        libgcc_digest=0effb03f768225ce901b94e6ab108a3709b83bd2c879a629136b89b9bb0cd992
         ;;
     *) echo "unsupported architecture: $architecture" >&2; exit 64 ;;
 esac
@@ -63,6 +65,7 @@ compile_ada runtime/m3/s-tasinf.ads s-tasinf.o yes
 compile_ada runtime/m3/s-taskin.adb s-taskin.o yes
 compile_ada runtime/m3/s-finpri.adb s-finpri.o yes
 compile_ada runtime/m3/s-taprob.adb s-taprob.o yes
+compile_ada runtime/m3/s-tasren.adb s-tasren.o yes
 compile_ada runtime/core/flyology.ads flyology.o
 compile_ada runtime/core/flyology-validation.adb flyology-validation.o
 compile_ada runtime/core/flyology-boot_validation.adb flyology-boot_validation.o
@@ -104,7 +107,7 @@ compile_ada "$output_directory/b~flyology_m3.adb" b~flyology_m3.o generated
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
     -c "arch/$architecture/m1_entry.S" -o "$output_directory/m3_entry.o" \
-    -DFLYOLOGY_M2 -DFLYOLOGY_M3 -ffreestanding \
+    -DFLYOLOGY_M2 -DFLYOLOGY_M3 -DFLYOLOGY_EXCEPTION -ffreestanding \
     -fno-stack-protector -fno-pic -fno-pie $architecture_flags
 
 for source in context memory limine_requests; do
@@ -116,6 +119,20 @@ for source in context memory limine_requests; do
         $architecture_flags
 done
 
+# shellcheck disable=SC2086
+scripts/toolchain.sh exec "$architecture" "$target-gcc" \
+    -c runtime/m4/exception_runtime.c \
+    -o "$output_directory/exception_runtime.o" -ffreestanding \
+    -DFLYOLOGY_RUNTIME_MEMORY_EXTERNAL \
+    -fno-stack-protector -fno-pic -fno-pie -fno-builtin \
+    -ffunction-sections -fdata-sections -funwind-tables \
+    -Wall -Wextra -Werror $architecture_flags
+
+libgcc=$(scripts/toolchain.sh exec "$architecture" \
+    "$target-gcc" -print-libgcc-file-name)
+printf '%s  %s\n' "$libgcc_digest" "$libgcc" | \
+    shasum -a 256 -c - >/dev/null
+
 scripts/toolchain.sh exec "$architecture" "$target-ld" \
     --build-id=none --fatal-warnings --gc-sections -z noexecstack \
     -T "arch/$architecture/m1.ld" \
@@ -124,6 +141,7 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/context.o" \
     "$output_directory/memory.o" \
     "$output_directory/limine_requests.o" \
+    "$output_directory/exception_runtime.o" \
     "$output_directory/b~flyology_m3.o" \
     "$output_directory/flyology_m3.o" \
     "$output_directory/flyology-m3_demo.o" \
@@ -143,6 +161,7 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/flyology-dispatcher_model.o" \
     "$output_directory/s-taskin.o" \
     "$output_directory/s-taprob.o" \
+    "$output_directory/s-tasren.o" \
     "$output_directory/s-finpri.o" \
     "$output_directory/s-tasinf.o" \
     "$output_directory/s-parame.o" \
@@ -158,7 +177,8 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/flyology-validation.o" \
     "$output_directory/flyology.o" \
     "$output_directory/s-stalib.o" \
-    "$output_directory/system.o"
+    "$output_directory/system.o" \
+    --start-group "$libgcc" --end-group
 
 test -z "$(scripts/toolchain.sh exec "$architecture" \
     "$target-nm" -u "$output_directory/flyology-m3.elf")"

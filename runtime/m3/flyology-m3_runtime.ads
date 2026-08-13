@@ -13,6 +13,7 @@ package Flyology.M3_Runtime is
       Elaborated     : System.Tasking.Boolean_Access;
       Priority       : Integer;
       CPU            : Integer;
+      Entry_Count    : Natural;
       Master         : Integer;
       Created_Task   : out Task_Id);
 
@@ -36,6 +37,18 @@ package Flyology.M3_Runtime is
    procedure Delay_For (Interval : Duration);
    procedure Protected_Enter (Ceiling : Integer);
    procedure Protected_Leave;
+
+   procedure Call_Simple
+     (Target      : Task_Id;
+      Entry_Index : System.Tasking.Task_Entry_Index;
+      Parameters  : System.Address);
+
+   procedure Accept_Call
+     (Entry_Index : System.Tasking.Task_Entry_Index;
+      Parameters  : out System.Address);
+
+   procedure Complete_Rendezvous;
+   procedure Unsupported_Exceptional_Rendezvous;
 
    procedure Core_Initialize (CPU_Count : System.Address)
    with Export, Convention => C,

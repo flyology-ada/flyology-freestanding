@@ -11,4 +11,5 @@ package System.Soft_Links is
    Enter_Master    : No_Param_Procedure;
    Complete_Master : No_Param_Procedure;
    Current_Master  : No_Param_Function;
+   function Get_Gnat_Exception return System.Address;
 end System.Soft_Links;

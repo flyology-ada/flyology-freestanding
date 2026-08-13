@@ -84,3 +84,25 @@ the master to observe the exact total before
 `FLYOLOGY:M4:PROTECTED:PASS`. This checkpoint does not claim protected entries,
 entry queues, priority-ordered entry service, ceiling-violation exception
 propagation, or finalized-object race behavior.
+
+The owned `simple_rendezvous_probe.adb` establishes the same compiler surface
+on both cross targets for a simple task entry call: `Create_Task` receives an
+entry count of one, the server calls `Accept_Call`, the client calls
+`Call_Simple`, and normal accept completion calls `Complete_Rendezvous`. The
+compiler also emits an implicit all-others landing pad that calls
+`Exceptional_Complete_Rendezvous`; the probe records its handler lifecycle and
+catch-all identity rather than treating it as optional.
+The AArch64 local-object probe additionally emits `__clear_cache` for a nested
+trampoline; the library-level product task type avoids that executable-stack
+mechanism, and final ELF inspection rejects the symbol on both targets.
+
+The product demonstration creates the server with ordinary Ada syntax, pins it
+to the last configured Ada CPU, and calls it from the core-0 environment task.
+The implementation queues a bounded call record, blocks each participant with
+the common generation-tagged exact-wait mechanism, and performs both remote
+wakes through Task_Core. All four architecture/CPU-count cells require the
+returned `in out` value before emitting `FLYOLOGY:M4:RENDEZVOUS:PASS`.
+Exceptional accept completion currently fails closed: exception-occurrence
+copying and propagation to the caller have not yet been implemented or tested.
+Conditional/timed calls, selective waits, entry families, requeue, abort, and
+priority-ordered entry queues remain later M4 gates.

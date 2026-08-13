@@ -182,12 +182,16 @@ scan_done:
     cmp 16(%rdi), %eax
     jne fatal
 
-    call adainit
 #ifdef FLYOLOGY_EXCEPTION
     call flyology_exception_initialize
+#endif
+    call adainit
+#ifdef FLYOLOGY_EXCEPTION
+#ifndef FLYOLOGY_M3
     call _ada_exception_probe
     lea exception_pass(%rip), %rdi
     call serial_puts_locked
+#endif
 #endif
 #ifdef FLYOLOGY_M3
     lea ada_elaboration_pass(%rip), %rdi
@@ -198,7 +202,7 @@ scan_done:
     call _ada_flyology_m2
 #endif
 #else
-#ifdef FLYOLOGY_EXCEPTION
+#if defined(FLYOLOGY_EXCEPTION) && !defined(FLYOLOGY_M3)
     call adafinal
 #else
     call _ada_flyology_m1
@@ -1192,6 +1196,12 @@ flyology_m4_report_protected_pass:
     lea m4_protected_pass(%rip), %rdi
     jmp serial_puts_locked
 
+.global flyology_m4_report_rendezvous_pass
+.type flyology_m4_report_rendezvous_pass, @function
+flyology_m4_report_rendezvous_pass:
+    lea m4_rendezvous_pass(%rip), %rdi
+    jmp serial_puts_locked
+
 .global flyology_m3_report_master_pass
 .type flyology_m3_report_master_pass, @function
 flyology_m3_report_master_pass:
@@ -1346,6 +1356,7 @@ flyology_m4_program_timer:
     pop %rbx
     ret
 
+#ifndef FLYOLOGY_EXCEPTION
 .global __gnat_personality_v0
 .type __gnat_personality_v0, @function
 __gnat_personality_v0:
@@ -1355,6 +1366,7 @@ __gnat_personality_v0:
 .type _Unwind_Resume, @function
 _Unwind_Resume:
     jmp fatal
+#endif
 #endif
 
 .global flyology_m2_report_pass
@@ -1595,6 +1607,7 @@ m3_master_pass: .asciz "FLYOLOGY:M3:NESTED_MASTER:PASS\n"
 m3_stack_pass: .asciz "FLYOLOGY:M3:TASK_STACKS:PASS\n"
 m4_delay_pass: .asciz "FLYOLOGY:M4:DELAYS:PASS\n"
 m4_protected_pass: .asciz "FLYOLOGY:M4:PROTECTED:PASS\n"
+m4_rendezvous_pass: .asciz "FLYOLOGY:M4:RENDEZVOUS:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:X86_BOOT\n"
 last_chance_marker: .asciz "FLYOLOGY:LAST_CHANCE:X86_64\n"

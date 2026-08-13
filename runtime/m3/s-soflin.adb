@@ -3,6 +3,8 @@
 with Flyology.M3_Runtime;
 
 package body System.Soft_Links is
+   function Get_Gnat_Exception return System.Address is
+     (System.Null_Address);
 begin
    Abort_Defer := Flyology.M3_Runtime.Abort_Defer'Access;
    Abort_Undefer := Flyology.M3_Runtime.Abort_Undefer'Access;

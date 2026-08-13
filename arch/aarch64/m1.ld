@@ -13,7 +13,20 @@ SECTIONS
 {
     . = 0xffffffff80000000;
     .text : ALIGN(4K) { KEEP(*(.text.entry)) *(.text .text.*) } :text
-    .rodata : ALIGN(4K) { *(.rodata .rodata.*) } :text
+    .rodata : ALIGN(4K)
+    {
+        *(.rodata .rodata.*)
+        *(.gcc_except_table .gcc_except_table.*)
+    } :text
+    .eh_frame : ALIGN(8)
+    {
+        __eh_frame_runtime_start = .;
+        KEEP(*exception_runtime.o(.eh_frame .eh_frame.*))
+        __eh_frame_probe_start = .;
+        KEEP(*(.eh_frame .eh_frame.*))
+        LONG(0)
+        __eh_frame_end = .;
+    } :text
     .data : ALIGN(4K)
     {
         *(.data .data.*)
@@ -24,7 +37,7 @@ SECTIONS
         *(.got .got.*)
     } :data
     .bss (NOLOAD) : ALIGN(4K) { *(COMMON) *(.bss .bss.*) } :data
-    /DISCARD/ : { *(.comment) *(.note .note.*) *(.eh_frame .eh_frame.*) }
+    /DISCARD/ : { *(.comment) *(.note .note.*) }
 }
 
 ASSERT(limine_requests_end_marker - limine_requests_start_marker + 16 == 400,

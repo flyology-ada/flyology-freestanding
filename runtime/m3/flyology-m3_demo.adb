@@ -58,6 +58,12 @@ package body Flyology.M3_Demo is
    task type Auto_Worker_Type (Index : Positive);
    task type Nested_Child_Type;
    task type Nested_Parent_Type;
+   task type Rendezvous_Server_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range)
+     with CPU => CPU_Number
+   is
+      entry Ping (Value : in out Integer);
+   end Rendezvous_Server_Type;
 
    task body Specific_Worker_Type is
       Self : constant Ada.Task_Identification.Task_Id :=
@@ -135,6 +141,13 @@ package body Flyology.M3_Demo is
       Nested_Parent_Done := True;
    end Nested_Parent_Type;
 
+   task body Rendezvous_Server_Type is
+   begin
+      accept Ping (Value : in out Integer) do
+         Value := Value + 1;
+      end Ping;
+   end Rendezvous_Server_Type;
+
    procedure Report_Ordinary_Pass
    with Import, Convention => C,
         External_Name => "flyology_m3_report_ordinary_pass";
@@ -158,6 +171,10 @@ package body Flyology.M3_Demo is
    procedure Report_Protected_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_protected_pass";
+
+   procedure Report_Rendezvous_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_rendezvous_pass";
 
    procedure Report_Master_Pass
    with Import, Convention => C,
@@ -260,6 +277,18 @@ package body Flyology.M3_Demo is
          Report_Failure;
       end if;
       Report_Protected_Pass;
+
+      declare
+         Server : Rendezvous_Server_Type
+           (System.Multiprocessors.CPU_Range (CPU_Count));
+         Value : Integer := 41;
+      begin
+         Server.Ping (Value);
+         if Value /= 42 then
+            Report_Failure;
+         end if;
+      end;
+      Report_Rendezvous_Pass;
 
       for Index in Auto_Id'Range loop
          if not Auto_Done (Index)

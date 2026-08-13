@@ -25,6 +25,7 @@ u8 constraint_error;
 u8 program_error;
 u8 storage_error;
 u8 __gnat_others_value;
+u8 __gnat_all_others_value;
 
 static struct flyology_exception exceptions[EXCEPTION_CAPACITY]
     __attribute__((aligned(16)));
@@ -205,6 +206,31 @@ void __gnat_rcheck_CE_Explicit_Raise(void *location, int line)
     raise_identity(&constraint_error);
 }
 
+void __gnat_rcheck_CE_Access_Check(void *location, int line)
+{
+    __gnat_rcheck_CE_Explicit_Raise(location, line);
+}
+
+void __gnat_rcheck_CE_Index_Check(void *location, int line)
+{
+    __gnat_rcheck_CE_Explicit_Raise(location, line);
+}
+
+void __gnat_rcheck_CE_Invalid_Data(void *location, int line)
+{
+    __gnat_rcheck_CE_Explicit_Raise(location, line);
+}
+
+void __gnat_rcheck_CE_Overflow_Check(void *location, int line)
+{
+    __gnat_rcheck_CE_Explicit_Raise(location, line);
+}
+
+void __gnat_rcheck_CE_Range_Check(void *location, int line)
+{
+    __gnat_rcheck_CE_Explicit_Raise(location, line);
+}
+
 void __gnat_rcheck_SE_Explicit_Raise(void *location, int line)
 {
     (void)location;
@@ -291,7 +317,8 @@ _Unwind_Reason_Code __gnat_personality_v0
                 identity = (void *)read_encoded(&type_cursor, type_encoding,
                                                 region_start);
                 if (identity == exception->identity ||
-                    identity == &__gnat_others_value) {
+                    identity == &__gnat_others_value ||
+                    identity == &__gnat_all_others_value) {
                     matched = 1;
                     selector = filter;
                     break;
@@ -341,6 +368,7 @@ void __gnat_reraise_zcx(struct _Unwind_Exception *exception)
     __gnat_last_chance_handler((void *)"Ada re-raise returned", 0);
 }
 
+#ifndef FLYOLOGY_RUNTIME_MEMORY_EXTERNAL
 void *memcpy(void *destination, const void *source, usize count)
 {
     u8 *to = (u8 *)destination;
@@ -359,6 +387,7 @@ void *memset(void *destination, int value, usize count)
         to[index] = (u8)value;
     return destination;
 }
+#endif
 
 usize strlen(const char *text)
 {

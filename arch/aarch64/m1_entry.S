@@ -187,12 +187,16 @@ scan_done:
     cmp x1, x2
     b.ne fatal
 
-    bl adainit
 #ifdef FLYOLOGY_EXCEPTION
     bl flyology_exception_initialize
+#endif
+    bl adainit
+#ifdef FLYOLOGY_EXCEPTION
+#ifndef FLYOLOGY_M3
     bl _ada_exception_probe
     address x0, exception_pass
     bl serial_puts_locked
+#endif
 #endif
 #ifdef FLYOLOGY_M3
     address x0, ada_elaboration_pass
@@ -203,7 +207,7 @@ scan_done:
     bl _ada_flyology_m2
 #endif
 #else
-#ifdef FLYOLOGY_EXCEPTION
+#if defined(FLYOLOGY_EXCEPTION) && !defined(FLYOLOGY_M3)
     bl adafinal
 #else
     bl _ada_flyology_m1
@@ -990,6 +994,12 @@ flyology_m4_report_protected_pass:
     address x0, m4_protected_pass
     b serial_puts_locked
 
+.global flyology_m4_report_rendezvous_pass
+.type flyology_m4_report_rendezvous_pass, %function
+flyology_m4_report_rendezvous_pass:
+    address x0, m4_rendezvous_pass
+    b serial_puts_locked
+
 .global flyology_m3_report_master_pass
 .type flyology_m3_report_master_pass, %function
 flyology_m3_report_master_pass:
@@ -1054,6 +1064,7 @@ flyology_m4_cancel_timer:
     isb
     ret
 
+#ifndef FLYOLOGY_EXCEPTION
 .global __gnat_personality_v0
 .type __gnat_personality_v0, %function
 __gnat_personality_v0:
@@ -1063,6 +1074,7 @@ __gnat_personality_v0:
 .type _Unwind_Resume, %function
 _Unwind_Resume:
     b fatal
+#endif
 #endif
 
 .global flyology_m2_report_pass
@@ -1677,6 +1689,7 @@ m3_master_pass: .asciz "FLYOLOGY:M3:NESTED_MASTER:PASS\n"
 m3_stack_pass: .asciz "FLYOLOGY:M3:TASK_STACKS:PASS\n"
 m4_delay_pass: .asciz "FLYOLOGY:M4:DELAYS:PASS\n"
 m4_protected_pass: .asciz "FLYOLOGY:M4:PROTECTED:PASS\n"
+m4_rendezvous_pass: .asciz "FLYOLOGY:M4:RENDEZVOUS:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:AARCH64_BOOT\n"
 exception_marker: .asciz "FLYOLOGY:FAIL:AARCH64_EXCEPTION\n"

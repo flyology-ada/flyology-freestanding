@@ -21,6 +21,10 @@ for architecture in x86_64 aarch64; do
           "$output/base_protected_probe.o" \
           "$output/base_protected_probe.expanded" \
           "$output/base_protected_probe.undefined"
+    rm -f "$output/simple_rendezvous_probe.ali" \
+          "$output/simple_rendezvous_probe.o" \
+          "$output/simple_rendezvous_probe.expanded" \
+          "$output/simple_rendezvous_probe.undefined"
 
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-gcc" -c "$repository/probes/m4/exception_probe.adb" \
@@ -69,6 +73,32 @@ for architecture in x86_64 aarch64; do
         "$output/base_protected_probe.expanded" >/dev/null
     grep -F 'system__tasking__protected_objects__lock_read_only (' \
         "$output/base_protected_probe.expanded" >/dev/null
+
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-gcc" -c \
+        "$repository/probes/m4/simple_rendezvous_probe.adb" \
+        -o simple_rendezvous_probe.o -nostdinc \
+        -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
+        -I"$repository/runtime/m3" -gnat2022 -gnatG -gnatf \
+        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        >"$output/simple_rendezvous_probe.expanded" 2>&1
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-nm" -u simple_rendezvous_probe.o \
+        >"$output/simple_rendezvous_probe.undefined"
+    for symbol in __gnat_all_others_value __gnat_begin_handler_v1 \
+        __gnat_end_handler_v1 __gnat_personality_v0 \
+        system__soft_links__get_gnat_exception \
+        system__tasking__rendezvous__accept_call \
+        system__tasking__rendezvous__call_simple \
+        system__tasking__rendezvous__complete_rendezvous \
+        system__tasking__rendezvous__exceptional_complete_rendezvous; do
+        grep -F " $symbol" "$output/simple_rendezvous_probe.undefined" \
+            >/dev/null
+    done
+    grep -F 'system__tasking__rendezvous__accept_call (1,' \
+        "$output/simple_rendezvous_probe.expanded" >/dev/null
+    grep -F 'system__tasking__rendezvous__call_simple (' \
+        "$output/simple_rendezvous_probe.expanded" >/dev/null
     echo "FLYOLOGY:M4:PROBE:PASS:$architecture"
 done
 
@@ -83,4 +113,13 @@ grep -v ' __clear_cache$' \
     >"$output_root/aarch64/base_protected_probe.normalized"
 diff -u "$output_root/x86_64/base_protected_probe.undefined" \
     "$output_root/aarch64/base_protected_probe.normalized" >/dev/null
+test "$(grep -c ' __clear_cache$' \
+    "$output_root/x86_64/simple_rendezvous_probe.undefined" || true)" -eq 0
+test "$(grep -c ' __clear_cache$' \
+    "$output_root/aarch64/simple_rendezvous_probe.undefined")" -eq 1
+grep -v ' __clear_cache$' \
+    "$output_root/aarch64/simple_rendezvous_probe.undefined" \
+    >"$output_root/aarch64/simple_rendezvous_probe.normalized"
+diff -u "$output_root/x86_64/simple_rendezvous_probe.undefined" \
+    "$output_root/aarch64/simple_rendezvous_probe.normalized" >/dev/null
 echo 'FLYOLOGY:M4:PROBE:PASS'
