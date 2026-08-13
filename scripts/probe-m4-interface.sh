@@ -41,6 +41,10 @@ for architecture in x86_64 aarch64; do
           "$output/dynamic_task_probe.o" \
           "$output/dynamic_task_probe.expanded" \
           "$output/dynamic_task_probe.undefined"
+    rm -f "$output/absolute_delay_probe.ali" \
+          "$output/absolute_delay_probe.o" \
+          "$output/absolute_delay_probe.expanded" \
+          "$output/absolute_delay_probe.undefined"
 
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-gcc" -c "$repository/probes/m4/exception_probe.adb" \
@@ -188,6 +192,25 @@ for architecture in x86_64 aarch64; do
     done
     grep -F 'system__tasking__stages__expunge_unactivated_tasks (' \
         "$output/dynamic_task_probe.expanded" >/dev/null
+
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-gcc" -c \
+        "$repository/probes/m4/absolute_delay_probe.adb" \
+        -o absolute_delay_probe.o -nostdinc \
+        -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
+        -I"$repository/runtime/m3" -gnat2022 -gnatG -gnatf \
+        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        >"$output/absolute_delay_probe.expanded" 2>&1
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-nm" -u absolute_delay_probe.o \
+        >"$output/absolute_delay_probe.undefined"
+    for symbol in ada__real_time__clock \
+        ada__real_time__milliseconds \
+        ada__real_time__delays__delay_until; do
+        grep -F " $symbol" "$output/absolute_delay_probe.undefined" >/dev/null
+    done
+    grep -F 'ada__real_time__delays__delay_until (deadline)' \
+        "$output/absolute_delay_probe.expanded" >/dev/null
     echo "FLYOLOGY:M4:PROBE:PASS:$architecture"
 done
 
@@ -241,4 +264,6 @@ grep -v ' __clear_cache$' \
     >"$output_root/aarch64/dynamic_task_probe.normalized"
 diff -u "$output_root/x86_64/dynamic_task_probe.undefined" \
     "$output_root/aarch64/dynamic_task_probe.normalized" >/dev/null
+diff -u "$output_root/x86_64/absolute_delay_probe.undefined" \
+    "$output_root/aarch64/absolute_delay_probe.undefined" >/dev/null
 echo 'FLYOLOGY:M4:PROBE:PASS'

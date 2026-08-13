@@ -1,6 +1,7 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Ada.Dynamic_Priorities;
+with Ada.Real_Time;
 with Ada.Task_Identification;
 with Flyology.M3_Runtime;
 with System.Multiprocessors;
@@ -212,6 +213,10 @@ package body Flyology.M3_Demo is
    with Import, Convention => C,
         External_Name => "flyology_m4_report_delay_pass";
 
+   procedure Report_Absolute_Delay_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_absolute_delay_pass";
+
    procedure Report_Protected_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_protected_pass";
@@ -333,6 +338,18 @@ package body Flyology.M3_Demo is
       end;
       Report_Auto_Master_Pass;
       Report_Delay_Pass;
+      declare
+         use type Ada.Real_Time.Time;
+         Deadline : constant Ada.Real_Time.Time :=
+           Ada.Real_Time.Clock + Ada.Real_Time.Milliseconds (2);
+      begin
+         delay until Deadline;
+         if Ada.Real_Time.Clock < Deadline then
+            Report_Failure;
+         end if;
+         delay until Deadline;
+      end;
+      Report_Absolute_Delay_Pass;
       if Shared_Counter.Value /= 8 then
          Report_Failure;
       end if;

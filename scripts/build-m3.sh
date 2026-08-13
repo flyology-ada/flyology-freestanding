@@ -58,7 +58,8 @@ compile_ada runtime/bootstrap/s-stalib.adb s-stalib.o yes
 compile_ada runtime/m3/ada.ads ada.o yes
 compile_ada runtime/m3/a-calend.ads a-calend.o yes
 compile_ada runtime/m3/a-caldel.adb a-caldel.o yes
-compile_ada runtime/m3/a-reatim.ads a-reatim.o yes
+compile_ada runtime/m3/a-reatim.adb a-reatim.o yes
+compile_ada runtime/m3/a-retide.adb a-retide.o yes
 compile_ada runtime/m3/a-except.adb a-except.o yes
 compile_ada runtime/m3/s-parame.ads s-parame.o yes
 compile_ada runtime/m3/s-tasinf.ads s-tasinf.o yes
@@ -170,6 +171,7 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/s-tasinf.o" \
     "$output_directory/s-parame.o" \
     "$output_directory/a-reatim.o" \
+    "$output_directory/a-retide.o" \
     "$output_directory/a-caldel.o" \
     "$output_directory/a-calend.o" \
     "$output_directory/ada.o" \

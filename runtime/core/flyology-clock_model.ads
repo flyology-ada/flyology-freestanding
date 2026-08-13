@@ -19,8 +19,9 @@ is
            Nanoseconds (Tick'Last) -
              (if Interval mod Nanoseconds_Per_Second = 0 then 0
               else
-                ((Interval mod Nanoseconds_Per_Second) * Nanoseconds (Rate) - 1) /
-                  Nanoseconds_Per_Second + 1));
+                ((Interval mod Nanoseconds_Per_Second) *
+                   Nanoseconds (Rate) - 1) /
+                     Nanoseconds_Per_Second + 1));
 
    function To_Ticks_Ceiling
      (Interval : Nanoseconds;

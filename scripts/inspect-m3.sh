@@ -45,6 +45,7 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     flyology_m3_parallel_barrier system__tasking__stages__create_task \
     flyology_m4_read_clock flyology_m4_clock_frequency \
     flyology_m4_program_timer flyology_m4_cancel_timer \
+    ada__real_time__clock ada__real_time__delays__delay_until \
     system__tasking__protected_objects__lock \
     system__tasking__protected_objects__unlock \
     system__tasking__rendezvous__call_simple \
@@ -85,6 +86,7 @@ for marker in 'FLYOLOGY:ADA:ELABORATION:PASS' \
     'FLYOLOGY:M3:AUTO_MASTER:PASS' 'FLYOLOGY:M3:AUTO_PARALLEL:PASS' \
     'FLYOLOGY:M3:NESTED_MASTER:PASS' 'FLYOLOGY:M3:TASK_STACKS:PASS' \
     'FLYOLOGY:M4:DELAYS:PASS' \
+    'FLYOLOGY:M4:ABSOLUTE_DELAY:PASS' \
     'FLYOLOGY:M4:PROTECTED:PASS' \
     'FLYOLOGY:M4:RENDEZVOUS:PASS' \
     'FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS' \

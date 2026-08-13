@@ -551,11 +551,28 @@ package body Flyology.M3_Runtime is
       end if;
    end Demo_Parallel_Barrier;
 
-   procedure Delay_For (Interval : Duration) is
+   procedure Delay_Until_Tick (Deadline : Clock.Tick) is
       Dense      : constant Core_Number := Core_Of_Current;
       Reference  : Dispatcher.Task_Ref;
       Token      : Core.Wait_Token;
       Outcome    : Waits.Resolution;
+   begin
+      if Clock.Tick (Core.Read_Clock) >= Deadline then
+         return;
+      end if;
+      Enter_Kernel;
+      Reference := Core.Current_Locked (Dense);
+      Core.Arm_Wait_Locked (Reference, Waits.Delay_Wait, Token);
+      Core.Register_Deadline_Locked (Token, Core.Tick (Deadline));
+      Core.Block_Current_And_Release (Dense, Token, Outcome);
+      if Outcome /= Waits.Timer_Expiry
+        or else Clock.Tick (Core.Read_Clock) < Deadline
+      then
+         Stop;
+      end if;
+   end Delay_Until_Tick;
+
+   procedure Delay_For (Interval : Duration) is
       Nanosecond_Count : Long_Long_Integer;
       Tick_Count : Clock.Tick;
       Deadline   : Clock.Tick;
@@ -584,17 +601,18 @@ package body Flyology.M3_Runtime is
          raise Storage_Error;
       end if;
       Deadline := Clock.Add_Delay (Deadline, Tick_Count);
-      Enter_Kernel;
-      Reference := Core.Current_Locked (Dense);
-      Core.Arm_Wait_Locked (Reference, Waits.Delay_Wait, Token);
-      Core.Register_Deadline_Locked (Token, Core.Tick (Deadline));
-      Core.Block_Current_And_Release (Dense, Token, Outcome);
-      if Outcome /= Waits.Timer_Expiry
-        or else Clock.Tick (Core.Read_Clock) < Deadline
-      then
-         Stop;
-      end if;
+      Delay_Until_Tick (Deadline);
    end Delay_For;
+
+   procedure Delay_Until (Deadline : Long_Long_Integer) is
+   begin
+      if Deadline <= 0 then
+         return;
+      elsif Deadline > Long_Long_Integer (Clock.Tick'Last) then
+         raise Storage_Error;
+      end if;
+      Delay_Until_Tick (Clock.Tick (Deadline));
+   end Delay_Until;
 
    procedure Protected_Enter (Ceiling : Integer) is
       Dense     : constant Core_Number := Core_Of_Current;

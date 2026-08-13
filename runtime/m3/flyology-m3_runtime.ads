@@ -35,6 +35,7 @@ package Flyology.M3_Runtime is
    function Validate_Current_Stack (Probe : System.Address) return Boolean;
    procedure Demo_Parallel_Barrier (Phase : Positive);
    procedure Delay_For (Interval : Duration);
+   procedure Delay_Until (Deadline : Long_Long_Integer);
    procedure Protected_Enter (Ceiling : Integer);
    procedure Protected_Leave;
 

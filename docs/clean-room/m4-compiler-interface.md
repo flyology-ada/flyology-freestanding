@@ -64,6 +64,24 @@ registered absolute deadline, and emits one `FLYOLOGY:M4:DELAYS:PASS` marker
 only after their lexical master observes all completions. Absolute delays and
 broader cancellation races remain separate M4 gates.
 
+The owned `absolute_delay_probe.adb` confirms on both targets that an Ada
+`delay until` statement lowers to `Ada.Real_Time.Delays.Delay_Until (Time)`.
+Flyology represents `Ada.Real_Time.Time` as the validated architecture tick,
+implements `Clock`, `Milliseconds`, time addition and comparison, and routes
+the absolute deadline into the same per-core timer and exact-wait path used by
+relative delay. The implementation checks conversion and deadline addition
+before publishing a wait.
+
+The ordinary-Ada image waits for a future absolute deadline, rejects any early
+resume, then repeats `delay until` on the expired deadline to prove the
+nonblocking path. All four QEMU cells require one
+`FLYOLOGY:M4:ABSOLUTE_DELAY:PASS` marker. This checkpoint does not yet provide
+the full `Ada.Real_Time` arithmetic/conversion surface. Until exception
+registration is implemented, the language-defined `Time_Error` name aliases
+the existing `Program_Error` identity and only fail-closed error paths are
+claimed; no test exercises an overflow condition as conforming `Time_Error`
+propagation.
+
 The owned `base_protected_probe.adb` forces aggregate protected state so GNAT
 cannot lower the object to scalar lock-free atomics. Both cross compilers then
 emit the same base lifecycle: `Protection` default initialization,
