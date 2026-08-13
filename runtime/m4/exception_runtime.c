@@ -35,8 +35,7 @@ static u8 allocation_pool[ALLOCATION_CAPACITY] __attribute__((aligned(16)));
 static usize allocation_used;
 static const char *last_personality = "personality not called";
 
-extern const u8 __eh_frame_runtime_start[];
-extern const u8 __eh_frame_probe_start[];
+extern const u8 __eh_frame_start[];
 extern void __register_frame(const void *);
 extern void __gnat_last_chance_handler(void *, int) __attribute__((noreturn));
 
@@ -190,8 +189,7 @@ static void raise_identity(void *identity)
 
 void flyology_exception_initialize(void)
 {
-    __register_frame(__eh_frame_runtime_start);
-    __register_frame(__eh_frame_probe_start);
+    __register_frame(__eh_frame_start);
 }
 
 /* No_Exception_Propagation prevents a library finalizer from recording an

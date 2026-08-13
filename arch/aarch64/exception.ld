@@ -18,9 +18,8 @@ SECTIONS
         *(.rodata .rodata.*)
         *(.gcc_except_table .gcc_except_table.*)
         . = ALIGN(8);
-        __eh_frame_runtime_start = .;
+        __eh_frame_start = .;
         KEEP(build/m4-exception/aarch64/exception_runtime.o(.eh_frame .eh_frame.*))
-        __eh_frame_probe_start = .;
         KEEP(build/m4-exception/aarch64/exception_probe.o(.eh_frame .eh_frame.*))
         KEEP(*(.eh_frame .eh_frame.*))
         QUAD(0)

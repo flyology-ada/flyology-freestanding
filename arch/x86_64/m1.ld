@@ -20,9 +20,8 @@ SECTIONS
     } :text
     .eh_frame : ALIGN(8)
     {
-        __eh_frame_runtime_start = .;
+        __eh_frame_start = .;
         KEEP(*exception_runtime.o(.eh_frame .eh_frame.*))
-        __eh_frame_probe_start = .;
         KEEP(*(.eh_frame .eh_frame.*))
         LONG(0)
         __eh_frame_end = .;
