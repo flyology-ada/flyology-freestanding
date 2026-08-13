@@ -33,12 +33,15 @@ this M3 increment.
 The demonstration deliberately uses library-level task *types* and local task
 objects. That keeps compiler-created body entry points in executable text and
 avoids an AArch64 `__clear_cache` dependency or executable-stack trampoline.
-At SMP4, four tasks without CPU aspects are assigned to distinct eligible
-cores and must all enter a barrier before any may finish. A separate ordinary
-task with `CPU => 1` checks the Ada-CPU-1 to dense-core-0 mapping. At SMP1 the
-same unpinned objects all run on core 0 without the multicore barrier. The
-lexical master then observes termination, and standard identity/callable/
-terminated queries validate the retained TCB identities.
+At SMP4, a task-type CPU aspect driven by a compiler-owned discriminant creates
+four ordinary tasks with `CPU => 1 .. 4`; each checks the corresponding dense
+core and all four must enter a barrier before any may finish. A second phase
+assigns four tasks without CPU aspects to distinct eligible cores and uses an
+independent barrier. At SMP1 the specific phase creates only `CPU => 1`, and
+the four unpinned objects all run on core 0 without a multicore barrier. Each
+lexical master observes termination, and standard identity/callable/terminated
+queries validate the retained TCB identities. The owned placement probe records
+the exact discriminant-to-`Create_Task` lowering on both target compilers.
 
 The compiler still emits unwind metadata and references for task finalizers.
 For this normal-path checkpoint, `__gnat_personality_v0` and `_Unwind_Resume`

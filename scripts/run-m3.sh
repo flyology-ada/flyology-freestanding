@@ -103,6 +103,7 @@ count_marker() {
 test "$(count_marker 'FLYOLOGY:ADA:ELABORATION:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:ADA:MAIN:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:ORDINARY_TASKS:PASS')" -eq 1
+test "$(count_marker 'FLYOLOGY:M3:SPECIFIC_CPU:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:BOOT_SUBSTRATE:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:FAIL:')" -eq 0
 test "$(count_marker 'PANIC:')" -eq 0

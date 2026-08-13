@@ -116,9 +116,9 @@ package body Flyology.M3_Runtime is
    procedure Kick_Core (Core : System.Address)
    with Import, Convention => C, External_Name => "flyology_m3_kick_core";
 
-   procedure Parallel_Barrier
+   procedure Parallel_Barrier (Phase : System.Address)
    with Import, Convention => C,
-        External_Name => "flyology_m2_parallel_task_barrier";
+        External_Name => "flyology_m3_parallel_barrier";
 
    procedure Report_Failure
    with Import, Convention => C, External_Name => "flyology_m2_report_failure";
@@ -529,10 +529,10 @@ package body Flyology.M3_Runtime is
    function Current_Core_Number return Natural is
      (Natural (Core_Of_Current));
 
-   procedure Demo_Parallel_Barrier is
+   procedure Demo_Parallel_Barrier (Phase : Positive) is
    begin
       if Configured = 4 then
-         Parallel_Barrier;
+         Parallel_Barrier (System.Address (Phase));
       end if;
    end Demo_Parallel_Barrier;
 

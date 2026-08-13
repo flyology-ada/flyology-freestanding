@@ -930,11 +930,40 @@ flyology_m3_report_ordinary_pass:
     address x0, m3_ordinary_pass
     b serial_puts_locked
 
+.global flyology_m3_report_specific_pass
+.type flyology_m3_report_specific_pass, %function
+flyology_m3_report_specific_pass:
+    address x0, m3_specific_pass
+    b serial_puts_locked
+
 .global flyology_m3_report_parallel_pass
 .type flyology_m3_report_parallel_pass, %function
 flyology_m3_report_parallel_pass:
     address x0, m3_parallel_pass
     b serial_puts_locked
+
+.global flyology_m3_parallel_barrier
+.type flyology_m3_parallel_barrier, %function
+flyology_m3_parallel_barrier:
+    cbz x0, fatal
+    address x1, cpu_count
+    ldr w1, [x1]
+    mul w3, w0, w1
+    address x0, m3_parallel_barrier_count
+1:
+    ldaxr w1, [x0]
+    add w1, w1, #1
+    stlxr w2, w1, [x0]
+    cbnz w2, 1b
+2:
+    ldar w1, [x0]
+    cmp w1, w3
+    b.eq 3f
+    wfe
+    b 2b
+3:
+    sev
+    ret
 
 .global __gnat_personality_v0
 .type __gnat_personality_v0, %function
@@ -1537,6 +1566,7 @@ m2_timer_suffix: .asciz ":TIMER:PASS\n"
 m2_pass:       .asciz "FLYOLOGY:M2:PASS\n"
 m3_boot_pass:  .asciz "FLYOLOGY:M3:BOOT_SUBSTRATE:PASS\n"
 m3_ordinary_pass: .asciz "FLYOLOGY:M3:ORDINARY_TASKS:PASS\n"
+m3_specific_pass: .asciz "FLYOLOGY:M3:SPECIFIC_CPU:PASS\n"
 m3_parallel_pass: .asciz "FLYOLOGY:M3:AUTO_PARALLEL:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:AARCH64_BOOT\n"
@@ -1560,6 +1590,7 @@ cpu_count: .skip 4
 rts_lock: .skip 4
 #ifdef FLYOLOGY_M3
 dispatcher_ready_count: .skip 4
+m3_parallel_barrier_count: .skip 4
 #endif
 #endif
 .balign 8

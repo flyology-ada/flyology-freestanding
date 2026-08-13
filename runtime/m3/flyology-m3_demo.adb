@@ -6,7 +6,6 @@ with System.Multiprocessors;
 
 package body Flyology.M3_Demo is
    use type Ada.Task_Identification.Task_Id;
-   use type System.Multiprocessors.CPU_Range;
 
    type Done_Array is array (Positive range 1 .. 4) of Boolean
      with Atomic_Components;
@@ -15,16 +14,39 @@ package body Flyology.M3_Demo is
    type Core_Array is array (Positive range 1 .. 4) of Natural
      with Atomic_Components;
 
-   Auto_Done   : Done_Array := [others => False];
-   Pinned_Done : Boolean := False with Atomic;
-   Auto_Id     : Identity_Array :=
+   Auto_Done     : Done_Array := [others => False];
+   Specific_Done : Done_Array := [others => False];
+   Auto_Id       : Identity_Array :=
      [others => Ada.Task_Identification.Null_Task_Id];
-   Pinned_Id   : Ada.Task_Identification.Task_Id :=
-     Ada.Task_Identification.Null_Task_Id with Atomic;
-   Auto_Core   : Core_Array := [others => Natural'Last];
+   Specific_Id   : Identity_Array :=
+     [others => Ada.Task_Identification.Null_Task_Id];
+   Auto_Core     : Core_Array := [others => Natural'Last];
+   Specific_Core : Core_Array := [others => Natural'Last];
+
+   task type Specific_Worker_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range;
+      Index      : Positive)
+     with CPU => CPU_Number;
 
    task type Auto_Worker_Type (Index : Positive);
-   task type Pinned_Worker_Type with CPU => 1;
+
+   task body Specific_Worker_Type is
+      Self : constant Ada.Task_Identification.Task_Id :=
+        Ada.Task_Identification.Current_Task;
+      Core : constant Natural := Flyology.M3_Runtime.Current_Core_Number;
+   begin
+      if Self = Ada.Task_Identification.Null_Task_Id
+        or else not Ada.Task_Identification.Is_Callable (Self)
+        or else Ada.Task_Identification.Is_Terminated (Self)
+        or else Core + 1 /= Natural (CPU_Number)
+      then
+         raise Program_Error;
+      end if;
+      Specific_Id (Index) := Self;
+      Specific_Core (Index) := Core;
+      Flyology.M3_Runtime.Demo_Parallel_Barrier (1);
+      Specific_Done (Index) := True;
+   end Specific_Worker_Type;
 
    task body Auto_Worker_Type is
       Self : constant Ada.Task_Identification.Task_Id :=
@@ -38,28 +60,17 @@ package body Flyology.M3_Demo is
       end if;
       Auto_Id (Index) := Self;
       Auto_Core (Index) := Flyology.M3_Runtime.Current_Core_Number;
-      Flyology.M3_Runtime.Demo_Parallel_Barrier;
+      Flyology.M3_Runtime.Demo_Parallel_Barrier (2);
       Auto_Done (Index) := True;
    end Auto_Worker_Type;
 
-   task body Pinned_Worker_Type is
-      Self : constant Ada.Task_Identification.Task_Id :=
-        Ada.Task_Identification.Current_Task;
-   begin
-      if Self = Ada.Task_Identification.Null_Task_Id
-        or else not Ada.Task_Identification.Is_Callable (Self)
-        or else Ada.Task_Identification.Is_Terminated (Self)
-        or else Flyology.M3_Runtime.Current_Core_Number /= 0
-      then
-         raise Program_Error;
-      end if;
-      Pinned_Id := Self;
-      Pinned_Done := True;
-   end Pinned_Worker_Type;
-
-   procedure Report_Pass
+   procedure Report_Ordinary_Pass
    with Import, Convention => C,
         External_Name => "flyology_m3_report_ordinary_pass";
+
+   procedure Report_Specific_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m3_report_specific_pass";
 
    procedure Report_Parallel_Pass
    with Import, Convention => C,
@@ -69,69 +80,113 @@ package body Flyology.M3_Demo is
    with Import, Convention => C,
         External_Name => "flyology_m2_report_failure";
 
+   procedure Check_Identity
+     (Observed : Ada.Task_Identification.Task_Id;
+      Expected : Ada.Task_Identification.Task_Id;
+      Environment : Ada.Task_Identification.Task_Id)
+   is
+   begin
+      if Observed = Ada.Task_Identification.Null_Task_Id
+        or else Observed /= Expected
+        or else Observed = Environment
+        or else not Ada.Task_Identification.Is_Terminated (Observed)
+        or else Ada.Task_Identification.Is_Callable (Observed)
+      then
+         Report_Failure;
+      end if;
+   end Check_Identity;
+
    procedure Run is
+      CPU_Count : constant Natural := Natural
+        (System.Multiprocessors.Number_Of_CPUs);
       Environment : constant Ada.Task_Identification.Task_Id :=
         Ada.Task_Identification.Current_Task;
+      Specific_Object_Id : Identity_Array :=
+        [others => Ada.Task_Identification.Null_Task_Id];
       Auto_Object_Id : Identity_Array :=
         [others => Ada.Task_Identification.Null_Task_Id];
-      Pinned_Object_Id : Ada.Task_Identification.Task_Id :=
-        Ada.Task_Identification.Null_Task_Id;
    begin
-      declare
-         Auto_1 : Auto_Worker_Type (1);
-         Auto_2 : Auto_Worker_Type (2);
-         Auto_3 : Auto_Worker_Type (3);
-         Auto_4 : Auto_Worker_Type (4);
-         Pinned : Pinned_Worker_Type;
-      begin
-         Auto_Object_Id (1) := Auto_1'Identity;
-         Auto_Object_Id (2) := Auto_2'Identity;
-         Auto_Object_Id (3) := Auto_3'Identity;
-         Auto_Object_Id (4) := Auto_4'Identity;
-         Pinned_Object_Id := Pinned'Identity;
-      end;
-
-      if Environment = Ada.Task_Identification.Null_Task_Id
-        or else not Pinned_Done
-        or else Pinned_Id /= Pinned_Object_Id
-        or else Pinned_Id = Environment
-        or else not Ada.Task_Identification.Is_Terminated (Pinned_Id)
-        or else Ada.Task_Identification.Is_Callable (Pinned_Id)
+      if CPU_Count not in 1 | 4
+        or else Environment = Ada.Task_Identification.Null_Task_Id
       then
          Report_Failure;
       end if;
 
-      for Index in Auto_Id'Range loop
-         if not Auto_Done (Index)
-           or else Auto_Id (Index) /= Auto_Object_Id (Index)
-           or else Auto_Id (Index) = Pinned_Id
-           or else Auto_Id (Index) = Environment
-           or else not Ada.Task_Identification.Is_Terminated (Auto_Id (Index))
-           or else Ada.Task_Identification.Is_Callable (Auto_Id (Index))
+      if CPU_Count = 4 then
+         declare
+            Worker_1 : Specific_Worker_Type (1, 1);
+            Worker_2 : Specific_Worker_Type (2, 2);
+            Worker_3 : Specific_Worker_Type (3, 3);
+            Worker_4 : Specific_Worker_Type (4, 4);
+         begin
+            Specific_Object_Id (1) := Worker_1'Identity;
+            Specific_Object_Id (2) := Worker_2'Identity;
+            Specific_Object_Id (3) := Worker_3'Identity;
+            Specific_Object_Id (4) := Worker_4'Identity;
+         end;
+      else
+         declare
+            Worker_1 : Specific_Worker_Type (1, 1);
+         begin
+            Specific_Object_Id (1) := Worker_1'Identity;
+         end;
+      end if;
+
+      for Index in 1 .. CPU_Count loop
+         if not Specific_Done (Index)
+           or else Specific_Core (Index) /= Index - 1
          then
             Report_Failure;
          end if;
+         Check_Identity
+           (Specific_Id (Index), Specific_Object_Id (Index), Environment);
+         for Other in 1 .. CPU_Count loop
+            if Index /= Other
+              and then Specific_Id (Index) = Specific_Id (Other)
+            then
+               Report_Failure;
+            end if;
+         end loop;
+      end loop;
+      Report_Specific_Pass;
+
+      declare
+         Worker_1 : Auto_Worker_Type (1);
+         Worker_2 : Auto_Worker_Type (2);
+         Worker_3 : Auto_Worker_Type (3);
+         Worker_4 : Auto_Worker_Type (4);
+      begin
+         Auto_Object_Id (1) := Worker_1'Identity;
+         Auto_Object_Id (2) := Worker_2'Identity;
+         Auto_Object_Id (3) := Worker_3'Identity;
+         Auto_Object_Id (4) := Worker_4'Identity;
+      end;
+
+      for Index in Auto_Id'Range loop
+         if not Auto_Done (Index)
+           or else
+             (if CPU_Count = 1
+              then Auto_Core (Index) /= 0
+              else Auto_Core (Index) /= Index - 1)
+         then
+            Report_Failure;
+         end if;
+         Check_Identity (Auto_Id (Index), Auto_Object_Id (Index), Environment);
          for Other in Auto_Id'Range loop
             if Index /= Other and then Auto_Id (Index) = Auto_Id (Other) then
                Report_Failure;
             end if;
          end loop;
+         for Other in 1 .. CPU_Count loop
+            if Auto_Id (Index) = Specific_Id (Other) then
+               Report_Failure;
+            end if;
+         end loop;
       end loop;
 
-      if System.Multiprocessors.Number_Of_CPUs = 4 then
-         for Index in Auto_Core'Range loop
-            if Auto_Core (Index) /= Index - 1 then
-               Report_Failure;
-            end if;
-         end loop;
+      if CPU_Count = 4 then
          Report_Parallel_Pass;
-      else
-         for Index in Auto_Core'Range loop
-            if Auto_Core (Index) /= 0 then
-               Report_Failure;
-            end if;
-         end loop;
       end if;
-      Report_Pass;
+      Report_Ordinary_Pass;
    end Run;
 end Flyology.M3_Demo;

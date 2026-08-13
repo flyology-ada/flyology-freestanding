@@ -16,7 +16,7 @@ for architecture in x86_64 aarch64; do
     rm -f "$output"/*
 
     for probe in task_activation_probe identity_probe master_probe \
-        chain_exception_probe; do
+        chain_exception_probe placement_probe; do
         scripts/toolchain.sh exec-at "$architecture" "$output" \
             "$target-gcc" -c "$repository/probes/m3/$probe.adb" \
             -o "$probe.o" -nostdinc -I"$interface_root" \
@@ -41,6 +41,8 @@ for architecture in x86_64 aarch64; do
         "$output/task_activation_probe.expanded" >/dev/null
     grep -F '_init._cpu := 1' \
         "$output/task_activation_probe.expanded" >/dev/null
+    grep -F 'integer(_init._cpu)' \
+        "$output/placement_probe.expanded" >/dev/null
 
     identity="$output/identity_probe.undefined"
     for symbol in ada__task_identification__current_task \
