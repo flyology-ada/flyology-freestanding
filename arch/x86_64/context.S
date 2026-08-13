@@ -67,6 +67,16 @@ flyology_context_start:
     ud2
     jmp 1b
 
+.section .text.flyology_dispatcher_context_start, "ax", @progbits
+.global flyology_dispatcher_context_start
+.type flyology_dispatcher_context_start, @function
+flyology_dispatcher_context_start:
+    mov %r12, %rdi
+    call flyology_dispatcher_start
+2:
+    ud2
+    jmp 2b
+
 .section .rodata.flyology_context_layout, "a", @progbits
 .balign 2
 .short CTX_SIZE, CTX_RBX, CTX_RBP, CTX_R12, CTX_R13, CTX_R14

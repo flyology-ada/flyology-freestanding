@@ -11,6 +11,11 @@ package Flyology.M2_Architecture is
       Stack_Top  : System.Address;
       Core_Value : System.Address);
 
+   procedure Initialize_Dispatcher
+     (Item       : out Context;
+      Stack_Top  : System.Address;
+      Core_Value : System.Address);
+
    procedure Switch
      (Outgoing : access Context;
       Incoming : access Context);

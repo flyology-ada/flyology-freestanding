@@ -94,7 +94,9 @@ check_architecture() {
 
     unresolved=$(scripts/toolchain.sh exec "$architecture" "$target-nm" \
         -u "$output_directory/context.o" | awk '{print $NF}')
-    test "$unresolved" = flyology_task_start || {
+    expected_unresolved='flyology_dispatcher_start
+flyology_task_start'
+    test "$unresolved" = "$expected_unresolved" || {
         echo "unexpected context unresolved symbols: $unresolved" >&2
         exit 1
     }

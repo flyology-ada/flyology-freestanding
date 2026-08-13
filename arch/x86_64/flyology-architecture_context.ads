@@ -49,4 +49,9 @@ package Flyology.Architecture_Context is
    with Import,
         Convention    => C,
         External_Name => "flyology_context_start";
+
+   procedure Dispatcher_Start
+   with Import,
+        Convention    => C,
+        External_Name => "flyology_dispatcher_context_start";
 end Flyology.Architecture_Context;

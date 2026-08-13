@@ -70,6 +70,16 @@ flyology_context_start:
     brk #0
     b 1b
 
+.section .text.flyology_dispatcher_context_start, "ax", %progbits
+.global flyology_dispatcher_context_start
+.type flyology_dispatcher_context_start, %function
+flyology_dispatcher_context_start:
+    mov x0, x19
+    bl flyology_dispatcher_start
+2:
+    brk #0
+    b 2b
+
 .section .rodata.flyology_context_layout, "a", %progbits
 .balign 2
 .short CTX_SIZE, CTX_X19_X20, CTX_X21_X22, CTX_X23_X24

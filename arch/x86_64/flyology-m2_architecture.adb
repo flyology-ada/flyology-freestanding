@@ -28,6 +28,17 @@ package body Flyology.M2_Architecture is
          FS_Base       => 0);
    end Initialize;
 
+   procedure Initialize_Dispatcher
+     (Item       : out Context;
+      Stack_Top  : System.Address;
+      Core_Value : System.Address)
+   is
+   begin
+      Initialize (Item, Stack_Top, Core_Value);
+      Item.Instruction :=
+        Contexts.Unsigned_64 (Contexts.Dispatcher_Start'Address);
+   end Initialize_Dispatcher;
+
    procedure Switch
      (Outgoing : access Context;
       Incoming : access Context)
