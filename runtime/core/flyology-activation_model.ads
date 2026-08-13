@@ -97,18 +97,23 @@ is
              then Chain = Empty_Chain
                and then
                  (for all Index in Task_Slot =>
-                    (if Contains
+                    Table (Index).Reference = Table'Old (Index).Reference
+                    and then Table (Index).Home_Core =
+                      Table'Old (Index).Home_Core
+                    and then Table (Index).Master = Table'Old (Index).Master
+                    and then Table (Index).Dependents =
+                      Table'Old (Index).Dependents)
+               and then
+                 (for all Index in Task_Slot =>
+                    (if Natural (Index) < Chain'Old.Length
+                     then Table
+                       (Task_Slot (Chain'Old.Storage (Index).Slot)).State =
+                         Dispatcher.Ready))
+               and then
+                 (for all Index in Task_Slot =>
+                    (if not Contains
                        (Chain'Old, Table'Old (Index).Reference)
-                     then Table (Index).Reference =
-                       Table'Old (Index).Reference
-                       and then Table (Index).State = Dispatcher.Ready
-                       and then Table (Index).Home_Core =
-                         Table'Old (Index).Home_Core
-                       and then Table (Index).Master =
-                         Table'Old (Index).Master
-                       and then Table (Index).Dependents =
-                         Table'Old (Index).Dependents
-                     else Table (Index) = Table'Old (Index)))
+                     then Table (Index).State = Table'Old (Index).State))
              else Table = Table'Old and then Chain = Chain'Old);
 
    function Can_Terminate

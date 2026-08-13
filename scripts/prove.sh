@@ -30,10 +30,11 @@ test "$("$gnatprove_command" --version | sed -n '1p')" = 'FSF 16.1.0' || {
 mkdir -p build/proof
 rm -rf build/proof/gnatprove
 proof_jobs=${FLYOLOGY_PROOF_JOBS:-1}
+proof_level=${FLYOLOGY_PROOF_LEVEL:-2}
 set +e
 proof_output=$(
     "$gnatprove_command" -P proof/flyology_proof.gpr \
-        -j"$proof_jobs" --level=1 --output=oneline --output-header \
+        -j"$proof_jobs" --level="$proof_level" --output=oneline --output-header \
         --warnings=error 2>&1
 )
 proof_status=$?
