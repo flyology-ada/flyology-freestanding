@@ -1,6 +1,14 @@
 #!/bin/sh
 set -eu
 
+mkdir -p build
+proof_lock=build/.prove.lock
+if ! mkdir "$proof_lock" 2>/dev/null; then
+    echo "another Flyology proof gate owns $proof_lock" >&2
+    exit 75
+fi
+trap 'rmdir "$proof_lock"' EXIT HUP INT TERM
+
 if test -n "${FLYOLOGY_GNATPROVE:-}"; then
     gnatprove_command=$FLYOLOGY_GNATPROVE
 elif command -v gnatprove >/dev/null 2>&1; then

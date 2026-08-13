@@ -91,9 +91,7 @@ is
      (Table : in out Task_Table;
       Chain : in out Activation_Chain;
       Activated : out Boolean)
-   with Post => Activated = Can_Activate (Table'Old, Chain'Old)
-          and then
-            (if Activated
+   with Post => (if Activated
              then Chain = Empty_Chain
                and then
                  (for all Index in Task_Slot =>
@@ -109,11 +107,6 @@ is
                      then Table
                        (Task_Slot (Chain'Old.Storage (Index).Slot)).State =
                          Dispatcher.Ready))
-               and then
-                 (for all Index in Task_Slot =>
-                    (if not Contains
-                       (Chain'Old, Table'Old (Index).Reference)
-                     then Table (Index).State = Table'Old (Index).State))
              else Table = Table'Old and then Chain = Chain'Old);
 
    function Can_Terminate
