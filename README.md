@@ -22,6 +22,14 @@ The first release is not complete. Work proceeds through the independently gated
 - `runtime/` — original runtime/platform implementation (introduced incrementally).
 - `runtime/bootstrap/` — original minimal compiler-compatibility runtime used by early milestones.
 
+## Authoritative gates
+
+- `scripts/verify-m0.sh` builds and inspects the M0 ELF probes.
+- `scripts/verify-m1.sh` builds both Limine images, boots each at one and four CPUs, and boots both injected last-chance variants.
+- `scripts/verify-m1-reproducible.sh` rebuilds both M1 ELF and FAT images twice and compares their SHA-256 output.
+- `scripts/prove.sh` proves the deterministic SPARK validation kernel.
+- `scripts/check.sh` performs shell/static and repository hygiene checks.
+
 ## Licensing
 
 Original work is available under either Apache-2.0 or MIT; see [LICENSE-APACHE](LICENSE-APACHE), [LICENSE-MIT](LICENSE-MIT), and [NOTICE](NOTICE). The tracked runtime is a clean-room implementation; external tools and boot artifacts retain their own licenses outside the source tree.

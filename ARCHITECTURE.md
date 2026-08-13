@@ -46,7 +46,7 @@ No cross-domain migration is supported through M6 because priority interpretatio
 
 The BSP validates Limine base/protocol responses, memory map, HHDM, topology, capacities, and platform contract; constructs global/per-core state and owned stacks; completes required Ada elaboration; then publishes AP `goto_address` values with release ordering. AP stubs normalize privilege and FP state, install vector state, establish the per-core pointer, switch to an owned stack, publish online with release ordering, join the startup barrier, and enter dispatcher/idle. APs never call unelaborated Ada.
 
-Initial targets are x86-64 QEMU `q35` under UEFI with x2APIC requested and four-level paging, and AArch64 QEMU `virt` under UEFI with GICv3 and four-level paging. AArch64 entry is normalized to EL1, and FP/SIMD is explicitly enabled before Ada/context code uses it.
+Initial targets are x86-64 QEMU `q35` under UEFI with x2APIC requested and four-level paging, and AArch64 QEMU `virt` under UEFI with GICv3 and four-level paging. The fixed `virtualization=off` AArch64 contract is validated as EL1 entry, and FP/SIMD is explicitly enabled before Ada/context code uses it. Supporting an EL2 entry would require a separate, tested normalization path.
 
 ## Memory
 

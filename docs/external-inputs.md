@@ -1,6 +1,6 @@
 # External input lock
 
-All network-fetched or host-supplied inputs are fail-closed pins. A version label without the listed digest is insufficient.
+All network-fetched binary inputs and hardware-emulation inputs are fail-closed pins. A version label without the listed digest is insufficient. Host image/test utilities used by the authoritative macOS gate are also version-and-digest checked below.
 
 ## Ada toolchain
 
@@ -64,3 +64,7 @@ M1 uses the firmware shipped with the pinned local QEMU 10.2.0 package and valid
 | `edk2-arm-vars.fd` | `b3b855c5a80310168051164986855692d1bdb06e67619856177965cd87c6774f` |
 
 Code images are read-only. Every test copies a pristine variables template because UEFI mutates it. These hashes pin tested binary inputs; they do not claim reproducible EDK II source builds.
+
+## Host image and timeout utilities
+
+The tested macOS gate uses GNU mtools 4.0.49. Homebrew installs `mformat`, `mmd`, `mcopy`, and `mdir` as links to one binary with SHA-256 `e8310ca53ac5f471b7cd8b0b4dacd2ef11a57e399e35d034d1b6899e49dd48a6`. The runner uses GNU coreutils `timeout` 9.11 at `/opt/homebrew/bin/gtimeout`, SHA-256 `96d98cb3adafdd41570802625f7511d7d340cbcd4cb7a7278d5706c282a59c33`. Scripts fail closed on version or digest drift; alternate builder environments must supply and document their own pinned utility contract.

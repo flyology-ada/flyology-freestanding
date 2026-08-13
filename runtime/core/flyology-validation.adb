@@ -31,6 +31,16 @@ is
       return Base + Length - 1;
    end Extent_Last;
 
+   function To_HHDM
+     (Base   : Address_Value;
+      Length : Address_Value;
+      Offset : Address_Value) return Address_Value
+   is
+      pragma Unreferenced (Length);
+   begin
+      return Base + Offset;
+   end To_HHDM;
+
    function Checked_Transition
      (From : Task_State;
       To   : Task_State) return Task_State

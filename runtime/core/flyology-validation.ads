@@ -33,6 +33,12 @@ is
           and then Core_Id (To_CPU'Result - 1) = Core;
 
    type Address_Value is mod 2 ** 64;
+   Page_Size : constant Address_Value := 4_096;
+
+   subtype Limine_Memory_Type is Natural range 0 .. 8;
+
+   function Is_Page_Aligned (Value : Address_Value) return Boolean
+   is (Value mod Page_Size = 0);
 
    function Extent_Fits
      (Base   : Address_Value;
@@ -49,6 +55,51 @@ is
    with Pre  => Extent_Fits (Base, Length, Limit),
         Post => Extent_Last'Result = Base + Length - 1
           and then Extent_Last'Result <= Limit;
+
+   function Valid_Memory_Entry
+     (Base        : Address_Value;
+      Length      : Address_Value) return Boolean
+   is (Extent_Fits (Base, Length, Address_Value'Last));
+
+   function HHDM_Extent_Fits
+     (Base   : Address_Value;
+      Length : Address_Value;
+      Offset : Address_Value) return Boolean
+   is (Valid_Memory_Entry (Base, Length)
+       and then Offset <= Address_Value'Last - Base
+       and then Length - 1 <= Address_Value'Last - (Base + Offset));
+
+   function To_HHDM
+     (Base   : Address_Value;
+      Length : Address_Value;
+      Offset : Address_Value) return Address_Value
+   with Pre  => HHDM_Extent_Fits (Base, Length, Offset),
+        Post => To_HHDM'Result = Base + Offset
+          and then Extent_Fits
+            (To_HHDM'Result, Length, Address_Value'Last);
+
+   type Hardware_Id is mod 2 ** 64;
+   type Hardware_Id_Array is array (Core_Id range <>) of Hardware_Id;
+
+   function Unique_Hardware_Ids (Ids : Hardware_Id_Array) return Boolean
+   is (for all Left in Ids'Range =>
+         (for all Right in Ids'Range =>
+            (if Left /= Right then Ids (Left) /= Ids (Right))));
+
+   function Contains
+     (Ids : Hardware_Id_Array;
+      Id  : Hardware_Id) return Boolean
+   is (for some Index in Ids'Range => Ids (Index) = Id);
+
+   function Valid_Topology
+     (Ids       : Hardware_Id_Array;
+      BSP       : Hardware_Id;
+      Core_Count : CPU_Count) return Boolean
+   is (Ids'Length = Natural (Core_Count)
+       and then Ids'First = Core_Id'First
+       and then Ids'Last = Core_Id (Core_Count - 1)
+       and then Unique_Hardware_Ids (Ids)
+       and then Contains (Ids, BSP));
 
    type Task_State is (Dormant, Ready, Running, Blocked, Terminated);
 

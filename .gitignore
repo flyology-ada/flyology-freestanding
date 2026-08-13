@@ -16,6 +16,8 @@
 *.log
 gnatprove.out
 gnatprove-run.txt
+b~*.adb
+b~*.ads
 
 # Alire state and editor/host noise
 /alire/

@@ -5,7 +5,7 @@ script_directory=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repository_root=$(CDPATH= cd -- "$script_directory/.." && pwd)
 
 usage() {
-    echo "usage: $0 install|exec ARCH [COMMAND ...]" >&2
+    echo "usage: $0 install ARCH | exec ARCH COMMAND... | exec-at ARCH DIRECTORY COMMAND..." >&2
     exit 64
 }
 
@@ -39,6 +39,26 @@ case "$operation" in
         test "$#" -gt 0 || usage
         exec alr -C "$workspace" exec -- \
             sh -c 'cd "$1" && shift && exec "$@"' sh "$repository_root" "$@"
+        ;;
+    exec-at)
+        test "$#" -gt 1 || usage
+        execution_directory=$1
+        shift
+        case "$execution_directory" in
+            /*) ;;
+            *) execution_directory="$repository_root/$execution_directory" ;;
+        esac
+        case "$execution_directory/" in
+            "$repository_root/"*) ;;
+            *) echo "execution directory escapes repository" >&2; exit 64 ;;
+        esac
+        test -d "$execution_directory" || {
+            echo "missing execution directory: $execution_directory" >&2
+            exit 66
+        }
+        exec alr -C "$workspace" exec -- \
+            sh -c 'cd "$1" && shift && exec "$@"' sh \
+            "$execution_directory" "$@"
         ;;
     *)
         usage
