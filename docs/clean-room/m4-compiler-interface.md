@@ -309,9 +309,8 @@ requires the retained language identity to be terminated and not callable
 before `FLYOLOGY:M4:ABORT:PASS`. On SMP4 the target is pinned to the last core,
 so deadline cancellation and wakeup cross cores; SMP1 covers the same state
 machine locally. This checkpoint intentionally does not claim asynchronous
-abort of a CPU-bound task, abort of rendezvous/protected-entry waits,
-abort-before-activation, multi-task abort statements, ATC, or full abnormal
-master/exception semantics.
+abort of a CPU-bound task, abort-before-activation, multi-task abort
+statements, ATC, or full abnormal master/exception semantics.
 The current minimal personality treats its catch-all identity as matching the
 private abort occurrence so the task root can contain it; application-level
 handlers around an abortible operation are therefore not yet a conforming
@@ -338,3 +337,25 @@ abort before returning to user code. `FLYOLOGY:M4:ABORT_RENDEZVOUS:PASS`,
 required in every QEMU cell and every SMP4 stress repeat. The timing is
 deliberately separated rather than a near-simultaneous boundary collision;
 adversarial accept/timeout/abort ordering stress remains an M4 closure gate.
+
+The protected-entry abort composition uses distinct protected wait kinds, so
+it cannot be confused with a server-side rendezvous accept wait. An abort of a
+blocked protected caller cancels its exact deadline when present and resolves
+the same generation-tagged wait with `Abort_Wake`. On resumption the caller
+removes its exact queue record and per-task parameter record while holding the
+protected-object lock, then delivers the retained abort before returning to
+user code. If entry service or timeout wins first, the existing single-winner
+path removes the losing registration and delivers any concurrently retained
+abort at the same safe boundary.
+
+The ordinary-Ada test pins blocking and timed callers to the last configured
+CPU. For each it waits until `Wait'Count` is one, aborts it from the
+environment task, and requires normal master observation of termination, no
+execution of the accepted/timeout/continuation paths, and a zero count. The
+blocking case opens the gate immediately after the abort request, exercising
+the race in which entry service removes the already-resolved stale record
+before the caller resumes. The timed case checks exact deadline cancellation
+before `FLYOLOGY:M4:ABORT_PROTECTED:PASS`. SMP4 exercises the remote wake path
+while SMP1 exercises the same arbitration locally. This is deterministic
+separated-order evidence; simultaneous service/timeout/abort stress remains
+required before M4 closure.

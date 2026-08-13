@@ -14,7 +14,8 @@ is
    use type Dispatcher.Generation;
 
    type Wait_Kind is
-     (No_Wait, Object_Wait, Delay_Wait, Timed_Object_Wait, Master_Wait,
+     (No_Wait, Object_Wait, Delay_Wait, Timed_Object_Wait,
+      Protected_Entry_Wait, Timed_Protected_Entry_Wait, Master_Wait,
       Activation_Wait);
    type Wait_Phase is (Idle, Armed, Committed, Resolved);
    type Resolution is (Pending, Object_Wake, Timer_Expiry, Abort_Wake);

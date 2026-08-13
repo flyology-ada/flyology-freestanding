@@ -44,6 +44,11 @@ package body System.Tasking.Protected_Objects.Operations is
 
    procedure Kick_Waiters (Object : Entries.Protection_Entries_Access);
 
+   procedure Remove_Aborted_Call
+     (Object : Entries.Protection_Entries_Access;
+      Token  : Entries.Wait_Token;
+      Slot   : Natural);
+
    function Body_Index
      (Object : Entries.Protection_Entries_Access;
       Index  : Protected_Entry_Index) return Protected_Entry_Index
@@ -66,6 +71,32 @@ package body System.Tasking.Protected_Objects.Operations is
          end if;
       end loop;
    end Kick_Waiters;
+
+   procedure Remove_Aborted_Call
+     (Object : Entries.Protection_Entries_Access;
+      Token  : Entries.Wait_Token;
+      Slot   : Natural)
+   is
+      Removal : Queues.Remove_Result;
+   begin
+      Entries.Lock_Entries (Object);
+      if Slot not in Object.Pending'Range then
+         Stop;
+      end if;
+      Removal := Queues.Remove_Exact (Object.Queue, Token);
+      if Object.Pending (Slot).Present then
+         if Object.Pending (Slot).Token /= Token
+           or else Removal.Status /= Queues.Removed
+         then
+            Stop;
+         end if;
+         Object.Queue := Removal.Queue;
+         Object.Pending (Slot) := (others => <>);
+      elsif Removal.Status /= Queues.Not_Found then
+         Stop;
+      end if;
+      Entries.Unlock_Entries (Object);
+   end Remove_Aborted_Call;
 
    procedure Complete_Entry_Body
      (Object : Entries.Protection_Entries_Access)
@@ -233,7 +264,8 @@ package body System.Tasking.Protected_Objects.Operations is
          Entries.Unlock_Entries (Object);
          raise Program_Error;
       end if;
-      Core.Arm_Wait_Locked (Reference, Waits.Object_Wait, Token);
+      Core.Arm_Wait_Locked
+        (Reference, Waits.Protected_Entry_Wait, Token);
       Enqueue := Queues.Enqueue (Object.Queue, Token);
       if Enqueue.Status = Queues.Full then
          Stop;
@@ -246,11 +278,14 @@ package body System.Tasking.Protected_Objects.Operations is
          Token => Token, Timed => False);
       Core.Block_Current_And_Release (Dense_Core, Token, Outcome);
       if Outcome = Waits.Abort_Wake then
-         raise Program_Error;
+         Remove_Aborted_Call (Object, Token, Slot);
+         Flyology.M3_Runtime.Deliver_Pending_Abort;
+         Stop;
       elsif Outcome /= Waits.Object_Wake then
          raise Program_Error;
       end if;
       Block.Was_Cancelled := False;
+      Flyology.M3_Runtime.Deliver_Pending_Abort;
    end Protected_Entry_Call;
 
    procedure Timed_Protected_Entry_Call
@@ -326,7 +361,8 @@ package body System.Tasking.Protected_Objects.Operations is
          raise Program_Error;
       end if;
 
-      Core.Arm_Wait_Locked (Reference, Waits.Timed_Object_Wait, Token);
+      Core.Arm_Wait_Locked
+        (Reference, Waits.Timed_Protected_Entry_Wait, Token);
       Core.Register_Deadline_Locked (Token, Core.Tick (Deadline));
       Enqueue := Queues.Enqueue (Object.Queue, Token);
       if Enqueue.Status /= Queues.Enqueued then
@@ -340,7 +376,12 @@ package body System.Tasking.Protected_Objects.Operations is
 
       if Outcome = Waits.Object_Wake then
          Accepted := True;
+         Flyology.M3_Runtime.Deliver_Pending_Abort;
          return;
+      elsif Outcome = Waits.Abort_Wake then
+         Remove_Aborted_Call (Object, Token, Slot);
+         Flyology.M3_Runtime.Deliver_Pending_Abort;
+         Stop;
       elsif Outcome /= Waits.Timer_Expiry then
          Stop;
       end if;
@@ -357,6 +398,7 @@ package body System.Tasking.Protected_Objects.Operations is
          Object.Pending (Slot) := (others => <>);
       end if;
       Entries.Unlock_Entries (Object);
+      Flyology.M3_Runtime.Deliver_Pending_Abort;
    end Timed_Protected_Entry_Call;
 
    function Cancelled (Block : Communication_Block) return Boolean is

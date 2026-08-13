@@ -575,6 +575,16 @@ package body Flyology.M3_Runtime is
                   if not Accepted_Call then
                      Calls (Call_Number (Matching_Call)) := (others => <>);
                   end if;
+               elsif Kind in Waits.Protected_Entry_Wait |
+                 Waits.Timed_Protected_Entry_Wait
+               then
+                  if Kind = Waits.Timed_Protected_Entry_Wait then
+                     Core.Cancel_Deadline_Locked (Token, Cancel_Status);
+                     if Cancel_Status /= Core.Cancelled then
+                        Leave_Kernel;
+                        Stop;
+                     end if;
+                  end if;
                else
                   Leave_Kernel;
                   Stop;

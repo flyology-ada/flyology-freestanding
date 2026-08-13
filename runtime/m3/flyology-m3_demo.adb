@@ -40,6 +40,7 @@ package body Flyology.M3_Demo is
 
    protected Protected_Gate is
       procedure Open;
+      procedure Close;
       entry Wait (Index : Positive);
       function Service_Order (Index : Positive) return Natural;
       function Waiting return Natural;
@@ -54,6 +55,11 @@ package body Flyology.M3_Demo is
       begin
          Opened := True;
       end Open;
+
+      procedure Close is
+      begin
+         Opened := False;
+      end Close;
 
       entry Wait (Index : Positive) when Opened is
       begin
@@ -104,6 +110,16 @@ package body Flyology.M3_Demo is
    Abort_Timed_Out : Boolean := False with Atomic;
    Abort_Timed_Continued : Boolean := False with Atomic;
    Abort_Timed_Id : Ada.Task_Identification.Task_Id :=
+     Ada.Task_Identification.Null_Task_Id with Atomic;
+   Abort_Protected_Started : Boolean := False with Atomic;
+   Abort_Protected_Continued : Boolean := False with Atomic;
+   Abort_Protected_Id : Ada.Task_Identification.Task_Id :=
+     Ada.Task_Identification.Null_Task_Id with Atomic;
+   Abort_Timed_Protected_Started : Boolean := False with Atomic;
+   Abort_Timed_Protected_Accepted : Boolean := False with Atomic;
+   Abort_Timed_Protected_Timed_Out : Boolean := False with Atomic;
+   Abort_Timed_Protected_Continued : Boolean := False with Atomic;
+   Abort_Timed_Protected_Id : Ada.Task_Identification.Task_Id :=
      Ada.Task_Identification.Null_Task_Id with Atomic;
 
    task type Specific_Worker_Type
@@ -162,6 +178,14 @@ package body Flyology.M3_Demo is
    task type Protected_Entry_Worker_Type
      (CPU_Number : System.Multiprocessors.CPU_Range;
       Index      : Positive)
+     with CPU => CPU_Number;
+
+   task type Abort_Protected_Worker_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range)
+     with CPU => CPU_Number;
+
+   task type Abort_Timed_Protected_Worker_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range)
      with CPU => CPU_Number;
 
    task body Specific_Worker_Type is
@@ -349,6 +373,28 @@ package body Flyology.M3_Demo is
       Protected_Entry_Done (Index) := True;
    end Protected_Entry_Worker_Type;
 
+   task body Abort_Protected_Worker_Type is
+   begin
+      Abort_Protected_Id := Ada.Task_Identification.Current_Task;
+      Abort_Protected_Started := True;
+      Protected_Gate.Wait (1);
+      Abort_Protected_Continued := True;
+   end Abort_Protected_Worker_Type;
+
+   task body Abort_Timed_Protected_Worker_Type is
+   begin
+      Abort_Timed_Protected_Id := Ada.Task_Identification.Current_Task;
+      Abort_Timed_Protected_Started := True;
+      select
+         Protected_Gate.Wait (2);
+         Abort_Timed_Protected_Accepted := True;
+      or
+         delay 1.0;
+         Abort_Timed_Protected_Timed_Out := True;
+      end select;
+      Abort_Timed_Protected_Continued := True;
+   end Abort_Timed_Protected_Worker_Type;
+
    procedure Report_Ordinary_Pass
    with Import, Convention => C,
         External_Name => "flyology_m3_report_ordinary_pass";
@@ -424,6 +470,10 @@ package body Flyology.M3_Demo is
    procedure Report_Abort_Accepted_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_abort_accepted_pass";
+
+   procedure Report_Abort_Protected_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_abort_protected_pass";
 
    procedure Report_Master_Pass
    with Import, Convention => C,
@@ -588,6 +638,63 @@ package body Flyology.M3_Demo is
             Report_Failure;
          end if;
       end;
+
+      declare
+         Worker : Abort_Protected_Worker_Type
+           (System.Multiprocessors.CPU_Range (CPU_Count));
+         Worker_Id : constant Ada.Task_Identification.Task_Id :=
+           Worker'Identity;
+      begin
+         delay 0.001;
+         if not Abort_Protected_Started
+           or else Abort_Protected_Id /= Worker_Id
+           or else Protected_Gate.Waiting /= 1
+         then
+            Report_Failure;
+         end if;
+         abort Worker;
+         Protected_Gate.Open;
+         Protected_Gate.Close;
+      end;
+      if Abort_Protected_Continued
+        or else Abort_Protected_Id = Ada.Task_Identification.Null_Task_Id
+        or else not Ada.Task_Identification.Is_Terminated
+          (Abort_Protected_Id)
+        or else Ada.Task_Identification.Is_Callable (Abort_Protected_Id)
+        or else Protected_Gate.Waiting /= 0
+      then
+         Report_Failure;
+      end if;
+
+      declare
+         Worker : Abort_Timed_Protected_Worker_Type
+           (System.Multiprocessors.CPU_Range (CPU_Count));
+         Worker_Id : constant Ada.Task_Identification.Task_Id :=
+           Worker'Identity;
+      begin
+         delay 0.001;
+         if not Abort_Timed_Protected_Started
+           or else Abort_Timed_Protected_Id /= Worker_Id
+           or else Protected_Gate.Waiting /= 1
+         then
+            Report_Failure;
+         end if;
+         abort Worker;
+      end;
+      if Abort_Timed_Protected_Accepted
+        or else Abort_Timed_Protected_Timed_Out
+        or else Abort_Timed_Protected_Continued
+        or else Abort_Timed_Protected_Id =
+          Ada.Task_Identification.Null_Task_Id
+        or else not Ada.Task_Identification.Is_Terminated
+          (Abort_Timed_Protected_Id)
+        or else Ada.Task_Identification.Is_Callable
+          (Abort_Timed_Protected_Id)
+        or else Protected_Gate.Waiting /= 0
+      then
+         Report_Failure;
+      end if;
+      Report_Abort_Protected_Pass;
 
       declare
          Worker_1 : Protected_Entry_Worker_Type
