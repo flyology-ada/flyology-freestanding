@@ -2,6 +2,7 @@
 
 with Flyology.Dispatcher_Model;
 with Flyology.Ceiling_Model;
+with Flyology.Clock_Model;
 with Flyology.Task_Primitives_Contract;
 with Flyology.Timer_Model;
 with Flyology.Wait_Arbitration_Model;
@@ -24,6 +25,7 @@ package Flyology.Task_Core is
    subtype Wait_Resolve_Status is
      Flyology.Wait_Arbitration_Model.Resolve_Status;
    subtype Tick is Flyology.Timer_Model.Tick;
+   subtype Frequency is Flyology.Clock_Model.Frequency;
    subtype Timer_Cancel_Status is Flyology.Timer_Model.Cancel_Status;
    Cancelled : constant Timer_Cancel_Status := Flyology.Timer_Model.Cancelled;
 
@@ -86,7 +88,7 @@ package Flyology.Task_Core is
    procedure Leave_Protected_Locked (Reference : Task_Ref);
 
    function Read_Clock return Tick;
-   function Clock_Frequency return Positive;
+   function Clock_Frequency return Frequency;
 
    procedure Register_Deadline_Locked
      (Token    : Wait_Token;

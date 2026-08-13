@@ -618,25 +618,35 @@ package body Flyology.M3_Demo is
       Report_Protected_Pass;
 
       declare
-         Rejected  : Boolean := False;
-         Timed_Out : Boolean := False;
+         Rejected : Boolean := False;
       begin
          select
             Protected_Gate.Wait (1);
          else
             Rejected := True;
          end select;
-         select
-            Protected_Gate.Wait (2);
-         or
-            delay 0.001;
-            Timed_Out := True;
-         end select;
-         if not Rejected or else not Timed_Out
-           or else Protected_Gate.Waiting /= 0
-         then
+         if not Rejected then
             Report_Failure;
          end if;
+         --  Exercise more queued timed calls than the bounded ceiling stack
+         --  can hold.  Every block publication must pop its protected-action
+         --  ceiling before sleeping; retaining even one frame per call fails
+         --  closed before this loop completes.
+         for Iteration in 1 .. 10 loop
+            declare
+               Timed_Out : Boolean := False;
+            begin
+               select
+                  Protected_Gate.Wait (2);
+               or
+                  delay 0.001;
+                  Timed_Out := True;
+               end select;
+               if not Timed_Out or else Protected_Gate.Waiting /= 0 then
+                  Report_Failure;
+               end if;
+            end;
+         end loop;
       end;
 
       declare

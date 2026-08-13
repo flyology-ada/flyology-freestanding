@@ -277,6 +277,11 @@ package body System.Tasking.Protected_Objects.Operations is
       Object.Pending (Slot) :=
         (Present => True, Entry_Index => Index, Parameters => Parameters,
          Token => Token, Timed => False);
+      --  The protected-action ceiling belongs only to the queue publication
+      --  transaction.  Pop it while the RTS lock is still held, immediately
+      --  before the atomic block-and-release handoff, so a waker cannot race
+      --  between publication and commitment.
+      Core.Leave_Protected_Locked (Reference);
       Core.Block_Current_And_Release (Dense_Core, Token, Outcome);
       if Outcome = Waits.Abort_Wake then
          Remove_Aborted_Call (Object, Token, Slot);
@@ -374,6 +379,10 @@ package body System.Tasking.Protected_Objects.Operations is
       Object.Pending (Slot) :=
         (Present => True, Entry_Index => Index, Parameters => Parameters,
          Token => Token, Timed => True);
+      --  As for the untimed path, release the protected ceiling without
+      --  releasing the RTS lock.  Block_Current_And_Release performs the
+      --  only lock release after it has committed the exact wait token.
+      Core.Leave_Protected_Locked (Reference);
       Core.Block_Current_And_Release (Dense_Core, Token, Outcome);
 
       if Outcome = Waits.Object_Wake then

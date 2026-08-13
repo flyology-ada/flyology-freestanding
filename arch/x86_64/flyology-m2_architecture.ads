@@ -7,7 +7,6 @@ with System;
 package Flyology.M2_Architecture is
    subtype Context is Flyology.Architecture_Context.Voluntary_Context;
    subtype Tick is Flyology.Clock_Model.Tick;
-   subtype Frequency is Flyology.Clock_Model.Frequency;
 
    procedure Initialize
      (Item       : out Context;
@@ -27,7 +26,9 @@ package Flyology.M2_Architecture is
    with Import, Convention => C,
         External_Name => "flyology_m4_read_clock";
 
-   function Clock_Frequency return Frequency
+   --  Raw foreign value.  Task_Core validates it before conversion to the
+   --  constrained proof-domain frequency type.
+   function Clock_Frequency return System.Address
    with Import, Convention => C,
         External_Name => "flyology_m4_clock_frequency";
 

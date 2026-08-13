@@ -500,8 +500,16 @@ package body Flyology.Task_Core is
       return Tick (Value);
    end Read_Clock;
 
-   function Clock_Frequency return Positive is
-     (Positive (Architecture.Clock_Frequency));
+   function Clock_Frequency return Frequency is
+      Raw : constant System.Address := Architecture.Clock_Frequency;
+   begin
+      if Raw < System.Address (Frequency'First)
+        or else Raw > System.Address (Frequency'Last)
+      then
+         Stop;
+      end if;
+      return Frequency (Raw);
+   end Clock_Frequency;
 
    procedure Register_Deadline_Locked
      (Token    : Wait_Token;
@@ -720,11 +728,15 @@ package body Flyology.Task_Core is
       end if;
       loop
          Enter_Kernel;
+         --  Record the last request epoch that this dispatcher cycle will
+         --  process before draining timers and examining the ready queue.
+         --  Any interrupt or remote publication after this snapshot leaves
+         --  Requested /= Observed, so Idle must not sleep.
+         Prepare_Idle;
          Drain_Timers_Locked (Dense);
          Program_Next_Timer_Locked (Dense);
          Choice := Scheduler.Select_Next (Ready_Queues (Dense));
          if not Choice.Found then
-            Prepare_Idle;
             Leave_Kernel;
             Idle;
          else
