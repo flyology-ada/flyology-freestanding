@@ -348,7 +348,18 @@ initialize_idt:
     lea idt_table(%rip), %rax
     mov %rax, idt_descriptor + 2(%rip)
 #ifdef FLYOLOGY_M2
+    lea idt_table(%rip), %rsi
+    lea m2_idt_table(%rip), %rdi
+    mov $512, %ecx
+    rep movsq
+    movw $(256 * 16 - 1), m2_idt_descriptor(%rip)
+    lea m2_idt_table(%rip), %rax
+    mov %rax, m2_idt_descriptor + 2(%rip)
+    lea m2_idt_table + TIMER_VECTOR * 16(%rip), %rdi
+#else
     lea idt_table + TIMER_VECTOR * 16(%rip), %rdi
+#endif
+#ifdef FLYOLOGY_M2
     lea timer_vector(%rip), %r8
     mov %r8, %rax
     mov %ax, 0(%rdi)
@@ -361,7 +372,7 @@ initialize_idt:
     shr $32, %rax
     mov %eax, 8(%rdi)
     movl $0, 12(%rdi)
-    lea idt_table + RESCHEDULE_VECTOR * 16(%rip), %rdi
+    lea m2_idt_table + RESCHEDULE_VECTOR * 16(%rip), %rdi
     lea reschedule_vector(%rip), %r8
     mov %r8, %rax
     mov %ax, 0(%rdi)
@@ -385,14 +396,15 @@ install_idt:
 #ifdef FLYOLOGY_M2
 .type initialize_m2_idt, @function
 initialize_m2_idt:
-    lea idt_table(%rip), %rdi
+    lea m2_idt_table(%rip), %rdi
     mov $256, %ecx
 1:
     movw $0x08, 2(%rdi)
     movb $1, 4(%rdi)
     add $16, %rdi
     loop 1b
-    jmp install_idt
+    lidt m2_idt_descriptor(%rip)
+    ret
 #endif
 
 fatal_vector:
@@ -726,21 +738,7 @@ initialize_cpu_tables:
 
 .type activate_m2_idt, @function
 activate_m2_idt:
-    lock incl m2_tables_ready_count(%rip)
-1:
-    mov m2_tables_ready_count(%rip), %eax
-    cmp cpu_count(%rip), %eax
-    jne 1b
-    cmpq $0, %gs:0
-    jne 3f
     call initialize_m2_idt
-    movl $1, m2_idt_ready(%rip)
-    jmp 4f
-3:
-    cmpl $1, m2_idt_ready(%rip)
-    jne 3b
-    call install_idt
-4:
     ret
 
 .type m2_arm_task_timer, @function
@@ -1203,8 +1201,6 @@ online_count: .skip 4
 m2_complete_count: .skip 4
 m2_idle_ready_count: .skip 4
 m2_task_barrier_count: .skip 4
-m2_tables_ready_count: .skip 4
-m2_idt_ready: .skip 4
 cpu_count: .skip 4
 rts_lock: .skip 4
 #endif
@@ -1227,8 +1223,16 @@ exception_stacks: .skip MAX_CORES * (1 << EXCEPTION_STACK_SHIFT)
 #endif
 .balign 16
 idt_descriptor: .skip 10
+#ifdef FLYOLOGY_M2
+.balign 16
+m2_idt_descriptor: .skip 10
+#endif
 .balign 4096
 idt_table: .skip 256 * 16
+#ifdef FLYOLOGY_M2
+.balign 4096
+m2_idt_table: .skip 256 * 16
+#endif
 .balign 16
 emergency_stack: .skip 4096
 emergency_stack_end:

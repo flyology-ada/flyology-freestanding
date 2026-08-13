@@ -340,6 +340,17 @@ package body Flyology.M2_Runtime is
       declare
          Won : Boolean;
       begin
+         if Wait_States (Core).Token = Model.Generation'First then
+            Fail;
+         end if;
+         Make_Ready_Exact
+           (Core,
+            Reference_For (Core),
+            Wait_States (Core).Token - 1,
+            Won);
+         if Won then
+            Fail;
+         end if;
          Make_Ready_Exact
            (Core, Reference_For (Core), Wait_States (Core).Token, Won);
          if not Won then
