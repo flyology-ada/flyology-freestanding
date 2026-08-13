@@ -29,6 +29,11 @@ The first release is not complete. Work proceeds through the independently gated
 - `scripts/verify-m1-reproducible.sh` rebuilds both M1 ELF and FAT images twice and compares their SHA-256 output.
 - `scripts/verify-m2.sh` proves and inspects the M2 core, reproduces both images, and boots both architectures at one and four CPUs.
 - `scripts/verify-m2-reproducible.sh` rebuilds both M2 ELF and FAT images twice and compares their SHA-256 output.
+- `scripts/verify-m3.sh` proves and probes the clean-room tasking interface,
+  checks independent-root reproducibility and both ELFs, and runs ordinary Ada
+  task gates on both architectures at one and four CPUs.
+- `scripts/verify-m3-reproducible.sh` rebuilds both M3 ELF and FAT images in
+  two separate output roots and compares their SHA-256 output.
 - `scripts/prove.sh` proves the deterministic SPARK validation kernel.
 - `scripts/check.sh` performs shell/static and repository hygiene checks.
 
