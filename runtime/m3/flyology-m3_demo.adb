@@ -67,6 +67,10 @@ package body Flyology.M3_Demo is
       entry Ping (Value : in out Integer);
    end Rendezvous_Server_Type;
 
+   task type Delayed_Rendezvous_Server_Type is
+      entry Ping;
+   end Delayed_Rendezvous_Server_Type;
+
    task body Specific_Worker_Type is
       Self : constant Ada.Task_Identification.Task_Id :=
         Ada.Task_Identification.Current_Task;
@@ -151,6 +155,12 @@ package body Flyology.M3_Demo is
       end Ping;
    end Rendezvous_Server_Type;
 
+   task body Delayed_Rendezvous_Server_Type is
+   begin
+      delay 0.100;
+      accept Ping;
+   end Delayed_Rendezvous_Server_Type;
+
    procedure Report_Ordinary_Pass
    with Import, Convention => C,
         External_Name => "flyology_m3_report_ordinary_pass";
@@ -182,6 +192,10 @@ package body Flyology.M3_Demo is
    procedure Report_Priority_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_priority_pass";
+
+   procedure Report_Conditional_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_conditional_pass";
 
    procedure Report_Master_Pass
    with Import, Convention => C,
@@ -289,18 +303,43 @@ package body Flyology.M3_Demo is
          Server : Rendezvous_Server_Type
            (System.Multiprocessors.CPU_Range (CPU_Count));
          Value : Integer := 41;
+         Accepted : Boolean := False;
       begin
          Ada.Dynamic_Priorities.Set_Priority (7, Server'Identity);
          if Ada.Dynamic_Priorities.Get_Priority (Server'Identity) /= 7 then
             Report_Failure;
          end if;
-         Server.Ping (Value);
+         select
+            Server.Ping (Value);
+            Accepted := True;
+         else
+            null;
+         end select;
+         if not Accepted then
+            Report_Failure;
+         end if;
          if Value /= 49 then
             Report_Failure;
          end if;
       end;
       Report_Rendezvous_Pass;
       Report_Priority_Pass;
+
+      declare
+         Server : Delayed_Rendezvous_Server_Type;
+         Rejected : Boolean := False;
+      begin
+         select
+            Server.Ping;
+         else
+            Rejected := True;
+         end select;
+         if not Rejected then
+            Report_Failure;
+         end if;
+         Server.Ping;
+      end;
+      Report_Conditional_Pass;
 
       for Index in Auto_Id'Range loop
          if not Auto_Done (Index)

@@ -11,6 +11,15 @@ package body System.Tasking.Rendezvous is
       Flyology.M3_Runtime.Accept_Call (Entry_Index, Parameters);
    end Accept_Call;
 
+   procedure Accept_Trivial
+     (Entry_Index : System.Tasking.Task_Entry_Index)
+   is
+      Parameters : System.Address;
+   begin
+      Flyology.M3_Runtime.Accept_Call (Entry_Index, Parameters);
+      Flyology.M3_Runtime.Complete_Rendezvous;
+   end Accept_Trivial;
+
    procedure Call_Simple
      (Target      : System.Tasking.Task_Id;
       Entry_Index : System.Tasking.Task_Entry_Index;
@@ -19,6 +28,18 @@ package body System.Tasking.Rendezvous is
    begin
       Flyology.M3_Runtime.Call_Simple (Target, Entry_Index, Parameters);
    end Call_Simple;
+
+   procedure Task_Entry_Call
+     (Target      : System.Tasking.Task_Id;
+      Entry_Index : System.Tasking.Task_Entry_Index;
+      Parameters  : System.Address;
+      Mode        : System.Tasking.Call_Mode;
+      Accepted    : out Boolean)
+   is
+   begin
+      Flyology.M3_Runtime.Task_Entry_Call
+        (Target, Entry_Index, Parameters, Mode, Accepted);
+   end Task_Entry_Call;
 
    procedure Complete_Rendezvous is
    begin

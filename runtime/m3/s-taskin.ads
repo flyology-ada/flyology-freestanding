@@ -17,6 +17,7 @@ package System.Tasking is
    Unspecified_CPU : constant Integer := -1;
 
    type Task_Entry_Index is range 1 .. 255;
+   type Call_Mode is (Simple_Call, Conditional_Call, Asynchronous_Call);
 
    type Activation_Chain is limited private;
    type Activation_Chain_Access is access all Activation_Chain;

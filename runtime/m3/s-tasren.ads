@@ -5,10 +5,20 @@ package System.Tasking.Rendezvous is
      (Entry_Index : System.Tasking.Task_Entry_Index;
       Parameters  : out System.Address);
 
+   procedure Accept_Trivial
+     (Entry_Index : System.Tasking.Task_Entry_Index);
+
    procedure Call_Simple
      (Target      : System.Tasking.Task_Id;
       Entry_Index : System.Tasking.Task_Entry_Index;
       Parameters  : System.Address);
+
+   procedure Task_Entry_Call
+     (Target      : System.Tasking.Task_Id;
+      Entry_Index : System.Tasking.Task_Entry_Index;
+      Parameters  : System.Address;
+      Mode        : System.Tasking.Call_Mode;
+      Accepted    : out Boolean);
 
    procedure Complete_Rendezvous;
    procedure Exceptional_Complete_Rendezvous

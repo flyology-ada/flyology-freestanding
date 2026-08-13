@@ -46,6 +46,13 @@ package Flyology.M3_Runtime is
       Entry_Index : System.Tasking.Task_Entry_Index;
       Parameters  : System.Address);
 
+   procedure Task_Entry_Call
+     (Target      : Task_Id;
+      Entry_Index : System.Tasking.Task_Entry_Index;
+      Parameters  : System.Address;
+      Mode        : System.Tasking.Call_Mode;
+      Accepted    : out Boolean);
+
    procedure Accept_Call
      (Entry_Index : System.Tasking.Task_Entry_Index;
       Parameters  : out System.Address);

@@ -123,3 +123,15 @@ the same value through the default-current-task call before completing the
 cross-core rendezvous. `FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS` is emitted only
 after both observations. Interrupt-time priority preemption remains an M5
 gate; this M4 checkpoint requests rescheduling at cooperative safe boundaries.
+
+The owned `conditional_rendezvous_probe.adb` confirms that both target
+compilers lower a conditional task entry call to `Task_Entry_Call` with
+`Conditional_Call` and an out acceptance flag. Flyology performs the acceptor
+test, call-record reservation, both wait publications, and exact server wake
+under the one RTS lock. If no matching accept is already open, it returns
+without allocating or queueing anything. The ordinary-Ada QEMU test requires
+one cross-core conditional call to be accepted and a no-parameter call against
+a delayed server to take the else branch without queueing; the delayed server
+is then reached by a normal queued call through the observed `Accept_Trivial`
+hook. This checkpoint
+does not yet include timed or asynchronous entry calls.
