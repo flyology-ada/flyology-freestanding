@@ -15,7 +15,8 @@ for architecture in x86_64 aarch64; do
     mkdir -p "$output"
     rm -f "$output"/*
 
-    for probe in task_activation_probe identity_probe master_probe; do
+    for probe in task_activation_probe identity_probe master_probe \
+        chain_exception_probe; do
         scripts/toolchain.sh exec-at "$architecture" "$output" \
             "$target-gcc" -c "$repository/probes/m3/$probe.adb" \
             -o "$probe.o" -nostdinc -I"$interface_root" \
@@ -48,8 +49,23 @@ for architecture in x86_64 aarch64; do
         grep -F " $symbol" "$identity" >/dev/null
     done
 
-    grep -F 'system__tasking__stages__activate_tasks' \
-        "$output/master_probe.undefined" >/dev/null
+    for symbol in system__tasking__stages__activate_tasks \
+        system__soft_links__enter_master \
+        system__soft_links__current_master \
+        system__soft_links__complete_master; do
+        grep -F " $symbol" "$output/master_probe.undefined" >/dev/null
+    done
+    grep -F 'system__soft_links__enter_master.all' \
+        "$output/master_probe.expanded" >/dev/null
+    grep -F 'system__soft_links__complete_master.all' \
+        "$output/master_probe.expanded" >/dev/null
+    grep -F 'system__soft_links__complete_master.all' \
+        "$output/chain_exception_probe.expanded" >/dev/null
+    if grep -Fi 'activation_chainDF' \
+        "$output/chain_exception_probe.expanded" >/dev/null; then
+        echo 'unexpected controlled activation-chain finalizer' >&2
+        exit 1
+    fi
     echo "FLYOLOGY:M3:PROBE:PASS:$architecture"
 done
 
