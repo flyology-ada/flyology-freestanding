@@ -191,3 +191,22 @@ This is deliberately not a reclamation claim. `Unchecked_Deallocation`,
 `Free_Task`, heap reuse, task-slot/stack reuse, incarnation advancement,
 unactivated-task expunging, and abort remain unsupported until their exact
 compiler interfaces and stale-reference races have dedicated gates.
+
+The owned `selective_wait_probe.adb` confirms that both compilers construct an
+`Accept_List`, mark a null accept body in its `Accept_Alternative`, and call
+`System.Tasking.Rendezvous.Selective_Wait` with `Terminate_Mode`, an out
+parameter address, and an out selected alternative index. AArch64 again adds
+only the local-probe cache trampoline; the package-level product task avoids
+it and the ELF gate rejects it.
+
+Flyology's first selective-wait increment accepts exactly one alternative. It
+uses the established rendezvous call table and generation-tagged waits, and
+completes a compiler-marked null body before returning its selected index. The
+ordinary-Ada demonstration couples that server with a concurrent client and
+requires master-observed task completion before
+`FLYOLOGY:M4:SELECTIVE_WAIT:PASS` in every QEMU cell. Although the compiler
+surface includes `Terminate_Mode`, this checkpoint does not yet implement the
+openness/dependency rules that permit a terminate alternative to be selected;
+the demonstrated client always calls the accept alternative. Multiple
+alternatives, guarded alternatives, else/delay alternatives, timed selective
+wait, and priority queueing remain M4 work.

@@ -31,4 +31,10 @@ package System.Tasking.Rendezvous is
    procedure Complete_Rendezvous;
    procedure Exceptional_Complete_Rendezvous
      (Occurrence : System.Address);
+
+   procedure Selective_Wait
+     (Alternatives : System.Tasking.Accept_List_Access;
+      Mode         : System.Tasking.Select_Mode;
+      Parameters   : out System.Address;
+      Selected     : out System.Tasking.Select_Index);
 end System.Tasking.Rendezvous;

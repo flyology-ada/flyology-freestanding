@@ -21,6 +21,8 @@ package body Flyology.M3_Runtime is
    use type System.Tasking.Boolean_Access;
    use type System.Tasking.Task_Entry_Index;
    use type System.Tasking.Call_Mode;
+   use type System.Tasking.Select_Mode;
+   use type System.Tasking.Accept_List_Access;
    use type Waits.Resolve_Status;
    use type Waits.Resolution;
    use type Clock.Tick;
@@ -1042,6 +1044,27 @@ package body Flyology.M3_Runtime is
       Leave_Kernel;
       Kick_Core (System.Address (Wake_Core));
    end Complete_Rendezvous;
+
+   procedure Selective_Wait
+     (Alternatives : System.Tasking.Accept_List_Access;
+      Mode         : System.Tasking.Select_Mode;
+      Parameters   : out System.Address;
+      Selected     : out System.Tasking.Select_Index)
+   is
+      Alternative : System.Tasking.Accept_Alternative;
+   begin
+      if Alternatives = null or else Alternatives'Length /= 1
+        or else Mode /= System.Tasking.Terminate_Mode
+      then
+         raise Program_Error;
+      end if;
+      Alternative := Alternatives (Alternatives'First);
+      Accept_Call (Alternative.S, Parameters);
+      Selected := System.Tasking.Select_Index (Alternatives'First);
+      if Alternative.Null_Body then
+         Complete_Rendezvous;
+      end if;
+   end Selective_Wait;
 
    procedure Unsupported_Exceptional_Rendezvous is
    begin

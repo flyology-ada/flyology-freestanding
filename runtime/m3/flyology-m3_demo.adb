@@ -55,6 +55,7 @@ package body Flyology.M3_Demo is
    Dynamic_Done : Boolean := False with Atomic;
    Dynamic_Id : Ada.Task_Identification.Task_Id :=
      Ada.Task_Identification.Null_Task_Id with Atomic;
+   Selective_Done : Boolean := False with Atomic;
 
    task type Specific_Worker_Type
      (CPU_Number : System.Multiprocessors.CPU_Range;
@@ -81,6 +82,10 @@ package body Flyology.M3_Demo is
 
    task type Dynamic_Worker_Type;
    type Dynamic_Worker_Access is access Dynamic_Worker_Type;
+
+   task type Selective_Server_Type is
+      entry Ping;
+   end Selective_Server_Type;
 
    task body Specific_Worker_Type is
       Self : constant Ada.Task_Identification.Task_Id :=
@@ -193,6 +198,16 @@ package body Flyology.M3_Demo is
       end if;
    end Run_Dynamic_Worker;
 
+   task body Selective_Server_Type is
+   begin
+      select
+         accept Ping;
+      or
+         terminate;
+      end select;
+      Selective_Done := True;
+   end Selective_Server_Type;
+
    procedure Report_Ordinary_Pass
    with Import, Convention => C,
         External_Name => "flyology_m3_report_ordinary_pass";
@@ -240,6 +255,10 @@ package body Flyology.M3_Demo is
    procedure Report_Dynamic_Task_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_dynamic_task_pass";
+
+   procedure Report_Selective_Wait_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_selective_wait_pass";
 
    procedure Report_Master_Pass
    with Import, Convention => C,
@@ -433,6 +452,16 @@ package body Flyology.M3_Demo is
          Report_Failure;
       end if;
       Report_Dynamic_Task_Pass;
+
+      declare
+         Server : Selective_Server_Type;
+      begin
+         Server.Ping;
+      end;
+      if not Selective_Done then
+         Report_Failure;
+      end if;
+      Report_Selective_Wait_Pass;
 
       for Index in Auto_Id'Range loop
          if not Auto_Done (Index)

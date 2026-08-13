@@ -18,6 +18,17 @@ package System.Tasking is
 
    type Task_Entry_Index is range 1 .. 255;
    type Call_Mode is (Simple_Call, Conditional_Call, Asynchronous_Call);
+   type Select_Mode is
+     (Simple_Mode, Else_Mode, Terminate_Mode, Delay_Mode);
+   type Select_Index is range 0 .. 255;
+   No_Rendezvous : constant Select_Index := 0;
+
+   type Accept_Alternative is record
+      Null_Body : Boolean;
+      S         : Task_Entry_Index;
+   end record;
+   type Accept_List is array (Positive range <>) of Accept_Alternative;
+   type Accept_List_Access is access all Accept_List;
 
    type Activation_Chain is limited private;
    type Activation_Chain_Access is access all Activation_Chain;

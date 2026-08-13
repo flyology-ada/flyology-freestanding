@@ -67,6 +67,11 @@ package Flyology.M3_Runtime is
       Parameters  : out System.Address);
 
    procedure Complete_Rendezvous;
+   procedure Selective_Wait
+     (Alternatives : System.Tasking.Accept_List_Access;
+      Mode         : System.Tasking.Select_Mode;
+      Parameters   : out System.Address;
+      Selected     : out System.Tasking.Select_Index);
    procedure Unsupported_Exceptional_Rendezvous;
 
    procedure Core_Initialize (CPU_Count : System.Address)

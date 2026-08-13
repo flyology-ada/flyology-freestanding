@@ -66,4 +66,15 @@ package body System.Tasking.Rendezvous is
    begin
       Flyology.M3_Runtime.Unsupported_Exceptional_Rendezvous;
    end Exceptional_Complete_Rendezvous;
+
+   procedure Selective_Wait
+     (Alternatives : System.Tasking.Accept_List_Access;
+      Mode         : System.Tasking.Select_Mode;
+      Parameters   : out System.Address;
+      Selected     : out System.Tasking.Select_Index)
+   is
+   begin
+      Flyology.M3_Runtime.Selective_Wait
+        (Alternatives, Mode, Parameters, Selected);
+   end Selective_Wait;
 end System.Tasking.Rendezvous;
