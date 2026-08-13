@@ -42,6 +42,8 @@ package body Flyology.M3_Runtime is
    type Master_Number is range 1 .. Max_Masters;
    type Group_Number is range 1 .. Max_Groups;
    type Call_Number is range 1 .. Max_Calls;
+   type Call_Sequence is range 0 .. 2 ** 63 - 1;
+   No_Call_Sequence : constant Call_Sequence := Call_Sequence'First;
    type Master_Stack is array (Positive range 1 .. 8) of Integer;
 
    type Task_Record is record
@@ -89,6 +91,7 @@ package body Flyology.M3_Runtime is
       Used       : Boolean := False;
       Accepted   : Boolean := False;
       Timed      : Boolean := False;
+      Sequence   : Call_Sequence := No_Call_Sequence;
       Caller     : Dispatcher.Task_Ref := Core.No_Task;
       Target     : Dispatcher.Task_Ref := Core.No_Task;
       Entry_Index : System.Tasking.Task_Entry_Index := 1;
@@ -106,6 +109,7 @@ package body Flyology.M3_Runtime is
    Next_Incarnation : array (Task_Slot) of Dispatcher.Task_Incarnation :=
      [others => 1];
    Placement_Next : Core_Number := 0;
+   Next_Call_Sequence : Call_Sequence := No_Call_Sequence + 1;
 
    function Current_Core_Raw return System.Address
    with Import, Convention => C, External_Name => "flyology_current_core";
@@ -957,6 +961,16 @@ package body Flyology.M3_Runtime is
       return Call_Number'First;
    end Allocate_Call_Locked;
 
+   function Allocate_Call_Sequence_Locked return Call_Sequence is
+      Result : constant Call_Sequence := Next_Call_Sequence;
+   begin
+      if Result = No_Call_Sequence or else Result = Call_Sequence'Last then
+         Stop;
+      end if;
+      Next_Call_Sequence := Result + 1;
+      return Result;
+   end Allocate_Call_Sequence_Locked;
+
    procedure Call_Simple
      (Target      : Task_Id;
       Entry_Index : System.Tasking.Task_Entry_Index;
@@ -986,6 +1000,7 @@ package body Flyology.M3_Runtime is
       Call := Allocate_Call_Locked;
       Calls (Call) :=
         (Used => True, Accepted => False, Timed => False, Caller => Caller,
+         Sequence => Allocate_Call_Sequence_Locked,
          Target => Target_Ref, Entry_Index => Entry_Index,
          Parameters => Parameters,
          Caller_Wait =>
@@ -1067,6 +1082,7 @@ package body Flyology.M3_Runtime is
       Call := Allocate_Call_Locked;
       Calls (Call) :=
         (Used => True, Accepted => True, Timed => False, Caller => Caller,
+         Sequence => Allocate_Call_Sequence_Locked,
          Target => Target_Ref, Entry_Index => Entry_Index,
          Parameters => Parameters,
          Caller_Wait =>
@@ -1154,6 +1170,7 @@ package body Flyology.M3_Runtime is
       Call := Allocate_Call_Locked;
       Calls (Call) :=
         (Used => True, Accepted => False, Timed => True, Caller => Caller,
+         Sequence => Allocate_Call_Sequence_Locked,
          Target => Target_Ref, Entry_Index => Entry_Index,
          Parameters => Parameters,
          Caller_Wait =>
@@ -1217,6 +1234,7 @@ package body Flyology.M3_Runtime is
       Server     : Dispatcher.Task_Ref;
       Server_Slot : Task_Slot;
       Selected   : Natural range 0 .. Max_Calls := 0;
+      Oldest     : Call_Sequence := Call_Sequence'Last;
       Outcome    : Waits.Resolution;
    begin
       Enter_Kernel;
@@ -1236,8 +1254,13 @@ package body Flyology.M3_Runtime is
            and then Calls (Call).Entry_Index = Entry_Index
          then
             if Core.Wait_Is_Pending_Locked (Calls (Call).Caller_Wait) then
-               Selected := Natural (Call);
-               exit;
+               if Calls (Call).Sequence = No_Call_Sequence then
+                  Leave_Kernel;
+                  Stop;
+               elsif Calls (Call).Sequence < Oldest then
+                  Selected := Natural (Call);
+                  Oldest := Calls (Call).Sequence;
+               end if;
             else
                Calls (Call) := (others => <>);
             end if;
@@ -1365,6 +1388,7 @@ package body Flyology.M3_Runtime is
       Masters := [others => (others => <>)];
       Groups := [others => (others => <>)];
       Calls := [others => (others => <>)];
+      Next_Call_Sequence := No_Call_Sequence + 1;
       Placement_Next := 0;
       Next_Incarnation := [others => 1];
       Environment := System.Tasking.Identity_For_Slot (0);
