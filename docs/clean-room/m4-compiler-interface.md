@@ -100,9 +100,42 @@ actions are globally serialized while unrelated application code continues in
 parallel on other cores. The QEMU gate requires four automatically placed
 ordinary tasks to update a two-word protected counter after their delays and
 the master to observe the exact total before
-`FLYOLOGY:M4:PROTECTED:PASS`. This checkpoint does not claim protected entries,
-entry queues, priority-ordered entry service, ceiling-violation exception
-propagation, or finalized-object race behavior.
+`FLYOLOGY:M4:PROTECTED:PASS`.
+
+The owned `protected_probe.adb` now records the protected-entry compiler
+boundary independently on both cross targets. GNAT constructs an array of
+barrier/action callbacks, initializes `Protection_Entries` with the enclosing
+object address and body-index mapper, and lowers an ordinary call through a
+`Communication_Block` and `Protected_Entry_Call`. A protected procedure ends
+through `Service_Entries`; a function uses `Unlock_Entries`; normal entry-body
+completion calls `Complete_Entry_Body`. AArch64 adds only its already observed
+local-trampoline `__clear_cache` reference, which the package-level product
+object avoids.
+
+The product representation owns a bounded 16-call queue using the proved
+exact-token FIFO wait-queue model. A closed barrier
+publishes the caller's exact task reference and wait generation while the one
+RTS lock is held, then uses Task_Core's atomic block-and-release handoff. The
+opening protected procedure evaluates barriers under the same lock, executes
+the selected action, removes exactly that call, enqueues the exact waiter once,
+releases the protected action, and only then sends the local or remote
+reschedule notification. The ordinary-Ada gate blocks two tasks on the entry,
+proves neither passed while closed, opens it from the environment task, checks
+that the protected entry bodies ran in call order, and requires master-observed
+completion before
+`FLYOLOGY:M4:PROTECTED_ENTRY:PASS` on x86-64 and AArch64 at SMP1 and SMP4.
+
+This increment deliberately compiles the product with `No_Finalization`.
+That restriction removes GNAT's implicit controlled-object attachment and
+Ada.Tags metadata dependency while leaving the protected-entry lowering above
+intact; Flyology still tears down task execution slots explicitly. It is an
+intermediate clean-room boundary, not a final full-runtime contract. M4 cannot
+close until controlled finalization is supported without GNAT-derived code or
+the product scope is otherwise reconciled with ordinary Ada finalization.
+Exceptional entry-body completion currently stops fail-closed. This checkpoint
+also does not claim conditional/timed protected entry calls,
+entry families, requeue, priority-ordered entry service, exceptional entry-body
+propagation, abort of a protected-entry waiter, or finalized-object races.
 
 The owned `simple_rendezvous_probe.adb` establishes the same compiler surface
 on both cross targets for a simple task entry call: `Create_Task` receives an

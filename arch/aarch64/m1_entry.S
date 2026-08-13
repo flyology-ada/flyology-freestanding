@@ -894,6 +894,11 @@ flyology_current_core:
     ret
 
 #ifdef FLYOLOGY_M3
+.weak adafinal
+.type adafinal, %function
+adafinal:
+    ret
+
 .global flyology_m3_boot_cpu_count
 .type flyology_m3_boot_cpu_count, %function
 flyology_m3_boot_cpu_count:
@@ -1004,6 +1009,12 @@ flyology_m4_report_absolute_delay_pass:
 .type flyology_m4_report_protected_pass, %function
 flyology_m4_report_protected_pass:
     address x0, m4_protected_pass
+    b serial_puts_locked
+
+.global flyology_m4_report_protected_entry_pass
+.type flyology_m4_report_protected_entry_pass, %function
+flyology_m4_report_protected_entry_pass:
+    address x0, m4_protected_entry_pass
     b serial_puts_locked
 
 .global flyology_m4_report_rendezvous_pass
@@ -1757,6 +1768,7 @@ m3_stack_pass: .asciz "FLYOLOGY:M3:TASK_STACKS:PASS\n"
 m4_delay_pass: .asciz "FLYOLOGY:M4:DELAYS:PASS\n"
 m4_absolute_delay_pass: .asciz "FLYOLOGY:M4:ABSOLUTE_DELAY:PASS\n"
 m4_protected_pass: .asciz "FLYOLOGY:M4:PROTECTED:PASS\n"
+m4_protected_entry_pass: .asciz "FLYOLOGY:M4:PROTECTED_ENTRY:PASS\n"
 m4_rendezvous_pass: .asciz "FLYOLOGY:M4:RENDEZVOUS:PASS\n"
 m4_priority_pass: .asciz "FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS\n"
 m4_conditional_pass: .asciz "FLYOLOGY:M4:CONDITIONAL_ENTRY:PASS\n"

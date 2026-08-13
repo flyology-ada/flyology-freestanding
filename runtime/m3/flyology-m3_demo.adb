@@ -36,6 +36,34 @@ package body Flyology.M3_Demo is
       function Value return Natural is (Counts (1) + Counts (2));
    end Shared_Counter;
 
+   Protected_Entry_Done : Done_Array := [others => False];
+
+   protected Protected_Gate is
+      procedure Open;
+      entry Wait (Index : Positive);
+      function Service_Order (Index : Positive) return Natural;
+   private
+      Opened        : Boolean := False;
+      Service_Count : Natural := 0;
+      Service_Log   : Counter_Pair := [others => 0];
+   end Protected_Gate;
+
+   protected body Protected_Gate is
+      procedure Open is
+      begin
+         Opened := True;
+      end Open;
+
+      entry Wait (Index : Positive) when Opened is
+      begin
+         Service_Count := Service_Count + 1;
+         Service_Log (Service_Count) := Index;
+      end Wait;
+
+      function Service_Order (Index : Positive) return Natural is
+        (Service_Log (Index));
+   end Protected_Gate;
+
    Auto_Done     : Done_Array := [others => False];
    Specific_Done : Done_Array := [others => False];
    Auto_Id       : Identity_Array :=
@@ -126,6 +154,11 @@ package body Flyology.M3_Demo is
    task type Abort_Timed_Client_Type
      (CPU_Number : System.Multiprocessors.CPU_Range;
       Server     : not null access Abort_Rendezvous_Server_Type)
+     with CPU => CPU_Number;
+
+   task type Protected_Entry_Worker_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range;
+      Index      : Positive)
      with CPU => CPU_Number;
 
    task body Specific_Worker_Type is
@@ -307,6 +340,12 @@ package body Flyology.M3_Demo is
       Abort_Timed_Continued := True;
    end Abort_Timed_Client_Type;
 
+   task body Protected_Entry_Worker_Type is
+   begin
+      Protected_Gate.Wait (Index);
+      Protected_Entry_Done (Index) := True;
+   end Protected_Entry_Worker_Type;
+
    procedure Report_Ordinary_Pass
    with Import, Convention => C,
         External_Name => "flyology_m3_report_ordinary_pass";
@@ -338,6 +377,10 @@ package body Flyology.M3_Demo is
    procedure Report_Protected_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_protected_pass";
+
+   procedure Report_Protected_Entry_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_protected_entry_pass";
 
    procedure Report_Rendezvous_Pass
    with Import, Convention => C,
@@ -520,6 +563,26 @@ package body Flyology.M3_Demo is
          Report_Failure;
       end if;
       Report_Protected_Pass;
+
+      declare
+         Worker_1 : Protected_Entry_Worker_Type
+           (System.Multiprocessors.CPU_Range (CPU_Count), 1);
+         Worker_2 : Protected_Entry_Worker_Type
+           (System.Multiprocessors.CPU_Range (CPU_Count), 2);
+      begin
+         delay 0.001;
+         if Protected_Entry_Done (1) or else Protected_Entry_Done (2) then
+            Report_Failure;
+         end if;
+         Protected_Gate.Open;
+      end;
+      if not Protected_Entry_Done (1) or else not Protected_Entry_Done (2)
+        or else Protected_Gate.Service_Order (1) /= 1
+        or else Protected_Gate.Service_Order (2) /= 2
+      then
+         Report_Failure;
+      end if;
+      Report_Protected_Entry_Pass;
 
       declare
          Server : Rendezvous_Server_Type

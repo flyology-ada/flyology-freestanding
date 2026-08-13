@@ -48,7 +48,7 @@ compile_ada() {
         -nostdinc -Iruntime/bootstrap -Iruntime/core -Iruntime/m3 \
         -I"arch/$architecture" -I"$output_directory" \
         $style_flags -gnatw.X -gnatw.i -gnato \
-        -gnatec=runtime/bootstrap/m1.adc \
+        -gnatec=runtime/m4/product.adc \
         -ffunction-sections -fdata-sections \
         -fno-stack-protector -fno-pic -fno-pie $architecture_flags
 }
@@ -66,6 +66,8 @@ compile_ada runtime/m3/s-tasinf.ads s-tasinf.o yes
 compile_ada runtime/m3/s-taskin.adb s-taskin.o yes
 compile_ada runtime/m3/s-finpri.adb s-finpri.o yes
 compile_ada runtime/m3/s-taprob.adb s-taprob.o yes
+compile_ada runtime/m3/s-tpoben.adb s-tpoben.o yes
+compile_ada runtime/m3/s-tpobop.adb s-tpobop.o yes
 compile_ada runtime/m3/s-tasren.adb s-tasren.o yes
 compile_ada runtime/core/flyology.ads flyology.o
 compile_ada runtime/core/flyology-validation.adb flyology-validation.o
@@ -82,6 +84,8 @@ compile_ada runtime/core/flyology-priority_queue_model.adb \
     flyology-priority_queue_model.o
 compile_ada runtime/core/flyology-wait_arbitration_model.adb \
     flyology-wait_arbitration_model.o
+compile_ada runtime/core/flyology-wait_queue_model.adb \
+    flyology-wait_queue_model.o
 compile_ada "arch/$architecture/flyology-architecture_context.ads" \
     flyology-architecture_context.o
 compile_ada "arch/$architecture/flyology-m2_architecture.adb" \
@@ -163,9 +167,12 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/flyology-ceiling_model.o" \
     "$output_directory/flyology-priority_queue_model.o" \
     "$output_directory/flyology-wait_arbitration_model.o" \
+    "$output_directory/flyology-wait_queue_model.o" \
     "$output_directory/flyology-dispatcher_model.o" \
     "$output_directory/s-taskin.o" \
     "$output_directory/s-taprob.o" \
+    "$output_directory/s-tpoben.o" \
+    "$output_directory/s-tpobop.o" \
     "$output_directory/s-tasren.o" \
     "$output_directory/s-finpri.o" \
     "$output_directory/s-tasinf.o" \

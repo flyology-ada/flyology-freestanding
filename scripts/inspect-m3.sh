@@ -48,6 +48,11 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     ada__real_time__clock ada__real_time__delays__delay_until \
     system__tasking__protected_objects__lock \
     system__tasking__protected_objects__unlock \
+    system__tasking__protected_objects__entries__initialize_protection_entries \
+    system__tasking__protected_objects__entries__lock_entries \
+    system__tasking__protected_objects__operations__protected_entry_call \
+    system__tasking__protected_objects__operations__service_entries \
+    system__tasking__protected_objects__operations__complete_entry_body \
     system__tasking__rendezvous__call_simple \
     system__tasking__rendezvous__accept_call \
     system__tasking__rendezvous__complete_rendezvous \

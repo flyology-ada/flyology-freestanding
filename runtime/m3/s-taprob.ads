@@ -1,6 +1,8 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 package System.Tasking.Protected_Objects is
+   type Protected_Entry_Index is range 0 .. Integer'Last;
+
    type Protection is limited record
       Ceiling : Integer := System.Tasking.Unspecified_Priority;
    end record;
