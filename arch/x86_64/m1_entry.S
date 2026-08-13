@@ -4,6 +4,7 @@
 .set STACK_SHIFT, 16
 .set CORE_RECORD_SHIFT, 6
 .set COM1, 0x3f8
+.set RESCHEDULE_VECTOR, 0xe1
 
 .section .text.entry, "ax", @progbits
 .global _start
@@ -152,6 +153,9 @@ scan_next:
 scan_done:
     test %r15, %r15
     jz fatal
+#ifdef FLYOLOGY_M2
+    mov %r13d, cpu_count(%rip)
+#endif
 
     mov bsp_record(%rip), %rdi
     test %rdi, %rdi
@@ -200,6 +204,7 @@ wait_online:
 #ifdef FLYOLOGY_M2
     call initialize_task_fp
     call flyology_m2_core_entry
+    call m2_idle_reschedule_test
     lock incl m2_complete_count(%rip)
 wait_m2_complete:
     pause
@@ -243,6 +248,7 @@ ap_entry:
 #ifdef FLYOLOGY_M2
     call initialize_task_fp
     call flyology_m2_core_entry
+    call m2_idle_reschedule_test
     lock incl m2_complete_count(%rip)
 #endif
 ap_halt:
@@ -329,6 +335,21 @@ initialize_idt:
     movw $(256 * 16 - 1), idt_descriptor(%rip)
     lea idt_table(%rip), %rax
     mov %rax, idt_descriptor + 2(%rip)
+#ifdef FLYOLOGY_M2
+    lea idt_table + RESCHEDULE_VECTOR * 16(%rip), %rdi
+    lea reschedule_vector(%rip), %r8
+    mov %r8, %rax
+    mov %ax, 0(%rdi)
+    mov %dx, 2(%rdi)
+    movb $0, 4(%rdi)
+    movb $0x8e, 5(%rdi)
+    shr $16, %rax
+    mov %ax, 6(%rdi)
+    mov %r8, %rax
+    shr $32, %rax
+    mov %eax, 8(%rdi)
+    movl $0, 12(%rdi)
+#endif
     jmp install_idt
 
 .type install_idt, @function
@@ -344,6 +365,48 @@ fatal_vector:
     lea fail_marker(%rip), %rdi
     call serial_puts
     jmp halt
+
+#ifdef FLYOLOGY_M2
+.type reschedule_vector, @function
+reschedule_vector:
+    cld
+    push %rax
+    push %rbx
+    push %rcx
+    push %rdx
+    push %rsi
+    push %rdi
+    push %rbp
+    push %r8
+    push %r9
+    push %r10
+    push %r11
+    push %r12
+    push %r13
+    push %r14
+    push %r15
+    movq $1, %gs:48
+    mov $0x80b, %ecx
+    xor %eax, %eax
+    xor %edx, %edx
+    wrmsr
+    pop %r15
+    pop %r14
+    pop %r13
+    pop %r12
+    pop %r11
+    pop %r10
+    pop %r9
+    pop %r8
+    pop %rbp
+    pop %rdi
+    pop %rsi
+    pop %rdx
+    pop %rcx
+    pop %rbx
+    pop %rax
+    iretq
+#endif
 
 .global __gnat_last_chance_handler
 .global __gnat_rcheck_CE_Explicit_Raise
@@ -405,6 +468,73 @@ initialize_task_fp:
     movl $0x1f80, (%rsp)
     ldmxcsr (%rsp)
     add $16, %rsp
+    pop %rbx
+    ret
+
+.type initialize_x2apic, @function
+initialize_x2apic:
+    mov $0x80f, %ecx
+    rdmsr
+    or $0x1ff, %eax
+    wrmsr
+    ret
+
+.type m2_idle_reschedule_test, @function
+m2_idle_reschedule_test:
+    push %rbx
+    push %r12
+    call initialize_x2apic
+    movq $0, %gs:48
+    lock incl m2_idle_ready_count(%rip)
+    mov %gs:0, %ebx
+    test %ebx, %ebx
+    jnz 3f
+1:
+    pause
+    mov m2_idle_ready_count(%rip), %eax
+    cmp cpu_count(%rip), %eax
+    jne 1b
+    xor %r12d, %r12d
+2:
+    cmp cpu_count(%rip), %r12d
+    jae 3f
+    lea core_records(%rip), %rax
+    mov %r12, %rdx
+    shl $CORE_RECORD_SHIFT, %rdx
+    add %rdx, %rax
+    mov 16(%rax), %edx
+    mov $(0x4000 | RESCHEDULE_VECTOR), %eax
+    mov $0x830, %ecx
+    wrmsr
+    inc %r12d
+    jmp 2b
+3:
+    cmpq $0, %gs:48
+    jne 4f
+    sti
+    hlt
+    cli
+    jmp 3b
+4:
+    mov %ebx, %edi
+    call m2_report_ipi_pass
+    pop %r12
+    pop %rbx
+    ret
+
+.type m2_report_ipi_pass, @function
+m2_report_ipi_pass:
+    push %rbx
+    mov %edi, %ebx
+    call serial_lock_acquire
+    lea m2_core_prefix(%rip), %rdi
+    call serial_puts
+    lea digits(%rip), %rax
+    mov (%rax,%rbx,1), %dil
+    call serial_putc
+    lea m2_ipi_suffix(%rip), %rdi
+    call serial_puts
+    call serial_lock_release
     pop %rbx
     ret
 
@@ -545,6 +675,7 @@ m1_pass:       .asciz "FLYOLOGY:M1:PASS\n"
 #ifdef FLYOLOGY_M2
 m2_core_prefix: .asciz "FLYOLOGY:M2:CORE:"
 m2_core_suffix: .asciz ":SUBSTRATE:PASS\n"
+m2_ipi_suffix: .asciz ":RESCHEDULE_IPI:PASS\n"
 m2_pass:       .asciz "FLYOLOGY:M2:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:X86_BOOT\n"
@@ -557,6 +688,8 @@ serial_lock: .skip 4
 online_count: .skip 4
 #ifdef FLYOLOGY_M2
 m2_complete_count: .skip 4
+m2_idle_ready_count: .skip 4
+cpu_count: .skip 4
 #endif
 memory_usable_found: .skip 1
 .balign 8

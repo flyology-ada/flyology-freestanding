@@ -2,8 +2,13 @@
 
 .set MAX_CORES, 4
 .set STACK_SHIFT, 16
+.set EXCEPTION_STACK_SHIFT, 14
 .set CORE_RECORD_SHIFT, 6
 .set UART_BASE, 0x09000000
+.set GICD_BASE, 0x08000000
+.set GICR_BASE, 0x080a0000
+.set GICR_END, 0x09000000
+.set RESCHEDULE_SGI, 1
 
 .macro address reg, symbol
     adrp \reg, \symbol
@@ -163,6 +168,10 @@ scan_next:
     b scan_cpus
 scan_done:
     cbz x22, fatal
+#ifdef FLYOLOGY_M2
+    address x0, cpu_count
+    str w20, [x0]
+#endif
 
     address x0, bsp_record
     ldr x0, [x0]
@@ -187,6 +196,10 @@ scan_done:
 #endif
     address x0, ada_pass
     bl serial_puts_locked
+
+#ifdef FLYOLOGY_M2
+    bl initialize_gic_distributor
+#endif
 
     mov x0, xzr
     bl print_online
@@ -218,11 +231,19 @@ wait_online:
     cmp x1, x20
     b.ne wait_online
 #ifdef FLYOLOGY_M2
+    bl initialize_gic_core
     mov x0, sp
     msr sp_el0, x0
+    mrs x1, tpidr_el1
+    ldr x1, [x1]
+    address x2, exception_stacks
+    add x1, x1, #1
+    add x2, x2, x1, lsl #EXCEPTION_STACK_SHIFT
+    mov sp, x2
     msr spsel, #0
     isb
     bl flyology_m2_core_entry
+    bl m2_idle_reschedule_test
     bl m2_complete_increment
 wait_m2_complete:
     wfe
@@ -285,11 +306,19 @@ ap_entry:
     stlr w1, [x0]
     bl online_increment
 #ifdef FLYOLOGY_M2
+    bl initialize_gic_core
     mov x0, sp
     msr sp_el0, x0
+    mrs x1, tpidr_el1
+    ldr x1, [x1]
+    address x2, exception_stacks
+    add x1, x1, #1
+    add x2, x2, x1, lsl #EXCEPTION_STACK_SHIFT
+    mov sp, x2
     msr spsel, #0
     isb
     bl flyology_m2_core_entry
+    bl m2_idle_reschedule_test
     bl m2_complete_increment
 #endif
 ap_halt:
@@ -368,6 +397,175 @@ m2_complete_increment:
     stlxr w2, w1, [x0]
     cbnz w2, 1b
     sev
+    ret
+
+.type initialize_gic_distributor, %function
+initialize_gic_distributor:
+    mov x0, #GICD_BASE
+    str wzr, [x0]
+1:
+    ldr w1, [x0]
+    tbnz w1, #31, 1b
+    mov w1, #0x12
+    str w1, [x0]
+2:
+    ldr w1, [x0]
+    tbnz w1, #31, 2b
+    dsb sy
+    ret
+
+.type initialize_gic_core, %function
+initialize_gic_core:
+    mrs x8, mpidr_el1
+    and x9, x8, #0xff
+    and x10, x8, #0xff00
+    orr x9, x9, x10
+    and x10, x8, #0xff0000
+    orr x9, x9, x10
+    lsr x10, x8, #32
+    and x10, x10, #0xff
+    lsl x10, x10, #24
+    orr x9, x9, x10
+    mov x0, #GICR_BASE
+    mov x7, #GICR_END
+1:
+    cmp x0, x7
+    b.hs fatal
+    ldr x1, [x0, #8]
+    lsr x1, x1, #32
+    cmp w1, w9
+    b.eq 2f
+    add x0, x0, #0x20, lsl #12
+    b 1b
+2:
+    ldr w1, [x0, #0x14]
+    bic w1, w1, #2
+    str w1, [x0, #0x14]
+3:
+    ldr w1, [x0, #0x14]
+    tbnz w1, #2, 3b
+    add x0, x0, #0x10, lsl #12
+    mov w1, #(1 << RESCHEDULE_SGI)
+    str w1, [x0, #0x80]
+    str w1, [x0, #0x280]
+    str w1, [x0, #0x100]
+    mov w1, #0x80
+    strb w1, [x0, #(0x400 + RESCHEDULE_SGI)]
+    dsb sy
+    mrs x0, icc_sre_el1
+    orr x0, x0, #1
+    msr icc_sre_el1, x0
+    isb
+    mrs x0, icc_sre_el1
+    tbz x0, #0, fatal
+    mov x0, #0xff
+    msr icc_pmr_el1, x0
+    msr icc_bpr1_el1, xzr
+    mrs x0, icc_ctlr_el1
+    bic x0, x0, #2
+    msr icc_ctlr_el1, x0
+    mov x0, #1
+    msr icc_igrpen1_el1, x0
+    isb
+    ret
+
+.type send_reschedule_sgi, %function
+send_reschedule_sgi:
+    and x1, x0, #0xff
+    cmp x1, #15
+    b.hi fatal
+    mov x2, #1
+    lsl x2, x2, x1
+    and x3, x0, #0xff00
+    lsl x3, x3, #8
+    orr x2, x2, x3
+    and x3, x0, #0xff0000
+    lsl x3, x3, #16
+    orr x2, x2, x3
+    lsr x3, x0, #32
+    and x3, x3, #0xff
+    lsl x3, x3, #48
+    orr x2, x2, x3
+    mov x3, #(RESCHEDULE_SGI << 24)
+    orr x2, x2, x3
+    msr icc_sgi1r_el1, x2
+    isb
+    ret
+
+.type m2_idle_ready_increment, %function
+m2_idle_ready_increment:
+    address x0, m2_idle_ready_count
+1:
+    ldaxr w1, [x0]
+    add w1, w1, #1
+    stlxr w2, w1, [x0]
+    cbnz w2, 1b
+    sev
+    ret
+
+.type m2_idle_reschedule_test, %function
+m2_idle_reschedule_test:
+    stp x29, x30, [sp, #-48]!
+    stp x19, x20, [sp, #16]
+    str x21, [sp, #32]
+    mov x29, sp
+    mrs x19, tpidr_el1
+    str xzr, [x19, #48]
+    bl m2_idle_ready_increment
+    ldr x3, [x19]
+    cbnz x3, 3f
+1:
+    wfe
+    address x0, m2_idle_ready_count
+    ldar w1, [x0]
+    address x0, cpu_count
+    ldr w20, [x0]
+    cmp w1, w20
+    b.ne 1b
+    mov x21, xzr
+2:
+    cmp w21, w20
+    b.hs 3f
+    address x5, core_records
+    add x5, x5, x21, lsl #CORE_RECORD_SHIFT
+    ldr x0, [x5, #16]
+    bl send_reschedule_sgi
+    add x21, x21, #1
+    b 2b
+3:
+    msr daifset, #2
+    ldr x0, [x19, #48]
+    cbnz x0, 4f
+    wfi
+    msr daifclr, #2
+    isb
+    msr daifset, #2
+    b 3b
+4:
+    ldr x0, [x19]
+    bl m2_report_sgi_pass
+    ldp x19, x20, [sp, #16]
+    ldr x21, [sp, #32]
+    ldp x29, x30, [sp], #48
+    ret
+
+.type m2_report_sgi_pass, %function
+m2_report_sgi_pass:
+    stp x29, x30, [sp, #-32]!
+    str x19, [sp, #16]
+    mov x29, sp
+    mov x19, x0
+    bl serial_lock_acquire
+    address x0, m2_core_prefix
+    bl serial_puts
+    address x1, digits
+    ldrb w0, [x1, x19]
+    bl serial_putc
+    address x0, m2_sgi_suffix
+    bl serial_puts
+    bl serial_lock_release
+    ldr x19, [sp, #16]
+    ldp x29, x30, [sp], #32
     ret
 
 .global flyology_current_core
@@ -465,6 +663,23 @@ install_uart_mapping:
     orr x9, x9, x10
     mov x10, #(UART_BASE >> 21)
     str x9, [x7, x10, lsl #3]
+
+#ifdef FLYOLOGY_M2
+    mov x9, #GICD_BASE
+    mov x10, #0x61d
+    orr x9, x9, x10
+    mov x10, #3
+    lsl x10, x10, #53
+    orr x9, x9, x10
+    mov x10, #(GICD_BASE >> 21)
+    mov x12, #8
+6:
+    str x9, [x7, x10, lsl #3]
+    add x9, x9, #0x200, lsl #12
+    add x10, x10, #1
+    subs x12, x12, #1
+    b.ne 6b
+#endif
 
     address x9, uart_l0_physical
     str x4, [x9]
@@ -639,12 +854,88 @@ exception_fatal:
     bl serial_puts
     b halt
 
+#ifdef FLYOLOGY_M2
+.type reschedule_irq, %function
+reschedule_irq:
+    sub sp, sp, #256
+    stp x0, x1, [sp, #0]
+    stp x2, x3, [sp, #16]
+    stp x4, x5, [sp, #32]
+    stp x6, x7, [sp, #48]
+    stp x8, x9, [sp, #64]
+    stp x10, x11, [sp, #80]
+    stp x12, x13, [sp, #96]
+    stp x14, x15, [sp, #112]
+    stp x16, x17, [sp, #128]
+    stp x18, x19, [sp, #144]
+    stp x20, x21, [sp, #160]
+    stp x22, x23, [sp, #176]
+    stp x24, x25, [sp, #192]
+    stp x26, x27, [sp, #208]
+    stp x28, x29, [sp, #224]
+    str x30, [sp, #240]
+    mrs x0, icc_iar1_el1
+    and x1, x0, #0xffffff
+    cmp x1, #RESCHEDULE_SGI
+    b.ne 1f
+    mrs x2, tpidr_el1
+    mov x3, #1
+    str x3, [x2, #48]
+    msr icc_eoir1_el1, x0
+    ldp x0, x1, [sp, #0]
+    ldp x2, x3, [sp, #16]
+    ldp x4, x5, [sp, #32]
+    ldp x6, x7, [sp, #48]
+    ldp x8, x9, [sp, #64]
+    ldp x10, x11, [sp, #80]
+    ldp x12, x13, [sp, #96]
+    ldp x14, x15, [sp, #112]
+    ldp x16, x17, [sp, #128]
+    ldp x18, x19, [sp, #144]
+    ldp x20, x21, [sp, #160]
+    ldp x22, x23, [sp, #176]
+    ldp x24, x25, [sp, #192]
+    ldp x26, x27, [sp, #208]
+    ldp x28, x29, [sp, #224]
+    ldr x30, [sp, #240]
+    add sp, sp, #256
+    eret
+1:
+    msr icc_eoir1_el1, x0
+    add sp, sp, #256
+    b exception_fatal
+#endif
+
 .balign 2048
 vector_table:
-    .rept 16
-    b exception_fatal
+.macro vector target
+    b \target
     .balign 128
-    .endr
+.endm
+    vector exception_fatal
+#ifdef FLYOLOGY_M2
+    vector reschedule_irq
+#else
+    vector exception_fatal
+#endif
+    vector exception_fatal
+    vector exception_fatal
+    vector exception_fatal
+#ifdef FLYOLOGY_M2
+    vector reschedule_irq
+#else
+    vector exception_fatal
+#endif
+    vector exception_fatal
+    vector exception_fatal
+    vector exception_fatal
+    vector exception_fatal
+    vector exception_fatal
+    vector exception_fatal
+    vector exception_fatal
+    vector exception_fatal
+    vector exception_fatal
+    vector exception_fatal
 
 .section .rodata
 online_prefix: .asciz "FLYOLOGY:CORE:ONLINE:"
@@ -653,6 +944,7 @@ m1_pass:       .asciz "FLYOLOGY:M1:PASS\n"
 #ifdef FLYOLOGY_M2
 m2_core_prefix: .asciz "FLYOLOGY:M2:CORE:"
 m2_core_suffix: .asciz ":SUBSTRATE:PASS\n"
+m2_sgi_suffix: .asciz ":RESCHEDULE_SGI:PASS\n"
 m2_pass:       .asciz "FLYOLOGY:M2:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:AARCH64_BOOT\n"
@@ -666,6 +958,8 @@ serial_lock: .skip 4
 online_count: .skip 4
 #ifdef FLYOLOGY_M2
 m2_complete_count: .skip 4
+m2_idle_ready_count: .skip 4
+cpu_count: .skip 4
 #endif
 .balign 8
 uart_address: .skip 8
@@ -683,5 +977,9 @@ uart_l1: .skip 4096
 uart_l2: .skip 4096
 .balign 16
 core_stacks: .skip MAX_CORES * (1 << STACK_SHIFT)
+#ifdef FLYOLOGY_M2
+.balign 16
+exception_stacks: .skip MAX_CORES * (1 << EXCEPTION_STACK_SHIFT)
+#endif
 
 .section .note.GNU-stack, "", %progbits

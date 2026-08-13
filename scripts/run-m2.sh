@@ -28,6 +28,7 @@ case "$architecture" in
         vars_digest=5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e
         machine=pc-q35-10.2
         image=build/m2/x86_64/flyology-x86_64.fat
+        reschedule_suffix=RESCHEDULE_IPI
         ;;
     aarch64)
         qemu="$qemu_root/bin/qemu-system-aarch64"
@@ -38,6 +39,7 @@ case "$architecture" in
         vars_digest=b3b855c5a80310168051164986855692d1bdb06e67619856177965cd87c6774f
         machine=virt-10.2,gic-version=3,virtualization=off,secure=off,dtb-randomness=off
         image=build/m2/aarch64/flyology-aarch64.fat
+        reschedule_suffix=RESCHEDULE_SGI
         ;;
     *) echo "unsupported architecture: $architecture" >&2; exit 64 ;;
 esac
@@ -116,9 +118,11 @@ core=0
 while test "$core" -lt "$cpu_count"; do
     test "$(count_marker "FLYOLOGY:CORE:ONLINE:$core")" -eq 1
     test "$(count_marker "FLYOLOGY:M2:CORE:$core:SUBSTRATE:PASS")" -eq 1
+    test "$(count_marker "FLYOLOGY:M2:CORE:$core:$reschedule_suffix:PASS")" -eq 1
     core=$((core + 1))
 done
 test "$(count_marker 'FLYOLOGY:CORE:ONLINE:')" -eq "$cpu_count"
-test "$(count_marker 'FLYOLOGY:M2:CORE:')" -eq "$cpu_count"
+test "$(count_marker ':SUBSTRATE:PASS')" -eq "$cpu_count"
+test "$(count_marker ":$reschedule_suffix:PASS")" -eq "$cpu_count"
 
 echo "FLYOLOGY:M2:TEST:PASS:$architecture:SMP$cpu_count"
