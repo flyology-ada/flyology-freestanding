@@ -118,6 +118,9 @@ core=0
 while test "$core" -lt "$cpu_count"; do
     test "$(count_marker "FLYOLOGY:CORE:ONLINE:$core")" -eq 1
     test "$(count_marker "FLYOLOGY:M2:CORE:$core:SUBSTRATE:PASS")" -eq 1
+    if test "$architecture" = x86_64; then
+        test "$(count_marker "FLYOLOGY:M2:CORE:$core:IDT_TRANSITION:PASS")" -eq 1
+    fi
     test "$(count_marker "FLYOLOGY:M2:CORE:$core:INTERRUPT_FRAME:PASS")" -eq 1
     test "$(count_marker "FLYOLOGY:M2:CORE:$core:REQUEST_EPOCH:PASS")" -eq 1
     test "$(count_marker "FLYOLOGY:M2:CORE:$core:PARALLEL:PASS")" -eq 1
@@ -128,6 +131,9 @@ while test "$core" -lt "$cpu_count"; do
 done
 test "$(count_marker 'FLYOLOGY:CORE:ONLINE:')" -eq "$cpu_count"
 test "$(count_marker ':SUBSTRATE:PASS')" -eq "$cpu_count"
+if test "$architecture" = x86_64; then
+    test "$(count_marker ':IDT_TRANSITION:PASS')" -eq "$cpu_count"
+fi
 test "$(count_marker ':INTERRUPT_FRAME:PASS')" -eq "$cpu_count"
 test "$(count_marker ':REQUEST_EPOCH:PASS')" -eq "$cpu_count"
 test "$(count_marker ':PARALLEL:PASS')" -eq "$cpu_count"

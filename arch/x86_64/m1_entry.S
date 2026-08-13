@@ -7,6 +7,10 @@
 .set COM1, 0x3f8
 .set TIMER_VECTOR, 0xe0
 .set RESCHEDULE_VECTOR, 0xe1
+.set IDT_TRANSITION_VECTOR, 0xe2
+.set GDT_SHIFT, 12
+.set GDT_LIMIT, 4079
+.set GDT_DESCRIPTOR_OFFSET, 4080
 
 .section .text.entry, "ax", @progbits
 .global _start
@@ -207,7 +211,6 @@ wait_online:
     call initialize_task_fp
     call initialize_x2apic
     call initialize_cpu_tables
-    call activate_m2_idt
     sti
     call flyology_m2_core_entry
     cli
@@ -256,7 +259,6 @@ ap_entry:
     call initialize_task_fp
     call initialize_x2apic
     call initialize_cpu_tables
-    call activate_m2_idt
     sti
     call flyology_m2_core_entry
     cli
@@ -385,6 +387,26 @@ initialize_idt:
     shr $32, %rax
     mov %eax, 8(%rdi)
     movl $0, 12(%rdi)
+    lea idt_table + IDT_TRANSITION_VECTOR * 16(%rip), %rdi
+    lea idt_transition_vector(%rip), %r8
+    mov %r8, %rax
+    mov %ax, 0(%rdi)
+    mov %dx, 2(%rdi)
+    movb $0, 4(%rdi)
+    movb $0x8e, 5(%rdi)
+    shr $16, %rax
+    mov %ax, 6(%rdi)
+    mov %r8, %rax
+    shr $32, %rax
+    mov %eax, 8(%rdi)
+    movl $0, 12(%rdi)
+    lea m2_idt_table(%rip), %rdi
+    mov $256, %ecx
+2:
+    movw $0x08, 2(%rdi)
+    movb $1, 4(%rdi)
+    add $16, %rdi
+    loop 2b
 #endif
     jmp install_idt
 
@@ -392,20 +414,6 @@ initialize_idt:
 install_idt:
     lidt idt_descriptor(%rip)
     ret
-
-#ifdef FLYOLOGY_M2
-.type initialize_m2_idt, @function
-initialize_m2_idt:
-    lea m2_idt_table(%rip), %rdi
-    mov $256, %ecx
-1:
-    movw $0x08, 2(%rdi)
-    movb $1, 4(%rdi)
-    add $16, %rdi
-    loop 1b
-    lidt m2_idt_descriptor(%rip)
-    ret
-#endif
 
 fatal_vector:
     cli
@@ -417,6 +425,11 @@ fatal_vector:
     jmp halt
 
 #ifdef FLYOLOGY_M2
+.type idt_transition_vector, @function
+idt_transition_vector:
+    movq $1, %gs:104
+    iretq
+
 .type reschedule_vector, @function
 reschedule_vector:
     pushq $RESCHEDULE_VECTOR
@@ -696,7 +709,7 @@ initialize_cpu_tables:
 
     lea gdt_tables(%rip), %rdi
     mov %r12, %rax
-    shl $6, %rax
+    shl $GDT_SHIFT, %rax
     add %rax, %rdi
     movq $0, 0(%rdi)
     movabs $0x00af9a000000ffff, %rax
@@ -717,28 +730,47 @@ initialize_cpu_tables:
     shr $32, %rax
     movl %eax, 32(%rdi)
     movl $0, 36(%rdi)
-    movw $39, 40(%rdi)
+    /* Keep the bootstrap IDT's live selector valid under the private GDT. */
+    mov %cs, %dx
+    test $4, %dx
+    jnz fatal
+    movzwq %dx, %rcx
+    and $-8, %rcx
+    test %rcx, %rcx
+    jz fatal
+    cmp $GDT_DESCRIPTOR_OFFSET - 8, %rcx
+    ja fatal
+    cmp $8, %rcx
+    je 2f
+    cmp $16, %rcx
+    jb 1f
+    cmp $39, %rcx
+    jbe fatal
+1:
+    movabs $0x00af9a000000ffff, %rax
+    mov %rax, 0(%rdi,%rcx)
+2:
+    movw $GDT_LIMIT, GDT_DESCRIPTOR_OFFSET(%rdi)
     lea 0(%rdi), %rax
-    mov %rax, 42(%rdi)
-    lgdt 40(%rdi)
+    mov %rax, GDT_DESCRIPTOR_OFFSET + 2(%rdi)
+    lgdt GDT_DESCRIPTOR_OFFSET(%rdi)
     pushq $0x08
-    lea 1f(%rip), %rax
+    lea 3f(%rip), %rax
     push %rax
     lretq
-1:
+3:
     mov $0x10, %eax
     mov %ax, %ds
     mov %ax, %es
     mov %ax, %ss
+    int $IDT_TRANSITION_VECTOR
+    cmpq $1, %gs:104
+    jne fatal
     mov $0x18, %eax
     ltr %ax
+    lidt m2_idt_descriptor(%rip)
     pop %r12
     pop %rbx
-    ret
-
-.type activate_m2_idt, @function
-activate_m2_idt:
-    call initialize_m2_idt
     ret
 
 .type m2_arm_task_timer, @function
@@ -977,7 +1009,16 @@ flyology_current_core:
 flyology_m2_report_pass:
     push %rbx
     mov %edi, %ebx
+    cmpq $1, %gs:104
+    jne fatal
     call serial_lock_acquire
+    lea m2_core_prefix(%rip), %rdi
+    call serial_puts
+    lea digits(%rip), %rax
+    mov (%rax,%rbx,1), %dil
+    call serial_putc
+    lea m2_idt_transition_suffix(%rip), %rdi
+    call serial_puts
     lea m2_core_prefix(%rip), %rdi
     call serial_puts
     lea digits(%rip), %rax
@@ -1180,6 +1221,7 @@ ada_pass:      .asciz "FLYOLOGY:ADA:MAIN:PASS\n"
 m1_pass:       .asciz "FLYOLOGY:M1:PASS\n"
 #ifdef FLYOLOGY_M2
 m2_core_prefix: .asciz "FLYOLOGY:M2:CORE:"
+m2_idt_transition_suffix: .asciz ":IDT_TRANSITION:PASS\n"
 m2_core_suffix: .asciz ":SUBSTRATE:PASS\n"
 m2_frame_suffix: .asciz ":INTERRUPT_FRAME:PASS\n"
 m2_epoch_suffix: .asciz ":REQUEST_EPOCH:PASS\n"
@@ -1216,8 +1258,8 @@ interrupt_frames: .skip MAX_CORES * 256
 xsave_areas: .skip MAX_CORES * 4096
 .balign 128
 tss_records: .skip MAX_CORES * 128
-.balign 64
-gdt_tables: .skip MAX_CORES * 64
+.balign 4096
+gdt_tables: .skip MAX_CORES * (1 << GDT_SHIFT)
 .balign 16
 exception_stacks: .skip MAX_CORES * (1 << EXCEPTION_STACK_SHIFT)
 #endif

@@ -61,12 +61,17 @@ done
 test -z "$(scripts/toolchain.sh exec "$architecture" "$target-nm" -u "$elf")"
 
 case "$architecture" in
-    x86_64) frame_symbols='interrupt_frames xsave_areas tss_records exception_stacks' ;;
+    x86_64) frame_symbols='interrupt_frames xsave_areas tss_records exception_stacks idt_transition_vector m2_idt_table' ;;
     aarch64) frame_symbols='reschedule_irq exception_stacks' ;;
 esac
 for symbol in $frame_symbols; do
     printf '%s\n' "$nm_output" | grep -E "[[:space:]]$symbol$" >/dev/null
 done
+
+if test "$architecture" = x86_64; then
+    scripts/toolchain.sh exec "$architecture" "$target-strings" "$elf" | \
+        grep -F ':IDT_TRANSITION:PASS' >/dev/null
+fi
 
 for marker in 'FLYOLOGY:M2:CORE:' ':SUBSTRATE:PASS' \
     ':INTERRUPT_FRAME:PASS' ':REQUEST_EPOCH:PASS' ':PARALLEL:PASS' \
