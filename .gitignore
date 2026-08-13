@@ -1,0 +1,25 @@
+# Build and generated artifacts
+/build/
+/obj/
+/bin/
+/dist/
+/generated/
+/downloads/
+/vendor/
+*.ali
+*.o
+*.elf
+*.iso
+*.img
+*.fd
+*.map
+*.log
+gnatprove.out
+gnatprove-run.txt
+
+# Alire state and editor/host noise
+/alire/
+/.alire/
+.DS_Store
+*.swp
+*.swo

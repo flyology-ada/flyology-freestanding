@@ -1,0 +1,49 @@
+--  SPDX-License-Identifier: MIT OR Apache-2.0
+
+package body Flyology.Validation
+  with SPARK_Mode => On
+is
+   function To_Core
+     (CPU   : Ada_CPU;
+      Count : CPU_Count) return Core_Id
+   is
+      pragma Unreferenced (Count);
+   begin
+      return Core_Id (CPU - 1);
+   end To_Core;
+
+   function To_CPU
+     (Core  : Core_Id;
+      Count : CPU_Count) return Ada_CPU
+   is
+      pragma Unreferenced (Count);
+   begin
+      return Ada_CPU (Core + 1);
+   end To_CPU;
+
+   function Extent_Last
+     (Base   : Address_Value;
+      Length : Address_Value;
+      Limit  : Address_Value) return Address_Value
+   is
+      pragma Unreferenced (Limit);
+   begin
+      return Base + Length - 1;
+   end Extent_Last;
+
+   function Checked_Transition
+     (From : Task_State;
+      To   : Task_State) return Task_State
+   is
+      pragma Unreferenced (From);
+   begin
+      return To;
+   end Checked_Transition;
+
+   function Next_Generation
+     (Generation : Wake_Generation) return Wake_Generation
+   is
+   begin
+      return Generation + 1;
+   end Next_Generation;
+end Flyology.Validation;

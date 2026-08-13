@@ -1,0 +1,10 @@
+project Flyology_Proof is
+   for Languages use ("Ada");
+   for Source_Dirs use ("../runtime/core");
+   for Object_Dir use "../build/proof";
+
+   package Compiler is
+      for Default_Switches ("Ada") use
+        ("-gnat2022", "-gnatwa", "-gnatwe", "-gnatVa");
+   end Compiler;
+end Flyology_Proof;

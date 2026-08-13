@@ -1,0 +1,8 @@
+[toolchain]
+assistant = false
+[toolchain.external]
+gnat = false
+gprbuild = false
+[toolchain.use]
+gnat = "gnat_aarch64_elf=15.3.1"
+gprbuild = "gprbuild=26.0.1"

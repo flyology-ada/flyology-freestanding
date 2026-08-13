@@ -1,0 +1,56 @@
+#!/bin/sh
+set -eu
+
+usage() {
+    echo "usage: $0 x86_64|aarch64 [OUTPUT_DIRECTORY]" >&2
+    exit 64
+}
+
+test "$#" -ge 1 && test "$#" -le 2 || usage
+architecture=$1
+output_directory=${2:-build/m0/$architecture}
+
+case "$architecture" in
+    x86_64)
+        target=x86_64-elf
+        entry=arch/x86_64/m0_entry.S
+        linker_script=arch/x86_64/m0.ld
+        architecture_flags="-mno-red-zone -mcmodel=kernel"
+        ;;
+    aarch64)
+        target=aarch64-elf
+        entry=arch/aarch64/m0_entry.S
+        linker_script=arch/aarch64/m0.ld
+        architecture_flags="-mgeneral-regs-only"
+        ;;
+    *)
+        usage
+        ;;
+esac
+
+mkdir -p "$output_directory"
+rm -f "$output_directory/flyology-m0.elf" \
+      "$output_directory/flyology_m0.o" \
+      "$output_directory/m0_entry.o"
+
+export LC_ALL=C
+export SOURCE_DATE_EPOCH=1786502400
+
+scripts/toolchain.sh exec "$architecture" "$target-gcc" \
+    -c runtime/m0/flyology_m0.adb \
+    -o "$output_directory/flyology_m0.o" \
+    -nostdinc -Iruntime/bootstrap \
+    -gnat2022 -gnatp -gnatws \
+    -fno-stack-protector -fno-pic -fno-pie \
+    $architecture_flags
+
+scripts/toolchain.sh exec "$architecture" "$target-gcc" \
+    -c "$entry" -o "$output_directory/m0_entry.o" \
+    -ffreestanding -fno-stack-protector -fno-pic -fno-pie \
+    $architecture_flags
+
+scripts/toolchain.sh exec "$architecture" "$target-ld" \
+    --build-id=none --fatal-warnings -z noexecstack \
+    -T "$linker_script" \
+    -o "$output_directory/flyology-m0.elf" \
+    "$output_directory/m0_entry.o" "$output_directory/flyology_m0.o"

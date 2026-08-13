@@ -1,0 +1,9 @@
+Flyology Barebones
+Copyright 2026 Flyology Barebones contributors
+
+Original material in this repository is dual-licensed under Apache-2.0 or MIT.
+
+Third-party material is not covered by that dual license unless its own notice
+explicitly says so. Downloaded Limine artifacts remain outside version control
+and retain their upstream license. The tracked runtime is clean-room original
+work and does not contain copied GNAT runtime sources.

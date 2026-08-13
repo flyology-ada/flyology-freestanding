@@ -1,0 +1,8 @@
+name = "flyology_toolchain_x86_64"
+description = "Pinned Alire workspace for Flyology Barebones x86-64 builds"
+version = "0.0.0-dev"
+licenses = "MIT OR Apache-2.0"
+authors = ["Flyology Barebones contributors"]
+maintainers = ["Flyology Barebones contributors <maintainers@flyology.invalid>"]
+maintainers-logins = []
+tags = ["ada", "freestanding", "x86-64"]
