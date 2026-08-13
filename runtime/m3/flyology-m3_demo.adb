@@ -13,6 +13,7 @@ package body Flyology.M3_Demo is
      Ada.Task_Identification.Task_Id with Atomic_Components;
    type Core_Array is array (Positive range 1 .. 4) of Natural
      with Atomic_Components;
+   type Stack_Probe_Array is array (Natural range 0 .. 255) of Character;
 
    Auto_Done     : Done_Array := [others => False];
    Specific_Done : Done_Array := [others => False];
@@ -22,6 +23,14 @@ package body Flyology.M3_Demo is
      [others => Ada.Task_Identification.Null_Task_Id];
    Auto_Core     : Core_Array := [others => Natural'Last];
    Specific_Core : Core_Array := [others => Natural'Last];
+   Nested_Parent_Done : Boolean := False with Atomic;
+   Nested_Child_Done  : Boolean := False with Atomic;
+   Nested_Parent_Id : Ada.Task_Identification.Task_Id :=
+     Ada.Task_Identification.Null_Task_Id with Atomic;
+   Nested_Child_Id : Ada.Task_Identification.Task_Id :=
+     Ada.Task_Identification.Null_Task_Id with Atomic;
+   Nested_Child_Object_Id : Ada.Task_Identification.Task_Id :=
+     Ada.Task_Identification.Null_Task_Id with Atomic;
 
    task type Specific_Worker_Type
      (CPU_Number : System.Multiprocessors.CPU_Range;
@@ -29,16 +38,21 @@ package body Flyology.M3_Demo is
      with CPU => CPU_Number;
 
    task type Auto_Worker_Type (Index : Positive);
+   task type Nested_Child_Type;
+   task type Nested_Parent_Type;
 
    task body Specific_Worker_Type is
       Self : constant Ada.Task_Identification.Task_Id :=
         Ada.Task_Identification.Current_Task;
       Core : constant Natural := Flyology.M3_Runtime.Current_Core_Number;
+      Stack_Probe : aliased Stack_Probe_Array := [others => 'S'];
    begin
       if Self = Ada.Task_Identification.Null_Task_Id
         or else not Ada.Task_Identification.Is_Callable (Self)
         or else Ada.Task_Identification.Is_Terminated (Self)
         or else Core + 1 /= Natural (CPU_Number)
+        or else not Flyology.M3_Runtime.Validate_Current_Stack
+          (Stack_Probe'Address)
       then
          raise Program_Error;
       end if;
@@ -51,10 +65,13 @@ package body Flyology.M3_Demo is
    task body Auto_Worker_Type is
       Self : constant Ada.Task_Identification.Task_Id :=
         Ada.Task_Identification.Current_Task;
+      Stack_Probe : aliased Stack_Probe_Array := [others => 'A'];
    begin
       if Self = Ada.Task_Identification.Null_Task_Id
         or else not Ada.Task_Identification.Is_Callable (Self)
         or else Ada.Task_Identification.Is_Terminated (Self)
+        or else not Flyology.M3_Runtime.Validate_Current_Stack
+          (Stack_Probe'Address)
       then
          raise Program_Error;
       end if;
@@ -63,6 +80,40 @@ package body Flyology.M3_Demo is
       Flyology.M3_Runtime.Demo_Parallel_Barrier (2);
       Auto_Done (Index) := True;
    end Auto_Worker_Type;
+
+   task body Nested_Child_Type is
+      Self : constant Ada.Task_Identification.Task_Id :=
+        Ada.Task_Identification.Current_Task;
+      Stack_Probe : aliased Stack_Probe_Array := [others => 'C'];
+   begin
+      if not Flyology.M3_Runtime.Validate_Current_Stack (Stack_Probe'Address)
+      then
+         raise Program_Error;
+      end if;
+      Nested_Child_Id := Self;
+      Nested_Child_Done := True;
+   end Nested_Child_Type;
+
+   task body Nested_Parent_Type is
+      Self : constant Ada.Task_Identification.Task_Id :=
+        Ada.Task_Identification.Current_Task;
+      Stack_Probe : aliased Stack_Probe_Array := [others => 'P'];
+   begin
+      if not Flyology.M3_Runtime.Validate_Current_Stack (Stack_Probe'Address)
+      then
+         raise Program_Error;
+      end if;
+      Nested_Parent_Id := Self;
+      declare
+         Child : Nested_Child_Type;
+      begin
+         Nested_Child_Object_Id := Child'Identity;
+      end;
+      if not Nested_Child_Done then
+         raise Program_Error;
+      end if;
+      Nested_Parent_Done := True;
+   end Nested_Parent_Type;
 
    procedure Report_Ordinary_Pass
    with Import, Convention => C,
@@ -75,6 +126,18 @@ package body Flyology.M3_Demo is
    procedure Report_Parallel_Pass
    with Import, Convention => C,
         External_Name => "flyology_m3_report_parallel_pass";
+
+   procedure Report_Auto_Master_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m3_report_auto_master_pass";
+
+   procedure Report_Master_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m3_report_master_pass";
+
+   procedure Report_Stack_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m3_report_stack_pass";
 
    procedure Report_Failure
    with Import, Convention => C,
@@ -105,6 +168,8 @@ package body Flyology.M3_Demo is
         [others => Ada.Task_Identification.Null_Task_Id];
       Auto_Object_Id : Identity_Array :=
         [others => Ada.Task_Identification.Null_Task_Id];
+      Parent_Object_Id : Ada.Task_Identification.Task_Id :=
+        Ada.Task_Identification.Null_Task_Id;
    begin
       if CPU_Count not in 1 | 4
         or else Environment = Ada.Task_Identification.Null_Task_Id
@@ -161,6 +226,7 @@ package body Flyology.M3_Demo is
          Auto_Object_Id (3) := Worker_3'Identity;
          Auto_Object_Id (4) := Worker_4'Identity;
       end;
+      Report_Auto_Master_Pass;
 
       for Index in Auto_Id'Range loop
          if not Auto_Done (Index)
@@ -187,6 +253,23 @@ package body Flyology.M3_Demo is
       if CPU_Count = 4 then
          Report_Parallel_Pass;
       end if;
+
+      declare
+         Parent : Nested_Parent_Type;
+      begin
+         Parent_Object_Id := Parent'Identity;
+      end;
+      if not Nested_Parent_Done or else not Nested_Child_Done then
+         Report_Failure;
+      end if;
+      Check_Identity (Nested_Parent_Id, Parent_Object_Id, Environment);
+      Check_Identity
+        (Nested_Child_Id, Nested_Child_Object_Id, Environment);
+      if Nested_Parent_Id = Nested_Child_Id then
+         Report_Failure;
+      end if;
+      Report_Master_Pass;
+      Report_Stack_Pass;
       Report_Ordinary_Pass;
    end Run;
 end Flyology.M3_Demo;

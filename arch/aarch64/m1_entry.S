@@ -942,6 +942,24 @@ flyology_m3_report_parallel_pass:
     address x0, m3_parallel_pass
     b serial_puts_locked
 
+.global flyology_m3_report_auto_master_pass
+.type flyology_m3_report_auto_master_pass, %function
+flyology_m3_report_auto_master_pass:
+    address x0, m3_auto_master_pass
+    b serial_puts_locked
+
+.global flyology_m3_report_master_pass
+.type flyology_m3_report_master_pass, %function
+flyology_m3_report_master_pass:
+    address x0, m3_master_pass
+    b serial_puts_locked
+
+.global flyology_m3_report_stack_pass
+.type flyology_m3_report_stack_pass, %function
+flyology_m3_report_stack_pass:
+    address x0, m3_stack_pass
+    b serial_puts_locked
+
 .global flyology_m3_parallel_barrier
 .type flyology_m3_parallel_barrier, %function
 flyology_m3_parallel_barrier:
@@ -1568,6 +1586,9 @@ m3_boot_pass:  .asciz "FLYOLOGY:M3:BOOT_SUBSTRATE:PASS\n"
 m3_ordinary_pass: .asciz "FLYOLOGY:M3:ORDINARY_TASKS:PASS\n"
 m3_specific_pass: .asciz "FLYOLOGY:M3:SPECIFIC_CPU:PASS\n"
 m3_parallel_pass: .asciz "FLYOLOGY:M3:AUTO_PARALLEL:PASS\n"
+m3_auto_master_pass: .asciz "FLYOLOGY:M3:AUTO_MASTER:PASS\n"
+m3_master_pass: .asciz "FLYOLOGY:M3:NESTED_MASTER:PASS\n"
+m3_stack_pass: .asciz "FLYOLOGY:M3:TASK_STACKS:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:AARCH64_BOOT\n"
 exception_marker: .asciz "FLYOLOGY:FAIL:AARCH64_EXCEPTION\n"

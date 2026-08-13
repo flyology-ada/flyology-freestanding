@@ -7,6 +7,7 @@ test "$#" -eq 1 || {
 }
 
 architecture=$1
+repository=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 case "$architecture" in
     x86_64)
         target=x86_64-elf
@@ -19,7 +20,8 @@ case "$architecture" in
     *) echo "unsupported architecture: $architecture" >&2; exit 64 ;;
 esac
 
-output_directory="build/m3/$architecture"
+output_root=${FLYOLOGY_M3_OUTPUT_ROOT:-build/m3}
+output_directory="$output_root/$architecture"
 mkdir -p "$output_directory"
 rm -f "$output_directory"/*.ali "$output_directory"/*.o \
       "$output_directory"/b~flyology_m3.ad? \
@@ -75,8 +77,8 @@ compile_ada runtime/m3/flyology_m3.adb flyology_m3.o
 
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" -nostdinc -nostdlib -n -minimal \
-    -I../../../runtime/bootstrap -I../../../runtime/core \
-    -I../../../runtime/m3 -I../../../arch/"$architecture" \
+    -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
+    -I"$repository/runtime/m3" -I"$repository/arch/$architecture" \
     -I. flyology_m3.ali
 
 compile_ada "$output_directory/b~flyology_m3.adb" b~flyology_m3.o generated

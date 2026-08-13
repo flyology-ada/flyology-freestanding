@@ -43,6 +43,14 @@ lexical master observes termination, and standard identity/callable/terminated
 queries validate the retained TCB identities. The owned placement probe records
 the exact discriminant-to-`Create_Task` lowering on both target compilers.
 
+Every task phase also validates a live aliased local object against its assigned
+64 KiB stack extent. The dispatcher checks a slot-specific bottom canary after
+every return, and normal completion checks it before retiring the task. A parent
+ordinary task creates a nested ordinary child and cannot report completion until
+its inner master has observed that child's termination; the environment master
+then observes the parent. Slot 0 is deliberately excluded from the task-pool
+canary rule because the environment owns the independently validated BSP stack.
+
 The compiler still emits unwind metadata and references for task finalizers.
 For this normal-path checkpoint, `__gnat_personality_v0` and `_Unwind_Resume`
 are deliberate fail-closed architecture entries: reaching either terminates

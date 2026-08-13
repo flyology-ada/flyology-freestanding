@@ -30,6 +30,7 @@ package Flyology.M3_Runtime is
    function Is_Terminated (Item : Task_Id) return Boolean;
    function Number_Of_CPUs return Natural;
    function Current_Core_Number return Natural;
+   function Validate_Current_Stack (Probe : System.Address) return Boolean;
    procedure Demo_Parallel_Barrier (Phase : Positive);
 
    procedure Core_Initialize (CPU_Count : System.Address)

@@ -15,6 +15,7 @@ package body Flyology.M3_Runtime is
    Max_Groups            : constant := Max_Tasks;
    Dispatcher_Stack_Size : constant := 16 * 1_024;
    Task_Stack_Size       : constant := 64 * 1_024;
+   Stack_Canary_Length   : constant := 32;
 
    type Core_Number is range 0 .. Max_Cores - 1;
    type Task_Slot is range 0 .. Max_Tasks - 1;
@@ -130,6 +131,26 @@ package body Flyology.M3_Runtime is
          null;
       end loop;
    end Stop;
+
+   function Canary_Value (Slot : Task_Slot) return Stack_Byte is
+     (Stack_Byte (16#A5# + Natural (Slot)));
+
+   procedure Initialize_Canary (Slot : Task_Slot) is
+   begin
+      for Index in 0 .. Stack_Canary_Length - 1 loop
+         Task_Stacks (Slot) (Index) := Canary_Value (Slot);
+      end loop;
+   end Initialize_Canary;
+
+   function Canary_Is_Valid (Slot : Task_Slot) return Boolean is
+   begin
+      for Index in 0 .. Stack_Canary_Length - 1 loop
+         if Task_Stacks (Slot) (Index) /= Canary_Value (Slot) then
+            return False;
+         end if;
+      end loop;
+      return True;
+   end Canary_Is_Valid;
 
    function Core_Of_Current return Core_Number is
       Raw : constant System.Address := Current_Core_Raw;
@@ -330,6 +351,7 @@ package body Flyology.M3_Runtime is
             Base : constant System.Address :=
               Task_Stacks (Slot) (Task_Stack'First)'Address;
          begin
+            Initialize_Canary (Slot);
             Architecture.Initialize
               (Tasks (Slot).Context,
                Base + System.Address (Task_Stack_Size),
@@ -529,6 +551,19 @@ package body Flyology.M3_Runtime is
    function Current_Core_Number return Natural is
      (Natural (Core_Of_Current));
 
+   function Validate_Current_Stack (Probe : System.Address) return Boolean is
+      Core : constant Core_Number := Core_Of_Current;
+      Slot : constant Task_Slot := Record_Of (Current (Core));
+      Base : constant System.Address :=
+        Task_Stacks (Slot) (Task_Stack'First)'Address;
+   begin
+      return Slot /= 0
+        and then Base <= System.Address'Last - System.Address (Task_Stack_Size)
+        and then Probe >= Base + System.Address (Stack_Canary_Length)
+        and then Probe < Base + System.Address (Task_Stack_Size)
+        and then Canary_Is_Valid (Slot);
+   end Validate_Current_Stack;
+
    procedure Demo_Parallel_Barrier (Phase : Positive) is
    begin
       if Configured = 4 then
@@ -637,6 +672,9 @@ package body Flyology.M3_Runtime is
             Architecture.Switch
               (Dispatcher_Contexts (Dense)'Access,
                Tasks (Slot).Context'Access);
+            if Slot /= 0 and then not Canary_Is_Valid (Slot) then
+               Stop;
+            end if;
          end if;
       end loop;
    end Dispatcher_Start;
@@ -660,8 +698,13 @@ package body Flyology.M3_Runtime is
       then
          Stop;
       end if;
+      if not Canary_Is_Valid (Slot) then
+         Stop;
+      end if;
       Tasks (Slot).Body_Procedure (Tasks (Slot).Discriminants);
-      if not Tasks (Slot).Completion_Requested then
+      if not Tasks (Slot).Completion_Requested
+        or else not Canary_Is_Valid (Slot)
+      then
          Stop;
       end if;
       Enter_Kernel;
