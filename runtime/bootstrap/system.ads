@@ -5,6 +5,8 @@
 --  that a later language feature requires them.
 
 package System is
+   pragma Pure;
+
    type Address is mod 2 ** 64;
    for Address'Size use 64;
 

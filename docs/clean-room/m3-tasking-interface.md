@@ -19,3 +19,30 @@ Both targets require the same task lifecycle symbols. AArch64 may additionally r
 These observations establish compatibility names, profiles, ordering, and values—not runtime semantic conformance. The product implementation must keep one stable TCB-backed `Task_Id`, create tasks dormant on their activation chain, atomically admit the chain, map Ada CPU 1 to dense `Core_Id` 0 only after validation, execute the compiler wrapper on a distinct stack, and route completion through GNARL before dispatcher transfer.
 
 Activation failure details, full abnormal-master semantics, exception propagation, abort, dynamic task reclamation, rendezvous, protected objects, delays, and task attributes are not established by this probe. Freestanding master waiting and unactivated-task cleanup must pass their QEMU semantic gates before M3 can close.
+
+## First product checkpoint
+
+The first clean-room implementation of this observed surface lives under
+`runtime/m3/`. It uses compiler-created task objects only: the staging facade
+creates dormant bounded TCBs, activation publishes a whole lexical chain,
+the core dispatcher selects ready work, and the compiler wrapper reports
+activation and normal completion. There is no public task-creation, spawn, or
+fiber API. Task slots and 64 KiB stacks are retained rather than reclaimed in
+this M3 increment.
+
+The demonstration deliberately uses library-level task *types* and local task
+objects. That keeps compiler-created body entry points in executable text and
+avoids an AArch64 `__clear_cache` dependency or executable-stack trampoline.
+At SMP4, four tasks without CPU aspects are assigned to distinct eligible
+cores and must all enter a barrier before any may finish. A separate ordinary
+task with `CPU => 1` checks the Ada-CPU-1 to dense-core-0 mapping. At SMP1 the
+same unpinned objects all run on core 0 without the multicore barrier. The
+lexical master then observes termination, and standard identity/callable/
+terminated queries validate the retained TCB identities.
+
+The compiler still emits unwind metadata and references for task finalizers.
+For this normal-path checkpoint, `__gnat_personality_v0` and `_Unwind_Resume`
+are deliberate fail-closed architecture entries: reaching either terminates
+with a structured boot failure. This is not exception propagation or abnormal
+task cleanup support. Those entries must be replaced by real semantics before
+any later milestone claims such behavior.

@@ -189,6 +189,10 @@ scan_done:
 
     bl adainit
 #ifdef FLYOLOGY_M3
+    address x0, ada_elaboration_pass
+    bl serial_puts_locked
+#endif
+#ifdef FLYOLOGY_M3
     address x0, cpu_count
     ldr w0, [x0]
     bl flyology_m3_core_initialize
@@ -201,8 +205,10 @@ scan_done:
     bl _ada_flyology_m1
     bl adafinal
 #endif
+#ifndef FLYOLOGY_M3
     address x0, ada_pass
     bl serial_puts_locked
+#endif
 
 #ifdef FLYOLOGY_M2
     bl initialize_gic_distributor
@@ -270,6 +276,8 @@ wait_m2_complete:
     msr daifclr, #2
     isb
     bl _ada_flyology_m3
+    address x0, ada_pass
+    bl serial_puts_locked
     address x0, m3_boot_pass
     bl serial_puts_locked
     bl adafinal
@@ -892,12 +900,51 @@ flyology_m3_dispatcher_ready:
 .global flyology_m3_idle
 .type flyology_m3_idle, %function
 flyology_m3_idle:
-2:
     msr daifset, #2
     wfi
     msr daifclr, #2
     isb
-    b 2b
+    ret
+
+.global flyology_m3_kick_core
+.type flyology_m3_kick_core, %function
+flyology_m3_kick_core:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    address x1, cpu_count
+    ldr w1, [x1]
+    cmp x0, x1
+    b.hs fatal
+    address x2, core_records
+    add x0, x2, x0, lsl #CORE_RECORD_SHIFT
+    mov x1, #1
+    bl m2_post_request
+    ldr x0, [x0, #16]
+    bl send_reschedule_sgi
+    ldp x29, x30, [sp], #16
+    ret
+
+.global flyology_m3_report_ordinary_pass
+.type flyology_m3_report_ordinary_pass, %function
+flyology_m3_report_ordinary_pass:
+    address x0, m3_ordinary_pass
+    b serial_puts_locked
+
+.global flyology_m3_report_parallel_pass
+.type flyology_m3_report_parallel_pass, %function
+flyology_m3_report_parallel_pass:
+    address x0, m3_parallel_pass
+    b serial_puts_locked
+
+.global __gnat_personality_v0
+.type __gnat_personality_v0, %function
+__gnat_personality_v0:
+    b fatal
+
+.global _Unwind_Resume
+.type _Unwind_Resume, %function
+_Unwind_Resume:
+    b fatal
 #endif
 
 .global flyology_m2_report_pass
@@ -1148,6 +1195,7 @@ serial_init:
 
 .global __gnat_last_chance_handler
 .global __gnat_rcheck_CE_Explicit_Raise
+.global __gnat_rcheck_CE_Access_Check
 .global __gnat_rcheck_CE_Index_Check
 .global __gnat_rcheck_CE_Invalid_Data
 .global __gnat_rcheck_CE_Overflow_Check
@@ -1157,6 +1205,7 @@ serial_init:
 .type __gnat_last_chance_handler, %function
 __gnat_last_chance_handler:
 __gnat_rcheck_CE_Explicit_Raise:
+__gnat_rcheck_CE_Access_Check:
 __gnat_rcheck_CE_Index_Check:
 __gnat_rcheck_CE_Invalid_Data:
 __gnat_rcheck_CE_Overflow_Check:
@@ -1474,6 +1523,7 @@ m2_simd_canary:
 .quad 0x55aa55aa33cc33cc, 0xaa55aa55cc33cc33
 online_prefix: .asciz "FLYOLOGY:CORE:ONLINE:"
 ada_pass:      .asciz "FLYOLOGY:ADA:MAIN:PASS\n"
+ada_elaboration_pass: .asciz "FLYOLOGY:ADA:ELABORATION:PASS\n"
 m1_pass:       .asciz "FLYOLOGY:M1:PASS\n"
 #ifdef FLYOLOGY_M2
 m2_core_prefix: .asciz "FLYOLOGY:M2:CORE:"
@@ -1486,6 +1536,8 @@ m2_sgi_suffix: .asciz ":RESCHEDULE_SGI:PASS\n"
 m2_timer_suffix: .asciz ":TIMER:PASS\n"
 m2_pass:       .asciz "FLYOLOGY:M2:PASS\n"
 m3_boot_pass:  .asciz "FLYOLOGY:M3:BOOT_SUBSTRATE:PASS\n"
+m3_ordinary_pass: .asciz "FLYOLOGY:M3:ORDINARY_TASKS:PASS\n"
+m3_parallel_pass: .asciz "FLYOLOGY:M3:AUTO_PARALLEL:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:AARCH64_BOOT\n"
 exception_marker: .asciz "FLYOLOGY:FAIL:AARCH64_EXCEPTION\n"

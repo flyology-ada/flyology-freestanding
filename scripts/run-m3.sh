@@ -100,11 +100,18 @@ count_marker() {
     grep -aFo "$marker" "$serial_log" | wc -l | tr -d ' '
 }
 
+test "$(count_marker 'FLYOLOGY:ADA:ELABORATION:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:ADA:MAIN:PASS')" -eq 1
+test "$(count_marker 'FLYOLOGY:M3:ORDINARY_TASKS:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:BOOT_SUBSTRATE:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:FAIL:')" -eq 0
 test "$(count_marker 'PANIC:')" -eq 0
 test "$(count_marker 'FLYOLOGY:CORE:ONLINE:')" -eq "$cpu_count"
+if test "$cpu_count" -eq 4; then
+    test "$(count_marker 'FLYOLOGY:M3:AUTO_PARALLEL:PASS')" -eq 1
+else
+    test "$(count_marker 'FLYOLOGY:M3:AUTO_PARALLEL:PASS')" -eq 0
+fi
 
 core=0
 while test "$core" -lt "$cpu_count"; do
