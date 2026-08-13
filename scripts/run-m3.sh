@@ -15,7 +15,11 @@ esac
 
 qemu_root=${FLYOLOGY_QEMU_ROOT:-/opt/homebrew/Cellar/qemu/10.2.0}
 firmware_root="$qemu_root/share/qemu"
-test_directory="build/m3/tests/$architecture-smp$cpu_count"
+test_tag=${FLYOLOGY_M3_TEST_TAG:-gate}
+case "$test_tag" in
+    *[!A-Za-z0-9_.-]*) echo "invalid test tag: $test_tag" >&2; exit 64 ;;
+esac
+test_directory="build/m3/tests/$architecture-smp$cpu_count-$test_tag"
 mkdir -p "$test_directory"
 
 case "$architecture" in

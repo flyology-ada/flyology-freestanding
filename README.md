@@ -30,8 +30,12 @@ The first release is not complete. Work proceeds through the independently gated
 - `scripts/verify-m2.sh` proves and inspects the M2 core, reproduces both images, and boots both architectures at one and four CPUs.
 - `scripts/verify-m2-reproducible.sh` rebuilds both M2 ELF and FAT images twice and compares their SHA-256 output.
 - `scripts/verify-m3.sh` proves and probes the clean-room tasking interface,
-  checks independent-root reproducibility and both ELFs, and runs ordinary Ada
-  task gates on both architectures at one and four CPUs.
+  checks independent-output-root reproducibility, context layouts, both ELFs,
+  ordinary Ada tasks at one and four CPUs, and repeated SMP4 wake stress.
+- `scripts/stress-m3.sh` repeats the M3 SMP4 activation, placement, master, and
+  idle/wake gates on both architectures.
+- `scripts/test-m3-models.sh` exhausts the bounded placement and transition
+  spaces and checks full-capacity FIFO and activation/master sequences.
 - `scripts/verify-m3-reproducible.sh` rebuilds both M3 ELF and FAT images in
   two separate output roots and compares their SHA-256 output.
 - `scripts/prove.sh` proves the deterministic SPARK validation kernel.

@@ -4,9 +4,6 @@ package body Flyology.Activation_Model
   with SPARK_Mode
 is
    use type Dispatcher.Task_Incarnation;
-   use type Dispatcher.Task_Slot;
-   use type Dispatcher.Task_Ref;
-   use type Dispatcher.Task_State;
 
    function Valid_Reference
      (Table : Task_Table;
