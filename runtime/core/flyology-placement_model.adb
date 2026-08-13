@@ -12,7 +12,7 @@ is
    begin
       if Cursor > Last then
          return (Accepted => False, Core => Cursor, Next_Cursor => Cursor);
-      elsif Requested = Unspecified_CPU then
+      elsif Requested in Unspecified_CPU | Not_A_Specific_CPU then
          return
            (Accepted    => True,
             Core        => Cursor,

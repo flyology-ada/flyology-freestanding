@@ -61,10 +61,18 @@ compile_ada runtime/m3/s-taskin.adb s-taskin.o yes
 compile_ada runtime/core/flyology.ads flyology.o
 compile_ada runtime/core/flyology-validation.adb flyology-validation.o
 compile_ada runtime/core/flyology-boot_validation.adb flyology-boot_validation.o
+compile_ada runtime/core/flyology-dispatcher_model.adb \
+    flyology-dispatcher_model.o
+compile_ada runtime/core/flyology-scheduler_contract.adb \
+    flyology-scheduler_contract.o
+compile_ada runtime/core/flyology-placement_model.adb flyology-placement_model.o
+compile_ada runtime/core/flyology-task_primitives_contract.ads \
+    flyology-task_primitives_contract.o
 compile_ada "arch/$architecture/flyology-architecture_context.ads" \
     flyology-architecture_context.o
 compile_ada "arch/$architecture/flyology-m2_architecture.adb" \
     flyology-m2_architecture.o
+compile_ada runtime/core/flyology-task_core.adb flyology-task_core.o generated
 compile_ada runtime/m3/flyology-m3_runtime.adb flyology-m3_runtime.o generated
 compile_ada runtime/m3/s-multip.adb s-multip.o yes
 compile_ada runtime/m3/s-tassta.adb s-tassta.o yes
@@ -114,6 +122,11 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/s-tassta.o" \
     "$output_directory/s-multip.o" \
     "$output_directory/flyology-m3_runtime.o" \
+    "$output_directory/flyology-task_core.o" \
+    "$output_directory/flyology-placement_model.o" \
+    "$output_directory/flyology-task_primitives_contract.o" \
+    "$output_directory/flyology-scheduler_contract.o" \
+    "$output_directory/flyology-dispatcher_model.o" \
     "$output_directory/s-taskin.o" \
     "$output_directory/s-tasinf.o" \
     "$output_directory/s-parame.o" \

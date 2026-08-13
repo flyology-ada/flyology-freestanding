@@ -37,23 +37,8 @@ package Flyology.M3_Runtime is
    with Export, Convention => C,
         External_Name => "flyology_m3_core_initialize";
 
-   procedure Prepare_Environment (Core : System.Address)
-   with Export, Convention => C,
-        External_Name => "flyology_m3_prepare_environment";
-
-   procedure Prepare_AP (Core : System.Address)
-   with Export, Convention => C,
-        External_Name => "flyology_m3_prepare_ap";
-
-   procedure Dispatcher_Start (Core : System.Address)
-   with Export, Convention => C,
-        External_Name => "flyology_dispatcher_start";
-
    procedure Task_Start (Task_Address : System.Address)
    with Export, Convention => C,
         External_Name => "flyology_task_start";
 
-   procedure Environment_Complete
-   with Export, Convention => C,
-        External_Name => "flyology_m3_environment_complete";
 end Flyology.M3_Runtime;

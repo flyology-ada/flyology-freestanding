@@ -9,6 +9,7 @@ is
    type Core_Id is range 0 .. Max_Cores - 1;
    type Ada_CPU is range -1 .. Max_Cores;
    Unspecified_CPU : constant Ada_CPU := -1;
+   Not_A_Specific_CPU : constant Ada_CPU := 0;
 
    type Placement_Result is record
       Accepted    : Boolean;

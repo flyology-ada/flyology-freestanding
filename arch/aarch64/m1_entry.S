@@ -192,11 +192,6 @@ scan_done:
     address x0, ada_elaboration_pass
     bl serial_puts_locked
 #endif
-#ifdef FLYOLOGY_M3
-    address x0, cpu_count
-    ldr w0, [x0]
-    bl flyology_m3_core_initialize
-#endif
 #ifdef FLYOLOGY_M2
 #ifndef FLYOLOGY_M3
     bl _ada_flyology_m2
@@ -885,6 +880,13 @@ flyology_current_core:
     ret
 
 #ifdef FLYOLOGY_M3
+.global flyology_m3_boot_cpu_count
+.type flyology_m3_boot_cpu_count, %function
+flyology_m3_boot_cpu_count:
+    address x0, cpu_count
+    ldr w0, [x0]
+    ret
+
 .global flyology_m3_dispatcher_ready
 .type flyology_m3_dispatcher_ready, %function
 flyology_m3_dispatcher_ready:
@@ -897,11 +899,29 @@ flyology_m3_dispatcher_ready:
     sev
     ret
 
+.global flyology_m3_prepare_idle
+.type flyology_m3_prepare_idle, %function
+flyology_m3_prepare_idle:
+    mrs x0, tpidr_el1
+    add x2, x0, #48
+    ldar x1, [x2]
+    add x2, x0, #56
+    stlr x1, [x2]
+    ret
+
 .global flyology_m3_idle
 .type flyology_m3_idle, %function
 flyology_m3_idle:
     msr daifset, #2
+    mrs x0, tpidr_el1
+    add x3, x0, #48
+    ldar x1, [x3]
+    add x3, x0, #56
+    ldar x2, [x3]
+    cmp x1, x2
+    b.ne 1f
     wfi
+1:
     msr daifclr, #2
     isb
     ret

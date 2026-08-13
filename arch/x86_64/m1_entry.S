@@ -21,10 +21,15 @@ _start:
     lea core_stacks + (1 << STACK_SHIFT)(%rip), %rsp
     xor %ebp, %ebp
     call serial_init
+    call initialize_idt
+#ifdef FLYOLOGY_M3
+    /* Base revision 6 disables FP/SIMD.  No compiler-generated Ada call may
+       precede normalization, including the injected last-chance probe. */
+    call initialize_task_fp
+#endif
 #ifdef FLYOLOGY_M1_FAULT_LAST_CHANCE
     call flyology_last_chance_probe
 #endif
-    call initialize_idt
 
     cmpq $0, limine_base_revision + 16(%rip)
     jne fatal
@@ -173,18 +178,10 @@ scan_done:
     cmp 16(%rdi), %eax
     jne fatal
 
-#ifdef FLYOLOGY_M3
-    /* GNAT may use SSE for aggregate initialization during elaboration. */
-    call initialize_task_fp
-#endif
     call adainit
 #ifdef FLYOLOGY_M3
     lea ada_elaboration_pass(%rip), %rdi
     call serial_puts_locked
-#endif
-#ifdef FLYOLOGY_M3
-    mov cpu_count(%rip), %edi
-    call flyology_m3_core_initialize
 #endif
 #ifdef FLYOLOGY_M2
 #ifndef FLYOLOGY_M3
@@ -1051,18 +1048,37 @@ flyology_current_core:
     ret
 
 #ifdef FLYOLOGY_M3
+.global flyology_m3_boot_cpu_count
+.type flyology_m3_boot_cpu_count, @function
+flyology_m3_boot_cpu_count:
+    mov cpu_count(%rip), %eax
+    ret
+
 .global flyology_m3_dispatcher_ready
 .type flyology_m3_dispatcher_ready, @function
 flyology_m3_dispatcher_ready:
     lock incl dispatcher_ready_count(%rip)
     ret
 
+.global flyology_m3_prepare_idle
+.type flyology_m3_prepare_idle, @function
+flyology_m3_prepare_idle:
+    movq %gs:48, %rax
+    movq %rax, %gs:56
+    ret
+
 .global flyology_m3_idle
 .type flyology_m3_idle, @function
 flyology_m3_idle:
+    cli
+    movq %gs:48, %rax
+    cmpq %gs:56, %rax
+    jne 1f
     sti
     hlt
-    cli
+    ret
+1:
+    sti
     ret
 
 .global flyology_m3_kick_core
