@@ -444,17 +444,33 @@ initialize_gic_core:
 3:
     ldr w1, [x0, #0x14]
     tbnz w1, #2, 3b
+    mov x6, x0
     add x0, x0, #0x10, lsl #12
     mov w1, #(1 << RESCHEDULE_SGI)
     mov w2, #(1 << 27)
     orr w1, w1, w2
+    str w1, [x0, #0x180]
+    dsb sy
+4:
+    ldr w2, [x6]
+    tbnz w2, #3, 4b
     str w1, [x0, #0x80]
     str w1, [x0, #0x280]
-    str w1, [x0, #0x100]
+    ldr w2, [x0, #0xc04]
+    mov w3, #(3 << 22)
+    bic w2, w2, w3
+    str w2, [x0, #0xc04]
     mov w1, #0x80
     strb w1, [x0, #(0x400 + RESCHEDULE_SGI)]
     strb w1, [x0, #(0x400 + 27)]
+    mov w1, #(1 << RESCHEDULE_SGI)
+    mov w2, #(1 << 27)
+    orr w1, w1, w2
+    str w1, [x0, #0x100]
     dsb sy
+5:
+    ldr w2, [x6]
+    tbnz w2, #3, 5b
     mrs x0, icc_sre_el1
     orr x0, x0, #1
     msr icc_sre_el1, x0
@@ -491,6 +507,7 @@ send_reschedule_sgi:
     orr x2, x2, x3
     mov x3, #(RESCHEDULE_SGI << 24)
     orr x2, x2, x3
+    dsb ishst
     msr icc_sgi1r_el1, x2
     isb
     ret

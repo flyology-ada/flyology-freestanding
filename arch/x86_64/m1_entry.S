@@ -527,8 +527,29 @@ initialize_task_fp:
 
 .type initialize_x2apic, @function
 initialize_x2apic:
+    mov $0x832, %ecx
+    rdmsr
+    or $0x10000, %eax
+    wrmsr
+    mov $0x835, %ecx
+    rdmsr
+    or $0x10000, %eax
+    wrmsr
+    mov $0x836, %ecx
+    rdmsr
+    or $0x10000, %eax
+    wrmsr
+    mov $0x837, %ecx
+    rdmsr
+    or $0x10000, %eax
+    wrmsr
+    mov $0x808, %ecx
+    xor %eax, %eax
+    xor %edx, %edx
+    wrmsr
     mov $0x80f, %ecx
     rdmsr
+    and $-512, %eax
     or $0x1ff, %eax
     wrmsr
     ret

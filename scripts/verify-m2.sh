@@ -12,4 +12,5 @@ scripts/run-m2.sh x86_64 4
 scripts/run-m2.sh aarch64 1
 scripts/run-m2.sh aarch64 4
 
-echo 'FLYOLOGY:M2:GATE:PASS'
+echo 'FLYOLOGY:M2:SUBSTRATE:PASS'
+echo 'M2 remains in progress until complete interrupt frames and production request epochs pass.'
