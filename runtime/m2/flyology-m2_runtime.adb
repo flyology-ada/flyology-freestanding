@@ -32,12 +32,14 @@ package body Flyology.M2_Runtime is
    type Context_Array is array (Core_Number) of aliased Architecture.Context;
    type State_Array is array (Core_Number) of Model.Task_State;
    type Step_Array is array (Core_Number) of Step_Count;
+   type Reference_Array is array (Core_Number) of Model.Task_Ref;
 
    Task_Stacks        : Stack_Array;
    Task_Contexts      : Context_Array;
    Dispatcher_Contexts : Context_Array;
    Task_States        : State_Array := [others => Model.Dormant];
    Task_Steps         : Step_Array := [others => 0];
+   Current_Tasks      : Reference_Array := [others => Model.No_Task];
 
    function Current_Core return System.Address
    with Import,
@@ -53,6 +55,16 @@ package body Flyology.M2_Runtime is
    with Import,
         Convention    => C,
         External_Name => "flyology_m2_report_failure";
+
+   procedure Enter_Kernel
+   with Import,
+        Convention    => C,
+        External_Name => "flyology_rts_lock_acquire";
+
+   procedure Leave_Kernel
+   with Import,
+        Convention    => C,
+        External_Name => "flyology_rts_lock_release";
 
    procedure Fail is
    begin
@@ -73,6 +85,7 @@ package body Flyology.M2_Runtime is
    begin
       Task_States := [others => Model.Dormant];
       Task_Steps := [others => 0];
+      Current_Tasks := [others => Model.No_Task];
    end Initialize;
 
    procedure Check_Wait_Model (Core : Core_Number) is
@@ -169,26 +182,39 @@ package body Flyology.M2_Runtime is
       Check_Queue_Model (Core);
       Check_Request_Model;
 
+      Enter_Kernel;
       Task_States (Core) := Model.Ready;
       Task_States (Core) :=
         Model.Transition_Result (Task_States (Core), Model.Dispatch);
+      Current_Tasks (Core) := Reference_For (Core);
+      Leave_Kernel;
       Stack_Top := Task_Stacks (Core) (Task_Stack'Last)'Address + 1;
       Architecture.Initialize (Task_Contexts (Core), Stack_Top, Raw_Core);
       Architecture.Switch
         (Dispatcher_Contexts (Core)'Access, Task_Contexts (Core)'Access);
 
-      if Task_States (Core) /= Model.Ready or else Task_Steps (Core) /= 1 then
+      Enter_Kernel;
+      if Task_States (Core) /= Model.Ready
+        or else Task_Steps (Core) /= 1
+        or else Current_Tasks (Core) /= Model.No_Task
+      then
          Fail;
       end if;
       Task_States (Core) :=
         Model.Transition_Result (Task_States (Core), Model.Dispatch);
+      Current_Tasks (Core) := Reference_For (Core);
+      Leave_Kernel;
       Architecture.Switch
         (Dispatcher_Contexts (Core)'Access, Task_Contexts (Core)'Access);
 
-      if Task_States (Core) /= Model.Terminated or else Task_Steps (Core) /= 2
+      Enter_Kernel;
+      if Task_States (Core) /= Model.Terminated
+        or else Task_Steps (Core) /= 2
+        or else Current_Tasks (Core) /= Model.No_Task
       then
          Fail;
       end if;
+      Leave_Kernel;
       Report_Pass (Raw_Core);
    end Core_Entry;
 
@@ -199,22 +225,34 @@ package body Flyology.M2_Runtime is
          Fail;
       end if;
       Core := Core_Number (Core_Value);
-      if Task_States (Core) /= Model.Running or else Task_Steps (Core) /= 0 then
+      Enter_Kernel;
+      if Task_States (Core) /= Model.Running
+        or else Task_Steps (Core) /= 0
+        or else Current_Tasks (Core) /= Reference_For (Core)
+      then
          Fail;
       end if;
 
       Task_Steps (Core) := 1;
       Task_States (Core) :=
         Model.Transition_Result (Task_States (Core), Model.Yield);
+      Current_Tasks (Core) := Model.No_Task;
+      Leave_Kernel;
       Architecture.Switch
         (Task_Contexts (Core)'Access, Dispatcher_Contexts (Core)'Access);
 
-      if Task_States (Core) /= Model.Running or else Task_Steps (Core) /= 1 then
+      Enter_Kernel;
+      if Task_States (Core) /= Model.Running
+        or else Task_Steps (Core) /= 1
+        or else Current_Tasks (Core) /= Reference_For (Core)
+      then
          Fail;
       end if;
       Task_Steps (Core) := 2;
       Task_States (Core) :=
         Model.Transition_Result (Task_States (Core), Model.Terminate_Task);
+      Current_Tasks (Core) := Model.No_Task;
+      Leave_Kernel;
       Architecture.Switch
         (Task_Contexts (Core)'Access, Dispatcher_Contexts (Core)'Access);
       Fail;

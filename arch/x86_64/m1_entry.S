@@ -4,6 +4,7 @@
 .set STACK_SHIFT, 16
 .set CORE_RECORD_SHIFT, 6
 .set COM1, 0x3f8
+.set TIMER_VECTOR, 0xe0
 .set RESCHEDULE_VECTOR, 0xe1
 
 .section .text.entry, "ax", @progbits
@@ -336,6 +337,19 @@ initialize_idt:
     lea idt_table(%rip), %rax
     mov %rax, idt_descriptor + 2(%rip)
 #ifdef FLYOLOGY_M2
+    lea idt_table + TIMER_VECTOR * 16(%rip), %rdi
+    lea timer_vector(%rip), %r8
+    mov %r8, %rax
+    mov %ax, 0(%rdi)
+    mov %dx, 2(%rdi)
+    movb $0, 4(%rdi)
+    movb $0x8e, 5(%rdi)
+    shr $16, %rax
+    mov %ax, 6(%rdi)
+    mov %r8, %rax
+    shr $32, %rax
+    mov %eax, 8(%rdi)
+    movl $0, 12(%rdi)
     lea idt_table + RESCHEDULE_VECTOR * 16(%rip), %rdi
     lea reschedule_vector(%rip), %r8
     mov %r8, %rax
@@ -386,6 +400,46 @@ reschedule_vector:
     push %r14
     push %r15
     movq $1, %gs:48
+    mov $0x80b, %ecx
+    xor %eax, %eax
+    xor %edx, %edx
+    wrmsr
+    pop %r15
+    pop %r14
+    pop %r13
+    pop %r12
+    pop %r11
+    pop %r10
+    pop %r9
+    pop %r8
+    pop %rbp
+    pop %rdi
+    pop %rsi
+    pop %rdx
+    pop %rcx
+    pop %rbx
+    pop %rax
+    iretq
+
+.type timer_vector, @function
+timer_vector:
+    cld
+    push %rax
+    push %rbx
+    push %rcx
+    push %rdx
+    push %rsi
+    push %rdi
+    push %rbp
+    push %r8
+    push %r9
+    push %r10
+    push %r11
+    push %r12
+    push %r13
+    push %r14
+    push %r15
+    movq $1, %gs:56
     mov $0x80b, %ecx
     xor %eax, %eax
     xor %edx, %edx
@@ -518,6 +572,29 @@ m2_idle_reschedule_test:
 4:
     mov %ebx, %edi
     call m2_report_ipi_pass
+    movq $0, %gs:56
+    mov $0x83e, %ecx
+    mov $3, %eax
+    xor %edx, %edx
+    wrmsr
+    mov $0x832, %ecx
+    mov $TIMER_VECTOR, %eax
+    xor %edx, %edx
+    wrmsr
+    mov $0x838, %ecx
+    mov $1000000, %eax
+    xor %edx, %edx
+    wrmsr
+5:
+    cmpq $0, %gs:56
+    jne 6f
+    sti
+    hlt
+    cli
+    jmp 5b
+6:
+    mov %ebx, %edi
+    call m2_report_timer_pass
     pop %r12
     pop %rbx
     ret
@@ -533,6 +610,22 @@ m2_report_ipi_pass:
     mov (%rax,%rbx,1), %dil
     call serial_putc
     lea m2_ipi_suffix(%rip), %rdi
+    call serial_puts
+    call serial_lock_release
+    pop %rbx
+    ret
+
+.type m2_report_timer_pass, @function
+m2_report_timer_pass:
+    push %rbx
+    mov %edi, %ebx
+    call serial_lock_acquire
+    lea m2_core_prefix(%rip), %rdi
+    call serial_puts
+    lea digits(%rip), %rax
+    mov (%rax,%rbx,1), %dil
+    call serial_putc
+    lea m2_timer_suffix(%rip), %rdi
     call serial_puts
     call serial_lock_release
     pop %rbx
@@ -565,6 +658,26 @@ flyology_m2_report_pass:
 .type flyology_m2_report_failure, @function
 flyology_m2_report_failure:
     jmp fatal
+
+.global flyology_rts_lock_acquire
+.type flyology_rts_lock_acquire, @function
+flyology_rts_lock_acquire:
+    mov $1, %eax
+1:
+    xchg %eax, rts_lock(%rip)
+    test %eax, %eax
+    jz 2f
+    pause
+    mov $1, %eax
+    jmp 1b
+2:
+    ret
+
+.global flyology_rts_lock_release
+.type flyology_rts_lock_release, @function
+flyology_rts_lock_release:
+    movl $0, rts_lock(%rip)
+    ret
 #endif
 
 .type print_online, @function
@@ -676,6 +789,7 @@ m1_pass:       .asciz "FLYOLOGY:M1:PASS\n"
 m2_core_prefix: .asciz "FLYOLOGY:M2:CORE:"
 m2_core_suffix: .asciz ":SUBSTRATE:PASS\n"
 m2_ipi_suffix: .asciz ":RESCHEDULE_IPI:PASS\n"
+m2_timer_suffix: .asciz ":TIMER:PASS\n"
 m2_pass:       .asciz "FLYOLOGY:M2:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:X86_BOOT\n"
@@ -690,6 +804,7 @@ online_count: .skip 4
 m2_complete_count: .skip 4
 m2_idle_ready_count: .skip 4
 cpu_count: .skip 4
+rts_lock: .skip 4
 #endif
 memory_usable_found: .skip 1
 .balign 8

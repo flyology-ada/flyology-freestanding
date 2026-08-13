@@ -446,11 +446,14 @@ initialize_gic_core:
     tbnz w1, #2, 3b
     add x0, x0, #0x10, lsl #12
     mov w1, #(1 << RESCHEDULE_SGI)
+    mov w2, #(1 << 27)
+    orr w1, w1, w2
     str w1, [x0, #0x80]
     str w1, [x0, #0x280]
     str w1, [x0, #0x100]
     mov w1, #0x80
     strb w1, [x0, #(0x400 + RESCHEDULE_SGI)]
+    strb w1, [x0, #(0x400 + 27)]
     dsb sy
     mrs x0, icc_sre_el1
     orr x0, x0, #1
@@ -544,6 +547,24 @@ m2_idle_reschedule_test:
 4:
     ldr x0, [x19]
     bl m2_report_sgi_pass
+    str xzr, [x19, #56]
+    mov x0, #0x86a0
+    movk x0, #1, lsl #16
+    msr cntv_tval_el0, x0
+    mov x0, #1
+    msr cntv_ctl_el0, x0
+5:
+    msr daifset, #2
+    ldr x0, [x19, #56]
+    cbnz x0, 6f
+    wfi
+    msr daifclr, #2
+    isb
+    msr daifset, #2
+    b 5b
+6:
+    ldr x0, [x19]
+    bl m2_report_timer_pass
     ldp x19, x20, [sp, #16]
     ldr x21, [sp, #32]
     ldp x29, x30, [sp], #48
@@ -562,6 +583,25 @@ m2_report_sgi_pass:
     ldrb w0, [x1, x19]
     bl serial_putc
     address x0, m2_sgi_suffix
+    bl serial_puts
+    bl serial_lock_release
+    ldr x19, [sp, #16]
+    ldp x29, x30, [sp], #32
+    ret
+
+.type m2_report_timer_pass, %function
+m2_report_timer_pass:
+    stp x29, x30, [sp, #-32]!
+    str x19, [sp, #16]
+    mov x29, sp
+    mov x19, x0
+    bl serial_lock_acquire
+    address x0, m2_core_prefix
+    bl serial_puts
+    address x1, digits
+    ldrb w0, [x1, x19]
+    bl serial_putc
+    address x0, m2_timer_suffix
     bl serial_puts
     bl serial_lock_release
     ldr x19, [sp, #16]
@@ -599,6 +639,31 @@ flyology_m2_report_pass:
 .type flyology_m2_report_failure, %function
 flyology_m2_report_failure:
     b fatal
+
+.global flyology_rts_lock_acquire
+.type flyology_rts_lock_acquire, %function
+flyology_rts_lock_acquire:
+    address x0, rts_lock
+1:
+    ldaxr w1, [x0]
+    cbnz w1, 2f
+    mov w1, #1
+    stxr w2, w1, [x0]
+    cbz w2, 3f
+2:
+    clrex
+    wfe
+    b 1b
+3:
+    ret
+
+.global flyology_rts_lock_release
+.type flyology_rts_lock_release, %function
+flyology_rts_lock_release:
+    address x0, rts_lock
+    stlr wzr, [x0]
+    sev
+    ret
 #endif
 
 /*
@@ -881,6 +946,15 @@ reschedule_irq:
     mrs x2, tpidr_el1
     mov x3, #1
     str x3, [x2, #48]
+    b 2f
+1:
+    cmp x1, #27
+    b.ne 3f
+    mrs x2, tpidr_el1
+    mov x3, #1
+    str x3, [x2, #56]
+    msr cntv_ctl_el0, xzr
+2:
     msr icc_eoir1_el1, x0
     ldp x0, x1, [sp, #0]
     ldp x2, x3, [sp, #16]
@@ -900,7 +974,7 @@ reschedule_irq:
     ldr x30, [sp, #240]
     add sp, sp, #256
     eret
-1:
+3:
     msr icc_eoir1_el1, x0
     add sp, sp, #256
     b exception_fatal
@@ -945,6 +1019,7 @@ m1_pass:       .asciz "FLYOLOGY:M1:PASS\n"
 m2_core_prefix: .asciz "FLYOLOGY:M2:CORE:"
 m2_core_suffix: .asciz ":SUBSTRATE:PASS\n"
 m2_sgi_suffix: .asciz ":RESCHEDULE_SGI:PASS\n"
+m2_timer_suffix: .asciz ":TIMER:PASS\n"
 m2_pass:       .asciz "FLYOLOGY:M2:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:AARCH64_BOOT\n"
@@ -960,6 +1035,7 @@ online_count: .skip 4
 m2_complete_count: .skip 4
 m2_idle_ready_count: .skip 4
 cpu_count: .skip 4
+rts_lock: .skip 4
 #endif
 .balign 8
 uart_address: .skip 8
