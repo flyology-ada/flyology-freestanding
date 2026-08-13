@@ -550,8 +550,22 @@ package body Flyology.M3_Runtime is
               or else Tasks (Slot).Abort_Pending
             then
                null;
-            elsif State = Dispatcher.Blocked then
+            else
                Tasks (Slot).Abort_Pending := True;
+            end if;
+            if Tasks (Slot).Abort_In_Progress
+              or else not Tasks (Slot).Abort_Pending
+            then
+               null;
+            elsif Tasks (Slot).Abort_Depth > 0 then
+               --  Abort-deferred operations retain their exact wait.  In
+               --  particular activation and master completion must finish
+               --  their language-mandated cleanup before Abort_Undefer can
+               --  deliver the pending abort.
+               if State = Dispatcher.Running then
+                  Kicks (Core.Assigned_Core_Locked (Reference)) := True;
+               end if;
+            elsif State = Dispatcher.Blocked then
                Core.Active_Wait_Locked (Reference, Token, Kind);
                if Kind = Waits.Delay_Wait then
                   Core.Cancel_Deadline_Locked (Token, Cancel_Status);
@@ -573,7 +587,16 @@ package body Flyology.M3_Runtime is
                         Matching_Call := Natural (Call);
                      end if;
                   end loop;
-                  if Matching_Call = 0 then
+                  if Matching_Call = 0
+                    and then Tasks (Slot).Accepting
+                    and then Tasks (Slot).Accept_Wait = Token
+                    and then Tasks (Slot).Active_Call = 0
+                  then
+                     --  The blocked task is the accepting server, not a
+                     --  caller.  Accept_Call owns publication cleanup after
+                     --  this exact abort wake resumes it.
+                     null;
+                  elsif Matching_Call = 0 then
                      Leave_Kernel;
                      Stop;
                   elsif Calls (Call_Number (Matching_Call)).Accepted then
@@ -601,6 +624,12 @@ package body Flyology.M3_Runtime is
                         Stop;
                      end if;
                   end if;
+               elsif Kind in Waits.Master_Wait | Waits.Activation_Wait then
+                  --  These waits normally run with abort deferred.  Retain
+                  --  the pending request and let their exact natural wake
+                  --  complete cleanup even if a malformed caller reaches
+                  --  this branch without deferral.
+                  Accepted_Call := True;
                else
                   Leave_Kernel;
                   Stop;
@@ -615,7 +644,6 @@ package body Flyology.M3_Runtime is
                   Kicks (Wake_Core) := True;
                end if;
             else
-               Tasks (Slot).Abort_Pending := True;
                Kicks (Core.Assigned_Core_Locked (Reference)) := True;
             end if;
          end if;
@@ -1223,7 +1251,19 @@ package body Flyology.M3_Runtime is
            (Server, Waits.Object_Wait, Tasks (Server_Slot).Accept_Wait);
          Core.Block_Current_And_Release
            (Dense, Tasks (Server_Slot).Accept_Wait, Outcome);
-         if Outcome /= Waits.Object_Wake then
+         if Outcome = Waits.Abort_Wake then
+            Enter_Kernel;
+            if not Tasks (Server_Slot).Accepting
+              or else Tasks (Server_Slot).Active_Call /= 0
+            then
+               Leave_Kernel;
+               Stop;
+            end if;
+            Tasks (Server_Slot).Accepting := False;
+            Leave_Kernel;
+            Deliver_Pending_Abort;
+            Stop;
+         elsif Outcome /= Waits.Object_Wake then
             Stop;
          end if;
          Enter_Kernel;
