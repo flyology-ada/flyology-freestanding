@@ -16,6 +16,14 @@ The authoritative host path is Alire 2.1.1 with per-target local selections in `
 
 Native GNAT 16.1.0 is intentionally not used for target compilation. The current Alire cross releases are GCC/GNAT 15.3.0 and have no default target runtime.
 
+M4 exception images use only the generic `libgcc` unwinder contained in those
+pinned compiler archives. The installed `libgcc.a` hashes are SHA-256
+`b6d172e843239c3fa3906c0d972936a48ebf3d4249a0d0e723f83ecb18ff2304`
+for x86-64 and
+`0effb03f768225ce901b94e6ab108a3709b83bd2c879a629136b89b9bb0cd992`
+for AArch64. They are external GCC Runtime Library material under the upstream
+license and GCC Runtime Library Exception; no archive or GCC source is tracked.
+
 GNATprove 16.1.0 is a native host proof tool, not a target runtime input. The proof gate checks both its first version line and the locally tested executable digest before analysis.
 
 The GCC archive identifies the compiler source release and satisfies toolchain provenance. ADR-0004 forbids using its GNAT runtime sources as Flyology implementation inputs.

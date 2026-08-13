@@ -188,6 +188,12 @@ scan_done:
     b.ne fatal
 
     bl adainit
+#ifdef FLYOLOGY_EXCEPTION
+    bl flyology_exception_initialize
+    bl _ada_exception_probe
+    address x0, exception_pass
+    bl serial_puts_locked
+#endif
 #ifdef FLYOLOGY_M3
     address x0, ada_elaboration_pass
     bl serial_puts_locked
@@ -197,8 +203,12 @@ scan_done:
     bl _ada_flyology_m2
 #endif
 #else
+#ifdef FLYOLOGY_EXCEPTION
+    bl adafinal
+#else
     bl _ada_flyology_m1
     bl adafinal
+#endif
 #endif
 #ifndef FLYOLOGY_M3
     address x0, ada_pass
@@ -1271,6 +1281,7 @@ serial_init:
 .global __gnat_rcheck_SE_Explicit_Raise
 .type __gnat_last_chance_handler, %function
 __gnat_last_chance_handler:
+#ifndef FLYOLOGY_EXCEPTION
 __gnat_rcheck_CE_Explicit_Raise:
 __gnat_rcheck_CE_Access_Check:
 __gnat_rcheck_CE_Index_Check:
@@ -1279,9 +1290,21 @@ __gnat_rcheck_CE_Overflow_Check:
 __gnat_rcheck_CE_Range_Check:
 __gnat_rcheck_PE_Explicit_Raise:
 __gnat_rcheck_SE_Explicit_Raise:
+#endif
     msr daifset, #0xf
+#ifdef FLYOLOGY_EXCEPTION
+    mov x19, x0
+#endif
     address x0, serial_lock
     stlr wzr, [x0]
+#ifdef FLYOLOGY_EXCEPTION
+    address x0, exception_detail
+    bl serial_puts
+    mov x0, x19
+    bl serial_puts
+    mov x0, #'\n'
+    bl serial_putc
+#endif
     address x0, last_chance_marker
     bl serial_puts
     b halt
@@ -1592,6 +1615,8 @@ online_prefix: .asciz "FLYOLOGY:CORE:ONLINE:"
 ada_pass:      .asciz "FLYOLOGY:ADA:MAIN:PASS\n"
 ada_elaboration_pass: .asciz "FLYOLOGY:ADA:ELABORATION:PASS\n"
 m1_pass:       .asciz "FLYOLOGY:M1:PASS\n"
+exception_pass:.asciz "FLYOLOGY:M4:EXCEPTION:PASS\n"
+exception_detail:.asciz "FLYOLOGY:M4:EXCEPTION:DETAIL:"
 #ifdef FLYOLOGY_M2
 m2_core_prefix: .asciz "FLYOLOGY:M2:CORE:"
 m2_core_suffix: .asciz ":SUBSTRATE:PASS\n"

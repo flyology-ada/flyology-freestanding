@@ -22,10 +22,14 @@ _start:
     xor %ebp, %ebp
     call serial_init
     call initialize_idt
-#ifdef FLYOLOGY_M3
+#if defined(FLYOLOGY_M3) || defined(FLYOLOGY_EXCEPTION)
     /* Base revision 6 disables FP/SIMD.  No compiler-generated Ada call may
        precede normalization, including the injected last-chance probe. */
+#ifdef FLYOLOGY_EXCEPTION
+    call initialize_exception_fp
+#else
     call initialize_task_fp
+#endif
 #endif
 #ifdef FLYOLOGY_M1_FAULT_LAST_CHANCE
     call flyology_last_chance_probe
@@ -179,6 +183,12 @@ scan_done:
     jne fatal
 
     call adainit
+#ifdef FLYOLOGY_EXCEPTION
+    call flyology_exception_initialize
+    call _ada_exception_probe
+    lea exception_pass(%rip), %rdi
+    call serial_puts_locked
+#endif
 #ifdef FLYOLOGY_M3
     lea ada_elaboration_pass(%rip), %rdi
     call serial_puts_locked
@@ -188,8 +198,12 @@ scan_done:
     call _ada_flyology_m2
 #endif
 #else
+#ifdef FLYOLOGY_EXCEPTION
+    call adafinal
+#else
     call _ada_flyology_m1
     call adafinal
+#endif
 #endif
 #ifndef FLYOLOGY_M3
     lea ada_pass(%rip), %rdi
@@ -645,6 +659,7 @@ m2_interrupt_common:
 .global __gnat_rcheck_SE_Explicit_Raise
 .type __gnat_last_chance_handler, @function
 __gnat_last_chance_handler:
+#ifndef FLYOLOGY_EXCEPTION
 __gnat_rcheck_CE_Explicit_Raise:
 __gnat_rcheck_CE_Access_Check:
 __gnat_rcheck_CE_Index_Check:
@@ -653,8 +668,18 @@ __gnat_rcheck_CE_Overflow_Check:
 __gnat_rcheck_CE_Range_Check:
 __gnat_rcheck_PE_Explicit_Raise:
 __gnat_rcheck_SE_Explicit_Raise:
+#endif
     cli
     movl $0, serial_lock(%rip)
+#ifdef FLYOLOGY_EXCEPTION
+    push %rdi
+    lea exception_detail(%rip), %rdi
+    call serial_puts
+    pop %rdi
+    call serial_puts
+    mov $'\n', %edi
+    call serial_putc
+#endif
     lea last_chance_marker(%rip), %rdi
     call serial_puts
     jmp halt
@@ -667,6 +692,38 @@ set_core_pointer:
     mov $0xc0000101, %ecx
     wrmsr
     ret
+
+#ifdef FLYOLOGY_EXCEPTION
+.type initialize_exception_fp, @function
+initialize_exception_fp:
+    push %rbx
+    mov $1, %eax
+    cpuid
+    bt $24, %edx
+    jnc fatal
+    bt $25, %edx
+    jnc fatal
+    bt $26, %ecx
+    jnc fatal
+    mov %cr0, %rax
+    and $-13, %rax
+    or $2, %rax
+    mov %rax, %cr0
+    mov %cr4, %rax
+    or $0x40600, %rax
+    mov %rax, %cr4
+    xor %ecx, %ecx
+    mov $3, %eax
+    xor %edx, %edx
+    xsetbv
+    fninit
+    sub $16, %rsp
+    movl $0x1f80, (%rsp)
+    ldmxcsr (%rsp)
+    add $16, %rsp
+    pop %rbx
+    ret
+#endif
 
 #ifdef FLYOLOGY_M2
 .type initialize_task_fp, @function
@@ -1378,6 +1435,8 @@ online_prefix: .asciz "FLYOLOGY:CORE:ONLINE:"
 ada_pass:      .asciz "FLYOLOGY:ADA:MAIN:PASS\n"
 ada_elaboration_pass: .asciz "FLYOLOGY:ADA:ELABORATION:PASS\n"
 m1_pass:       .asciz "FLYOLOGY:M1:PASS\n"
+exception_pass:.asciz "FLYOLOGY:M4:EXCEPTION:PASS\n"
+exception_detail:.asciz "FLYOLOGY:M4:EXCEPTION:DETAIL:"
 #ifdef FLYOLOGY_M2
 m2_core_prefix: .asciz "FLYOLOGY:M2:CORE:"
 m2_idt_transition_suffix: .asciz ":IDT_TRANSITION:PASS\n"

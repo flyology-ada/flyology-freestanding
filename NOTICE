@@ -7,3 +7,7 @@ Third-party material is not covered by that dual license unless its own notice
 explicitly says so. Downloaded Limine artifacts remain outside version control
 and retain their upstream license. The tracked runtime is clean-room original
 work and does not contain copied GNAT runtime sources.
+
+M4 exception images link the generic libgcc unwinder from the pinned GCC cross
+toolchain. That external GCC Runtime Library component is not tracked here and
+retains its upstream license and GCC Runtime Library Exception.
