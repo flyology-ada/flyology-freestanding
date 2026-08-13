@@ -20,6 +20,14 @@ package System.Tasking.Rendezvous is
       Mode        : System.Tasking.Call_Mode;
       Accepted    : out Boolean);
 
+   procedure Timed_Task_Entry_Call
+     (Target      : System.Tasking.Task_Id;
+      Entry_Index : System.Tasking.Task_Entry_Index;
+      Parameters  : System.Address;
+      Timeout     : Duration;
+      Mode        : Integer;
+      Accepted    : out Boolean);
+
    procedure Complete_Rendezvous;
    procedure Exceptional_Complete_Rendezvous
      (Occurrence : System.Address);

@@ -41,6 +41,19 @@ package body System.Tasking.Rendezvous is
         (Target, Entry_Index, Parameters, Mode, Accepted);
    end Task_Entry_Call;
 
+   procedure Timed_Task_Entry_Call
+     (Target      : System.Tasking.Task_Id;
+      Entry_Index : System.Tasking.Task_Entry_Index;
+      Parameters  : System.Address;
+      Timeout     : Duration;
+      Mode        : Integer;
+      Accepted    : out Boolean)
+   is
+   begin
+      Flyology.M3_Runtime.Timed_Task_Entry_Call
+        (Target, Entry_Index, Parameters, Timeout, Mode, Accepted);
+   end Timed_Task_Entry_Call;
+
    procedure Complete_Rendezvous is
    begin
       Flyology.M3_Runtime.Complete_Rendezvous;

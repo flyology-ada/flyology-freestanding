@@ -1012,6 +1012,12 @@ flyology_m4_report_conditional_pass:
     address x0, m4_conditional_pass
     b serial_puts_locked
 
+.global flyology_m4_report_timed_entry_pass
+.type flyology_m4_report_timed_entry_pass, %function
+flyology_m4_report_timed_entry_pass:
+    address x0, m4_timed_entry_pass
+    b serial_puts_locked
+
 .global flyology_m3_report_master_pass
 .type flyology_m3_report_master_pass, %function
 flyology_m3_report_master_pass:
@@ -1704,6 +1710,7 @@ m4_protected_pass: .asciz "FLYOLOGY:M4:PROTECTED:PASS\n"
 m4_rendezvous_pass: .asciz "FLYOLOGY:M4:RENDEZVOUS:PASS\n"
 m4_priority_pass: .asciz "FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS\n"
 m4_conditional_pass: .asciz "FLYOLOGY:M4:CONDITIONAL_ENTRY:PASS\n"
+m4_timed_entry_pass: .asciz "FLYOLOGY:M4:TIMED_ENTRY:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:AARCH64_BOOT\n"
 exception_marker: .asciz "FLYOLOGY:FAIL:AARCH64_EXCEPTION\n"

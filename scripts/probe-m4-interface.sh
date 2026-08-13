@@ -33,6 +33,10 @@ for architecture in x86_64 aarch64; do
           "$output/conditional_rendezvous_probe.o" \
           "$output/conditional_rendezvous_probe.expanded" \
           "$output/conditional_rendezvous_probe.undefined"
+    rm -f "$output/timed_rendezvous_probe.ali" \
+          "$output/timed_rendezvous_probe.o" \
+          "$output/timed_rendezvous_probe.expanded" \
+          "$output/timed_rendezvous_probe.undefined"
 
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-gcc" -c "$repository/probes/m4/exception_probe.adb" \
@@ -143,6 +147,22 @@ for architecture in x86_64 aarch64; do
         "$output/conditional_rendezvous_probe.undefined" >/dev/null
     grep -F 'system__tasking__conditional_call' \
         "$output/conditional_rendezvous_probe.expanded" >/dev/null
+
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-gcc" -c \
+        "$repository/probes/m4/timed_rendezvous_probe.adb" \
+        -o timed_rendezvous_probe.o -nostdinc \
+        -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
+        -I"$repository/runtime/m3" -gnat2022 -gnatG -gnatf \
+        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        >"$output/timed_rendezvous_probe.expanded" 2>&1
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-nm" -u timed_rendezvous_probe.o \
+        >"$output/timed_rendezvous_probe.undefined"
+    grep -F ' system__tasking__rendezvous__timed_task_entry_call' \
+        "$output/timed_rendezvous_probe.undefined" >/dev/null
+    grep -F 'system__tasking__rendezvous__timed_task_entry_call (' \
+        "$output/timed_rendezvous_probe.expanded" >/dev/null
     echo "FLYOLOGY:M4:PROBE:PASS:$architecture"
 done
 
@@ -178,4 +198,13 @@ grep -v ' __clear_cache$' \
     >"$output_root/aarch64/conditional_rendezvous_probe.normalized"
 diff -u "$output_root/x86_64/conditional_rendezvous_probe.undefined" \
     "$output_root/aarch64/conditional_rendezvous_probe.normalized" >/dev/null
+test "$(grep -c ' __clear_cache$' \
+    "$output_root/x86_64/timed_rendezvous_probe.undefined" || true)" -eq 0
+test "$(grep -c ' __clear_cache$' \
+    "$output_root/aarch64/timed_rendezvous_probe.undefined")" -eq 1
+grep -v ' __clear_cache$' \
+    "$output_root/aarch64/timed_rendezvous_probe.undefined" \
+    >"$output_root/aarch64/timed_rendezvous_probe.normalized"
+diff -u "$output_root/x86_64/timed_rendezvous_probe.undefined" \
+    "$output_root/aarch64/timed_rendezvous_probe.normalized" >/dev/null
 echo 'FLYOLOGY:M4:PROBE:PASS'

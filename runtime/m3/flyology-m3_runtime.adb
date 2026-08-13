@@ -24,6 +24,7 @@ package body Flyology.M3_Runtime is
    use type Waits.Resolve_Status;
    use type Waits.Resolution;
    use type Clock.Tick;
+   use type Core.Timer_Cancel_Status;
 
    Max_Cores   : constant := Core.Max_Cores;
    Max_Tasks   : constant := System.Tasking.Max_Tasks;
@@ -80,6 +81,7 @@ package body Flyology.M3_Runtime is
    type Call_Record is record
       Used       : Boolean := False;
       Accepted   : Boolean := False;
+      Timed      : Boolean := False;
       Caller     : Dispatcher.Task_Ref := Core.No_Task;
       Target     : Dispatcher.Task_Ref := Core.No_Task;
       Entry_Index : System.Tasking.Task_Entry_Index := 1;
@@ -706,7 +708,7 @@ package body Flyology.M3_Runtime is
       end if;
       Call := Allocate_Call_Locked;
       Calls (Call) :=
-        (Used => True, Accepted => False, Caller => Caller,
+        (Used => True, Accepted => False, Timed => False, Caller => Caller,
          Target => Target_Ref, Entry_Index => Entry_Index,
          Parameters => Parameters,
          Caller_Wait =>
@@ -783,7 +785,7 @@ package body Flyology.M3_Runtime is
 
       Call := Allocate_Call_Locked;
       Calls (Call) :=
-        (Used => True, Accepted => True, Caller => Caller,
+        (Used => True, Accepted => True, Timed => False, Caller => Caller,
          Target => Target_Ref, Entry_Index => Entry_Index,
          Parameters => Parameters,
          Caller_Wait =>
@@ -806,6 +808,116 @@ package body Flyology.M3_Runtime is
          Stop;
       end if;
    end Task_Entry_Call;
+
+   procedure Timed_Task_Entry_Call
+     (Target      : Task_Id;
+      Entry_Index : System.Tasking.Task_Entry_Index;
+      Parameters  : System.Address;
+      Timeout     : Duration;
+      Mode        : Integer;
+      Accepted    : out Boolean)
+   is
+      Dense       : constant Core_Number := Core_Of_Current;
+      Caller      : Dispatcher.Task_Ref;
+      Target_Ref  : Dispatcher.Task_Ref;
+      Target_Slot : Task_Slot;
+      Call        : Call_Number;
+      Outcome     : Waits.Resolution;
+      Status      : Waits.Resolve_Status;
+      Wake_Core   : Core_Number := 0;
+      Tick_Count  : Clock.Tick;
+      Deadline    : Clock.Tick;
+      Rate        : Clock.Frequency;
+      Nanoseconds : Long_Long_Integer;
+   begin
+      Accepted := False;
+      if Mode /= 0 then
+         Stop;
+      elsif Timeout <= 0.0 then
+         return;
+      end if;
+      if Timeout > Duration (Long_Long_Integer'Last / 1_000_000_000) then
+         raise Storage_Error;
+      end if;
+      Nanoseconds := Long_Long_Integer (Timeout * 1_000_000_000) + 1;
+      Rate := Clock.Frequency (Core.Clock_Frequency);
+      if Nanoseconds <= 0
+        or else Nanoseconds > Long_Long_Integer (Clock.Nanoseconds'Last)
+        or else not Clock.Conversion_Fits
+          (Clock.Nanoseconds (Nanoseconds), Rate)
+      then
+         raise Storage_Error;
+      end if;
+      Tick_Count := Clock.To_Ticks_Ceiling
+        (Clock.Nanoseconds (Nanoseconds), Rate);
+      Deadline := Clock.Tick (Core.Read_Clock);
+      if not Clock.Deadline_Fits (Deadline, Tick_Count) then
+         raise Storage_Error;
+      end if;
+      Deadline := Clock.Add_Delay (Deadline, Tick_Count);
+
+      Enter_Kernel;
+      Caller := Core.Current_Locked (Dense);
+      Target_Slot := Record_Of (Target);
+      Target_Ref := To_Reference (Target);
+      if Natural (Entry_Index) > Tasks (Target_Slot).Entry_Count
+        or else Core.State_Locked (Target_Ref) = Dispatcher.Terminated
+      then
+         Leave_Kernel;
+         raise Program_Error;
+      end if;
+      Call := Allocate_Call_Locked;
+      Calls (Call) :=
+        (Used => True, Accepted => False, Timed => True, Caller => Caller,
+         Target => Target_Ref, Entry_Index => Entry_Index,
+         Parameters => Parameters,
+         Caller_Wait =>
+           (Task_Reference => Core.No_Task, Generation => 0));
+      Core.Arm_Wait_Locked
+        (Caller, Waits.Timed_Object_Wait, Calls (Call).Caller_Wait);
+
+      if Tasks (Target_Slot).Accepting
+        and then Tasks (Target_Slot).Accept_Entry = Entry_Index
+        and then Tasks (Target_Slot).Active_Call = 0
+      then
+         Calls (Call).Accepted := True;
+         Tasks (Target_Slot).Active_Call := Natural (Call);
+         Core.Resolve_Exact_Locked
+           (Tasks (Target_Slot).Accept_Wait, Waits.Object_Wake,
+            Status, Wake_Core);
+         if Status /= Waits.Made_Ready then
+            Leave_Kernel;
+            Stop;
+         end if;
+         Accepted := True;
+         Kick_Core (System.Address (Wake_Core));
+      else
+         Core.Register_Deadline_Locked
+           (Calls (Call).Caller_Wait, Core.Tick (Deadline));
+         Kick_Core
+           (System.Address (Core.Assigned_Core_Locked (Target_Ref)));
+      end if;
+      Core.Block_Current_And_Release
+        (Dense, Calls (Call).Caller_Wait, Outcome);
+
+      Enter_Kernel;
+      if Outcome = Waits.Timer_Expiry then
+         if Calls (Call).Accepted then
+            Leave_Kernel;
+            Stop;
+         end if;
+         Calls (Call) := (others => <>);
+         Accepted := False;
+      elsif Outcome = Waits.Object_Wake then
+         if not Accepted then
+            Accepted := True;
+         end if;
+      else
+         Leave_Kernel;
+         Stop;
+      end if;
+      Leave_Kernel;
+   end Timed_Task_Entry_Call;
 
    procedure Accept_Call
      (Entry_Index : System.Tasking.Task_Entry_Index;
@@ -832,8 +944,12 @@ package body Flyology.M3_Runtime is
            and then Calls (Call).Target = Server
            and then Calls (Call).Entry_Index = Entry_Index
          then
-            Selected := Natural (Call);
-            exit;
+            if Core.Wait_Is_Pending_Locked (Calls (Call).Caller_Wait) then
+               Selected := Natural (Call);
+               exit;
+            else
+               Calls (Call) := (others => <>);
+            end if;
          end if;
       end loop;
 
@@ -854,6 +970,19 @@ package body Flyology.M3_Runtime is
             Stop;
          end if;
       else
+         if Calls (Call_Number (Selected)).Timed then
+            declare
+               Cancel_Status : Core.Timer_Cancel_Status;
+            begin
+               Core.Cancel_Deadline_Locked
+                 (Calls (Call_Number (Selected)).Caller_Wait,
+                  Cancel_Status);
+               if Cancel_Status /= Core.Cancelled then
+                  Leave_Kernel;
+                  Stop;
+               end if;
+            end;
+         end if;
          Calls (Call_Number (Selected)).Accepted := True;
          Tasks (Server_Slot).Active_Call := Selected;
       end if;

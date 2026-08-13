@@ -71,6 +71,10 @@ package body Flyology.M3_Demo is
       entry Ping;
    end Delayed_Rendezvous_Server_Type;
 
+   task type Timed_Rendezvous_Server_Type is
+      entry Ping (Value : in out Integer);
+   end Timed_Rendezvous_Server_Type;
+
    task body Specific_Worker_Type is
       Self : constant Ada.Task_Identification.Task_Id :=
         Ada.Task_Identification.Current_Task;
@@ -161,6 +165,13 @@ package body Flyology.M3_Demo is
       accept Ping;
    end Delayed_Rendezvous_Server_Type;
 
+   task body Timed_Rendezvous_Server_Type is
+   begin
+      accept Ping (Value : in out Integer) do
+         Value := Value + 2;
+      end Ping;
+   end Timed_Rendezvous_Server_Type;
+
    procedure Report_Ordinary_Pass
    with Import, Convention => C,
         External_Name => "flyology_m3_report_ordinary_pass";
@@ -196,6 +207,10 @@ package body Flyology.M3_Demo is
    procedure Report_Conditional_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_conditional_pass";
+
+   procedure Report_Timed_Entry_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_timed_entry_pass";
 
    procedure Report_Master_Pass
    with Import, Convention => C,
@@ -328,6 +343,7 @@ package body Flyology.M3_Demo is
       declare
          Server : Delayed_Rendezvous_Server_Type;
          Rejected : Boolean := False;
+         Timed_Out : Boolean := False;
       begin
          select
             Server.Ping;
@@ -337,9 +353,35 @@ package body Flyology.M3_Demo is
          if not Rejected then
             Report_Failure;
          end if;
+         select
+            Server.Ping;
+         or
+            delay 0.010;
+            Timed_Out := True;
+         end select;
+         if not Timed_Out then
+            Report_Failure;
+         end if;
          Server.Ping;
       end;
       Report_Conditional_Pass;
+
+      declare
+         Server : Timed_Rendezvous_Server_Type;
+         Value : Integer := 20;
+         Accepted : Boolean := False;
+      begin
+         select
+            Server.Ping (Value);
+            Accepted := True;
+         or
+            delay 0.100;
+         end select;
+         if not Accepted or else Value /= 22 then
+            Report_Failure;
+         end if;
+      end;
+      Report_Timed_Entry_Pass;
 
       for Index in Auto_Id'Range loop
          if not Auto_Done (Index)

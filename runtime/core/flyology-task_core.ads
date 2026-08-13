@@ -25,6 +25,7 @@ package Flyology.Task_Core is
      Flyology.Wait_Arbitration_Model.Resolve_Status;
    subtype Tick is Flyology.Timer_Model.Tick;
    subtype Timer_Cancel_Status is Flyology.Timer_Model.Cancel_Status;
+   Cancelled : constant Timer_Cancel_Status := Flyology.Timer_Model.Cancelled;
 
    No_Task : Task_Ref renames Dispatcher.No_Task;
 
@@ -55,6 +56,8 @@ package Flyology.Task_Core is
       Outcome : Wait_Resolution;
       Status  : out Wait_Resolve_Status;
       Core    : out Core_Number);
+
+   function Wait_Is_Pending_Locked (Token : Wait_Token) return Boolean;
 
    procedure Block_Current_And_Release
      (Core    : Core_Number;

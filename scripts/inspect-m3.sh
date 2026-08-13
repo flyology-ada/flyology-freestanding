@@ -51,6 +51,7 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     system__tasking__rendezvous__accept_call \
     system__tasking__rendezvous__complete_rendezvous \
     system__tasking__rendezvous__task_entry_call \
+    system__tasking__rendezvous__timed_task_entry_call \
     ada__dynamic_priorities__set_priority \
     ada__dynamic_priorities__get_priority \
     system__tasking__stages__activate_tasks \
@@ -87,6 +88,7 @@ for marker in 'FLYOLOGY:ADA:ELABORATION:PASS' \
     'FLYOLOGY:M4:RENDEZVOUS:PASS' \
     'FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS' \
     'FLYOLOGY:M4:CONDITIONAL_ENTRY:PASS' \
+    'FLYOLOGY:M4:TIMED_ENTRY:PASS' \
     'FLYOLOGY:M3:ORDINARY_TASKS:PASS' \
     'FLYOLOGY:M3:BOOT_SUBSTRATE:PASS'; do
     scripts/toolchain.sh exec "$architecture" "$target-strings" "$elf" | \

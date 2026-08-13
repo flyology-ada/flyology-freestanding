@@ -53,6 +53,14 @@ package Flyology.M3_Runtime is
       Mode        : System.Tasking.Call_Mode;
       Accepted    : out Boolean);
 
+   procedure Timed_Task_Entry_Call
+     (Target      : Task_Id;
+      Entry_Index : System.Tasking.Task_Entry_Index;
+      Parameters  : System.Address;
+      Timeout     : Duration;
+      Mode        : Integer;
+      Accepted    : out Boolean);
+
    procedure Accept_Call
      (Entry_Index : System.Tasking.Task_Entry_Index;
       Parameters  : out System.Address);

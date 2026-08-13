@@ -26,6 +26,8 @@ package body Flyology.Task_Core is
    use type Waits.Arm_Status;
    use type Waits.Commit_Status;
    use type Waits.Resolve_Status;
+   use type Waits.Resolution;
+   use type Waits.Wait_Phase;
    use type Waits.Resume_Status;
    use type Ceilings.Enter_Status;
    use type Ceilings.Leave_Status;
@@ -327,6 +329,19 @@ package body Flyology.Task_Core is
          Enqueue_Locked (Reference, Core);
       end if;
    end Resolve_Exact_Locked;
+
+   function Wait_Is_Pending_Locked (Token : Wait_Token) return Boolean is
+      Slot : Task_Slot;
+   begin
+      if not Known_Locked (Token.Task_Reference) then
+         return False;
+      end if;
+      Slot := Slot_Of (Token.Task_Reference);
+      return Tasks (Slot).Wait.Reference = Token.Task_Reference
+        and then Tasks (Slot).Wait.Generation = Token.Generation
+        and then Tasks (Slot).Wait.Phase in Waits.Armed | Waits.Committed
+        and then Tasks (Slot).Wait.Outcome = Waits.Pending;
+   end Wait_Is_Pending_Locked;
 
    procedure Block_Current_And_Release
      (Core    : Core_Number;

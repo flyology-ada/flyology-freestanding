@@ -133,5 +133,19 @@ without allocating or queueing anything. The ordinary-Ada QEMU test requires
 one cross-core conditional call to be accepted and a no-parameter call against
 a delayed server to take the else branch without queueing; the delayed server
 is then reached by a normal queued call through the observed `Accept_Trivial`
-hook. This checkpoint
-does not yet include timed or asynchronous entry calls.
+hook. This checkpoint does not yet include asynchronous entry calls.
+
+The owned `timed_rendezvous_probe.adb` confirms the six-parameter
+`Timed_Task_Entry_Call` profile on both targets: target, entry index,
+parameter address, relative `Duration`, delay mode zero, and an out acceptance
+flag. Flyology arms one `Timed_Object_Wait` token and registers that exact token
+with the per-core timer table. Acceptance under the RTS lock cancels the exact
+timer before exposing the call to the server; timeout resolves the same token,
+and a later server scan discards the stale record rather than accepting it.
+
+The QEMU image proves both outcomes with ordinary Ada: an open server completes
+before a long timeout, while a delayed server loses to a short timeout and
+subsequently accepts a fresh normal call. Only then is
+`FLYOLOGY:M4:TIMED_ENTRY:PASS` emitted. The test is deterministic rather than a
+full boundary-race stress campaign; repeated accept/timeout collision stress
+remains required before M4 closes.
