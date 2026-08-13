@@ -63,6 +63,17 @@ package body Flyology.M3_Demo is
    Abort_Continued : Boolean := False with Atomic;
    Abort_Id : Ada.Task_Identification.Task_Id :=
      Ada.Task_Identification.Null_Task_Id with Atomic;
+   Abort_Call_Started : Boolean := False with Atomic;
+   Abort_Call_Continued : Boolean := False with Atomic;
+   Abort_Call_Id : Ada.Task_Identification.Task_Id :=
+     Ada.Task_Identification.Null_Task_Id with Atomic;
+   Abort_Accept_Entered : Boolean := False with Atomic;
+   Abort_Timed_Started : Boolean := False with Atomic;
+   Abort_Timed_Accepted : Boolean := False with Atomic;
+   Abort_Timed_Out : Boolean := False with Atomic;
+   Abort_Timed_Continued : Boolean := False with Atomic;
+   Abort_Timed_Id : Ada.Task_Identification.Task_Id :=
+     Ada.Task_Identification.Null_Task_Id with Atomic;
 
    task type Specific_Worker_Type
      (CPU_Number : System.Multiprocessors.CPU_Range;
@@ -97,6 +108,24 @@ package body Flyology.M3_Demo is
 
    task type Abort_Worker_Type
      (CPU_Number : System.Multiprocessors.CPU_Range)
+     with CPU => CPU_Number;
+
+   task type Abort_Rendezvous_Server_Type
+     (CPU_Number         : System.Multiprocessors.CPU_Range;
+      Delay_Before_Accept : Boolean)
+     with CPU => CPU_Number
+   is
+      entry Ping;
+   end Abort_Rendezvous_Server_Type;
+
+   task type Abort_Rendezvous_Client_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range;
+      Server     : not null access Abort_Rendezvous_Server_Type)
+     with CPU => CPU_Number;
+
+   task type Abort_Timed_Client_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range;
+      Server     : not null access Abort_Rendezvous_Server_Type)
      with CPU => CPU_Number;
 
    task body Specific_Worker_Type is
@@ -243,6 +272,41 @@ package body Flyology.M3_Demo is
       Abort_Continued := True;
    end Abort_Worker_Type;
 
+   task body Abort_Rendezvous_Server_Type is
+   begin
+      if Delay_Before_Accept then
+         delay 0.100;
+         accept Ping;
+      else
+         accept Ping do
+            Abort_Accept_Entered := True;
+            delay 0.100;
+         end Ping;
+      end if;
+   end Abort_Rendezvous_Server_Type;
+
+   task body Abort_Rendezvous_Client_Type is
+   begin
+      Abort_Call_Id := Ada.Task_Identification.Current_Task;
+      Abort_Call_Started := True;
+      Server.Ping;
+      Abort_Call_Continued := True;
+   end Abort_Rendezvous_Client_Type;
+
+   task body Abort_Timed_Client_Type is
+   begin
+      Abort_Timed_Id := Ada.Task_Identification.Current_Task;
+      Abort_Timed_Started := True;
+      select
+         Server.Ping;
+         Abort_Timed_Accepted := True;
+      or
+         delay 1.0;
+         Abort_Timed_Out := True;
+      end select;
+      Abort_Timed_Continued := True;
+   end Abort_Timed_Client_Type;
+
    procedure Report_Ordinary_Pass
    with Import, Convention => C,
         External_Name => "flyology_m3_report_ordinary_pass";
@@ -302,6 +366,18 @@ package body Flyology.M3_Demo is
    procedure Report_Abort_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_abort_pass";
+
+   procedure Report_Abort_Rendezvous_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_abort_rendezvous_pass";
+
+   procedure Report_Abort_Timeout_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_abort_timeout_pass";
+
+   procedure Report_Abort_Accepted_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_abort_accepted_pass";
 
    procedure Report_Master_Pass
    with Import, Convention => C,
@@ -554,6 +630,84 @@ package body Flyology.M3_Demo is
          Report_Failure;
       end if;
       Report_Abort_Pass;
+
+      declare
+         Server : aliased Abort_Rendezvous_Server_Type
+           (System.Multiprocessors.CPU_Range (CPU_Count), True);
+         Client : Abort_Rendezvous_Client_Type
+           (System.Multiprocessors.CPU_Range (CPU_Count), Server'Access);
+         Client_Id : constant Ada.Task_Identification.Task_Id :=
+           Client'Identity;
+      begin
+         delay 0.001;
+         if not Abort_Call_Started or else Abort_Call_Id /= Client_Id then
+            Report_Failure;
+         end if;
+         abort Client;
+         Server.Ping;
+      end;
+      if Abort_Call_Continued
+        or else Abort_Call_Id = Ada.Task_Identification.Null_Task_Id
+        or else not Ada.Task_Identification.Is_Terminated (Abort_Call_Id)
+        or else Ada.Task_Identification.Is_Callable (Abort_Call_Id)
+      then
+         Report_Failure;
+      end if;
+      Report_Abort_Rendezvous_Pass;
+
+      Abort_Call_Started := False;
+      Abort_Call_Continued := False;
+      Abort_Call_Id := Ada.Task_Identification.Null_Task_Id;
+      Abort_Accept_Entered := False;
+      declare
+         Server : aliased Abort_Rendezvous_Server_Type
+           (System.Multiprocessors.CPU_Range (CPU_Count), False);
+         Client : Abort_Rendezvous_Client_Type
+           (System.Multiprocessors.CPU_Range (CPU_Count), Server'Access);
+         Client_Id : constant Ada.Task_Identification.Task_Id :=
+           Client'Identity;
+      begin
+         delay 0.001;
+         if not Abort_Call_Started or else not Abort_Accept_Entered
+           or else Abort_Call_Id /= Client_Id
+         then
+            Report_Failure;
+         end if;
+         abort Client;
+      end;
+      if Abort_Call_Continued
+        or else Abort_Call_Id = Ada.Task_Identification.Null_Task_Id
+        or else not Ada.Task_Identification.Is_Terminated (Abort_Call_Id)
+        or else Ada.Task_Identification.Is_Callable (Abort_Call_Id)
+      then
+         Report_Failure;
+      end if;
+      Report_Abort_Accepted_Pass;
+
+      declare
+         Server : aliased Abort_Rendezvous_Server_Type
+           (System.Multiprocessors.CPU_Range (CPU_Count), True);
+         Client : Abort_Timed_Client_Type
+           (System.Multiprocessors.CPU_Range (CPU_Count), Server'Access);
+         Client_Id : constant Ada.Task_Identification.Task_Id :=
+           Client'Identity;
+      begin
+         delay 0.001;
+         if not Abort_Timed_Started or else Abort_Timed_Id /= Client_Id then
+            Report_Failure;
+         end if;
+         abort Client;
+         Server.Ping;
+      end;
+      if Abort_Timed_Accepted or else Abort_Timed_Out
+        or else Abort_Timed_Continued
+        or else Abort_Timed_Id = Ada.Task_Identification.Null_Task_Id
+        or else not Ada.Task_Identification.Is_Terminated (Abort_Timed_Id)
+        or else Ada.Task_Identification.Is_Callable (Abort_Timed_Id)
+      then
+         Report_Failure;
+      end if;
+      Report_Abort_Timeout_Pass;
 
       for Index in Auto_Id'Range loop
          if not Auto_Done (Index)

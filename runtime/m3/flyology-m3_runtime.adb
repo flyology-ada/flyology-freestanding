@@ -29,6 +29,7 @@ package body Flyology.M3_Runtime is
    use type Waits.Wait_Kind;
    use type Clock.Tick;
    use type Core.Timer_Cancel_Status;
+   use type Core.Wait_Token;
 
    Max_Cores   : constant := Core.Max_Cores;
    Max_Tasks   : constant := System.Tasking.Max_Tasks;
@@ -507,6 +508,8 @@ package body Flyology.M3_Runtime is
       Status        : Waits.Resolve_Status;
       Wake_Core     : Core_Number := 0;
       Cancel_Status : Core.Timer_Cancel_Status;
+      Matching_Call : Natural range 0 .. Max_Calls;
+      Accepted_Call : Boolean;
    begin
       if Members'Length /= 1 then
          Stop;
@@ -522,6 +525,7 @@ package body Flyology.M3_Runtime is
             Slot := Record_Of (Members (Index));
             Reference := To_Reference (Members (Index));
             State := Core.State_Locked (Reference);
+            Accepted_Call := False;
             if State = Dispatcher.Dormant then
                Leave_Kernel;
                Stop;
@@ -533,22 +537,57 @@ package body Flyology.M3_Runtime is
             elsif State = Dispatcher.Blocked then
                Tasks (Slot).Abort_Pending := True;
                Core.Active_Wait_Locked (Reference, Token, Kind);
-               if Kind /= Waits.Delay_Wait then
+               if Kind = Waits.Delay_Wait then
+                  Core.Cancel_Deadline_Locked (Token, Cancel_Status);
+                  if Cancel_Status /= Core.Cancelled then
+                     Leave_Kernel;
+                     Stop;
+                  end if;
+               elsif Kind in Waits.Object_Wait | Waits.Timed_Object_Wait then
+                  Matching_Call := 0;
+                  for Call in Call_Number loop
+                     if Calls (Call).Used
+                       and then Calls (Call).Caller = Reference
+                       and then Calls (Call).Caller_Wait = Token
+                     then
+                        if Matching_Call /= 0 then
+                           Leave_Kernel;
+                           Stop;
+                        end if;
+                        Matching_Call := Natural (Call);
+                     end if;
+                  end loop;
+                  if Matching_Call = 0 then
+                     Leave_Kernel;
+                     Stop;
+                  elsif Calls (Call_Number (Matching_Call)).Accepted then
+                     Kicks
+                       (Core.Assigned_Core_Locked
+                          (Calls (Call_Number (Matching_Call)).Target)) := True;
+                     Accepted_Call := True;
+                  elsif Calls (Call_Number (Matching_Call)).Timed then
+                     Core.Cancel_Deadline_Locked (Token, Cancel_Status);
+                     if Cancel_Status /= Core.Cancelled then
+                        Leave_Kernel;
+                        Stop;
+                     end if;
+                  end if;
+                  if not Accepted_Call then
+                     Calls (Call_Number (Matching_Call)) := (others => <>);
+                  end if;
+               else
                   Leave_Kernel;
                   Stop;
                end if;
-               Core.Cancel_Deadline_Locked (Token, Cancel_Status);
-               if Cancel_Status /= Core.Cancelled then
-                  Leave_Kernel;
-                  Stop;
+               if not Accepted_Call then
+                  Core.Resolve_Exact_Locked
+                    (Token, Waits.Abort_Wake, Status, Wake_Core);
+                  if Status /= Waits.Made_Ready then
+                     Leave_Kernel;
+                     Stop;
+                  end if;
+                  Kicks (Wake_Core) := True;
                end if;
-               Core.Resolve_Exact_Locked
-                 (Token, Waits.Abort_Wake, Status, Wake_Core);
-               if Status /= Waits.Made_Ready then
-                  Leave_Kernel;
-                  Stop;
-               end if;
-               Kicks (Wake_Core) := True;
             else
                Tasks (Slot).Abort_Pending := True;
                Kicks (Core.Assigned_Core_Locked (Reference)) := True;
@@ -921,9 +960,12 @@ package body Flyology.M3_Runtime is
       end if;
       Core.Block_Current_And_Release
         (Dense, Calls (Call).Caller_Wait, Outcome);
-      if Outcome /= Waits.Object_Wake then
+      if Outcome = Waits.Abort_Wake then
+         Deliver_Pending_Abort;
+      elsif Outcome /= Waits.Object_Wake then
          Stop;
       end if;
+      Deliver_Pending_Abort;
    end Call_Simple;
 
    procedure Task_Entry_Call
@@ -985,9 +1027,12 @@ package body Flyology.M3_Runtime is
       Kick_Core (System.Address (Wake_Core));
       Core.Block_Current_And_Release
         (Dense, Calls (Call).Caller_Wait, Outcome);
-      if Outcome /= Waits.Object_Wake then
+      if Outcome = Waits.Abort_Wake then
+         Deliver_Pending_Abort;
+      elsif Outcome /= Waits.Object_Wake then
          Stop;
       end if;
+      Deliver_Pending_Abort;
    end Task_Entry_Call;
 
    procedure Timed_Task_Entry_Call
@@ -1081,6 +1126,10 @@ package body Flyology.M3_Runtime is
       Core.Block_Current_And_Release
         (Dense, Calls (Call).Caller_Wait, Outcome);
 
+      if Outcome = Waits.Abort_Wake then
+         Deliver_Pending_Abort;
+      end if;
+
       Enter_Kernel;
       if Outcome = Waits.Timer_Expiry then
          if Calls (Call).Accepted then
@@ -1098,6 +1147,7 @@ package body Flyology.M3_Runtime is
          Stop;
       end if;
       Leave_Kernel;
+      Deliver_Pending_Abort;
    end Timed_Task_Entry_Call;
 
    procedure Accept_Call

@@ -122,6 +122,9 @@ test "$(count_marker 'FLYOLOGY:M4:TIMED_ENTRY:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:DYNAMIC_TASK:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:SELECTIVE_WAIT:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:ABORT:PASS')" -eq 1
+test "$(count_marker 'FLYOLOGY:M4:ABORT_RENDEZVOUS:PASS')" -eq 1
+test "$(count_marker 'FLYOLOGY:M4:ABORT_TIMEOUT:PASS')" -eq 1
+test "$(count_marker 'FLYOLOGY:M4:ABORT_ACCEPTED:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:NESTED_MASTER:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:TASK_STACKS:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:BOOT_SUBSTRATE:PASS')" -eq 1

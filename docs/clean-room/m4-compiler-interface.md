@@ -265,3 +265,23 @@ handlers around an abortible operation are therefore not yet a conforming
 abort boundary and are outside this checkpoint.
 Interrupt-time forced delivery and the decisive no-safe-point behavior remain
 M5 work.
+
+The next abort-race increment extends the same single-winner rule to queued
+task entry calls. If an unaccepted caller is aborted, the runtime matches the
+call record by exact caller reference and wait token, removes it under the RTS
+lock, cancels its exact deadline when the call is timed, and only then resolves
+`Abort_Wake`. If acceptance won first, abort remains pending until normal
+rendezvous completion, preserving the accepted-rendezvous deferral boundary.
+
+Two ordinary-Ada tests pin a delayed server and its client to the last CPU.
+The environment aborts an already queued client, then makes a fresh call that
+the server must accept; this proves the stale call was not later selected. The
+timed variant additionally requires that neither acceptance nor timeout code
+runs in the aborted client. A third variant lets the server accept first and
+remain inside the rendezvous while the environment requests abort; the caller
+is woken normally only after the server completes, then delivers the retained
+abort before returning to user code. `FLYOLOGY:M4:ABORT_RENDEZVOUS:PASS`,
+`FLYOLOGY:M4:ABORT_TIMEOUT:PASS`, and `FLYOLOGY:M4:ABORT_ACCEPTED:PASS` are
+required in every QEMU cell and every SMP4 stress repeat. The timing is
+deliberately separated rather than a near-simultaneous boundary collision;
+adversarial accept/timeout/abort ordering stress remains an M4 closure gate.

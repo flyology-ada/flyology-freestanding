@@ -1250,6 +1250,24 @@ flyology_m4_report_abort_pass:
     lea m4_abort_pass(%rip), %rdi
     jmp serial_puts_locked
 
+.global flyology_m4_report_abort_rendezvous_pass
+.type flyology_m4_report_abort_rendezvous_pass, @function
+flyology_m4_report_abort_rendezvous_pass:
+    lea m4_abort_rendezvous_pass(%rip), %rdi
+    jmp serial_puts_locked
+
+.global flyology_m4_report_abort_timeout_pass
+.type flyology_m4_report_abort_timeout_pass, @function
+flyology_m4_report_abort_timeout_pass:
+    lea m4_abort_timeout_pass(%rip), %rdi
+    jmp serial_puts_locked
+
+.global flyology_m4_report_abort_accepted_pass
+.type flyology_m4_report_abort_accepted_pass, @function
+flyology_m4_report_abort_accepted_pass:
+    lea m4_abort_accepted_pass(%rip), %rdi
+    jmp serial_puts_locked
+
 .global flyology_m3_report_master_pass
 .type flyology_m3_report_master_pass, @function
 flyology_m3_report_master_pass:
@@ -1664,6 +1682,9 @@ m4_timed_entry_pass: .asciz "FLYOLOGY:M4:TIMED_ENTRY:PASS\n"
 m4_dynamic_task_pass: .asciz "FLYOLOGY:M4:DYNAMIC_TASK:PASS\n"
 m4_selective_wait_pass: .asciz "FLYOLOGY:M4:SELECTIVE_WAIT:PASS\n"
 m4_abort_pass: .asciz "FLYOLOGY:M4:ABORT:PASS\n"
+m4_abort_rendezvous_pass: .asciz "FLYOLOGY:M4:ABORT_RENDEZVOUS:PASS\n"
+m4_abort_timeout_pass: .asciz "FLYOLOGY:M4:ABORT_TIMEOUT:PASS\n"
+m4_abort_accepted_pass: .asciz "FLYOLOGY:M4:ABORT_ACCEPTED:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:X86_BOOT\n"
 last_chance_marker: .asciz "FLYOLOGY:LAST_CHANCE:X86_64\n"
