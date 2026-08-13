@@ -51,6 +51,9 @@ package body Flyology.M3_Demo is
      Ada.Task_Identification.Null_Task_Id with Atomic;
    Nested_Child_Object_Id : Ada.Task_Identification.Task_Id :=
      Ada.Task_Identification.Null_Task_Id with Atomic;
+   Dynamic_Done : Boolean := False with Atomic;
+   Dynamic_Id : Ada.Task_Identification.Task_Id :=
+     Ada.Task_Identification.Null_Task_Id with Atomic;
 
    task type Specific_Worker_Type
      (CPU_Number : System.Multiprocessors.CPU_Range;
@@ -74,6 +77,9 @@ package body Flyology.M3_Demo is
    task type Timed_Rendezvous_Server_Type is
       entry Ping (Value : in out Integer);
    end Timed_Rendezvous_Server_Type;
+
+   task type Dynamic_Worker_Type;
+   type Dynamic_Worker_Access is access Dynamic_Worker_Type;
 
    task body Specific_Worker_Type is
       Self : constant Ada.Task_Identification.Task_Id :=
@@ -172,6 +178,20 @@ package body Flyology.M3_Demo is
       end Ping;
    end Timed_Rendezvous_Server_Type;
 
+   task body Dynamic_Worker_Type is
+   begin
+      Dynamic_Id := Ada.Task_Identification.Current_Task;
+      Dynamic_Done := True;
+   end Dynamic_Worker_Type;
+
+   procedure Run_Dynamic_Worker is
+      Worker : constant Dynamic_Worker_Access := new Dynamic_Worker_Type;
+   begin
+      if Worker.all'Identity = Ada.Task_Identification.Null_Task_Id then
+         raise Program_Error;
+      end if;
+   end Run_Dynamic_Worker;
+
    procedure Report_Ordinary_Pass
    with Import, Convention => C,
         External_Name => "flyology_m3_report_ordinary_pass";
@@ -211,6 +231,10 @@ package body Flyology.M3_Demo is
    procedure Report_Timed_Entry_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_timed_entry_pass";
+
+   procedure Report_Dynamic_Task_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_dynamic_task_pass";
 
    procedure Report_Master_Pass
    with Import, Convention => C,
@@ -382,6 +406,16 @@ package body Flyology.M3_Demo is
          end if;
       end;
       Report_Timed_Entry_Pass;
+
+      Run_Dynamic_Worker;
+      if not Dynamic_Done
+        or else Dynamic_Id = Ada.Task_Identification.Null_Task_Id
+        or else not Ada.Task_Identification.Is_Terminated (Dynamic_Id)
+        or else Ada.Task_Identification.Is_Callable (Dynamic_Id)
+      then
+         Report_Failure;
+      end if;
+      Report_Dynamic_Task_Pass;
 
       for Index in Auto_Id'Range loop
          if not Auto_Done (Index)

@@ -47,6 +47,7 @@ package body System.Tasking.Stages is
                Members (Index) := Chain.Members (Index);
             end loop;
             Flyology.M3_Runtime.Activate_Tasks (Members);
+            Chain.Length := 0;
          end;
       end if;
    end Activate_Tasks;
@@ -64,8 +65,9 @@ package body System.Tasking.Stages is
    procedure Expunge_Unactivated_Tasks
      (Chain : in out System.Tasking.Activation_Chain)
    is
-      pragma Unreferenced (Chain);
    begin
-      raise Program_Error;
+      if Chain.Length /= 0 then
+         raise Program_Error;
+      end if;
    end Expunge_Unactivated_Tasks;
 end System.Tasking.Stages;

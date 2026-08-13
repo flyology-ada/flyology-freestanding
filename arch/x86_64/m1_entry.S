@@ -1220,6 +1220,12 @@ flyology_m4_report_timed_entry_pass:
     lea m4_timed_entry_pass(%rip), %rdi
     jmp serial_puts_locked
 
+.global flyology_m4_report_dynamic_task_pass
+.type flyology_m4_report_dynamic_task_pass, @function
+flyology_m4_report_dynamic_task_pass:
+    lea m4_dynamic_task_pass(%rip), %rdi
+    jmp serial_puts_locked
+
 .global flyology_m3_report_master_pass
 .type flyology_m3_report_master_pass, @function
 flyology_m3_report_master_pass:
@@ -1629,6 +1635,7 @@ m4_rendezvous_pass: .asciz "FLYOLOGY:M4:RENDEZVOUS:PASS\n"
 m4_priority_pass: .asciz "FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS\n"
 m4_conditional_pass: .asciz "FLYOLOGY:M4:CONDITIONAL_ENTRY:PASS\n"
 m4_timed_entry_pass: .asciz "FLYOLOGY:M4:TIMED_ENTRY:PASS\n"
+m4_dynamic_task_pass: .asciz "FLYOLOGY:M4:DYNAMIC_TASK:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:X86_BOOT\n"
 last_chance_marker: .asciz "FLYOLOGY:LAST_CHANCE:X86_64\n"

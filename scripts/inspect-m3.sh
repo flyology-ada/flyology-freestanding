@@ -68,6 +68,7 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     flyology__dispatcher_model__try_transition \
     flyology__placement_model__place __gnat_personality_v0 \
     __gnat_begin_handler_v1 __gnat_end_handler_v1 \
+    __gnat_malloc \
     __gnat_all_others_value _Unwind_Resume \
     __gnat_last_chance_handler; do
     printf '%s\n' "$nm_output" | grep -E "[[:space:]]$symbol$" >/dev/null
@@ -89,6 +90,7 @@ for marker in 'FLYOLOGY:ADA:ELABORATION:PASS' \
     'FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS' \
     'FLYOLOGY:M4:CONDITIONAL_ENTRY:PASS' \
     'FLYOLOGY:M4:TIMED_ENTRY:PASS' \
+    'FLYOLOGY:M4:DYNAMIC_TASK:PASS' \
     'FLYOLOGY:M3:ORDINARY_TASKS:PASS' \
     'FLYOLOGY:M3:BOOT_SUBSTRATE:PASS'; do
     scripts/toolchain.sh exec "$architecture" "$target-strings" "$elf" | \

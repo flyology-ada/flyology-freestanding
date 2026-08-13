@@ -1047,6 +1047,7 @@ package body Flyology.M3_Runtime is
       Enter_Kernel;
       Core.Register_Environment_Locked (To_Reference (Environment));
       Leave_Kernel;
+      Enter_Master;
    end Core_Initialize;
 
    procedure Task_Start (Task_Address : System.Address) is

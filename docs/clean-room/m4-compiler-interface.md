@@ -61,8 +61,8 @@ per-core exact-token timer table, and the common wait arbitration kernel. The
 ordinary-task QEMU gate requires four simultaneous delayed tasks in the SMP4
 image, rejects early resume by comparing the architecture clock with the
 registered absolute deadline, and emits one `FLYOLOGY:M4:DELAYS:PASS` marker
-only after their lexical master observes all completions. Absolute delays,
-timed entry calls, and cancellation races remain separate M4 gates.
+only after their lexical master observes all completions. Absolute delays and
+broader cancellation races remain separate M4 gates.
 
 The owned `base_protected_probe.adb` forces aggregate protected state so GNAT
 cannot lower the object to scalar lock-free atomics. Both cross compilers then
@@ -149,3 +149,27 @@ subsequently accepts a fresh normal call. Only then is
 `FLYOLOGY:M4:TIMED_ENTRY:PASS` emitted. The test is deterministic rather than a
 full boundary-race stress campaign; repeated accept/timeout collision stress
 remains required before M4 closes.
+
+The owned `dynamic_task_probe.adb` uses an allocator for an ordinary task type.
+Both target compilers emit the same allocation and lifecycle surface:
+`__gnat_malloc`, a local `Activation_Chain`, `Create_Task`, `Activate_Tasks`,
+`Expunge_Unactivated_Tasks`, ordinary task completion, and lexical master
+completion. The AArch64 local probe alone adds `__clear_cache`; the product
+uses a package-level task body and final inspection continues to prohibit that
+symbol. Successful activation consumes the temporary chain before its cleanup
+hook runs. An unconsumed chain still fails closed because partial activation
+cleanup has not yet been implemented.
+
+The allocator is a checked 64-KiB, 16-byte-aligned monotonic pool. Exhaustion
+enters the compiler's `Storage_Error` check path instead of returning null.
+The QEMU demonstration allocates a task with ordinary `new`, observes its
+stable language identity and normal termination only after its lexical master
+returns, and emits `FLYOLOGY:M4:DYNAMIC_TASK:PASS` in all four architecture and
+CPU-count cells. Adding the allocator also exposed and fixed an earlier
+lifecycle omission: the registered environment task now owns an open root
+master before application package elaboration can query `Current_Master`.
+
+This is deliberately not a reclamation claim. `Unchecked_Deallocation`,
+`Free_Task`, heap reuse, task-slot/stack reuse, incarnation advancement,
+unactivated-task expunging, and abort remain unsupported until their exact
+compiler interfaces and stale-reference races have dedicated gates.

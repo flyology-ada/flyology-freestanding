@@ -37,6 +37,10 @@ for architecture in x86_64 aarch64; do
           "$output/timed_rendezvous_probe.o" \
           "$output/timed_rendezvous_probe.expanded" \
           "$output/timed_rendezvous_probe.undefined"
+    rm -f "$output/dynamic_task_probe.ali" \
+          "$output/dynamic_task_probe.o" \
+          "$output/dynamic_task_probe.expanded" \
+          "$output/dynamic_task_probe.undefined"
 
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-gcc" -c "$repository/probes/m4/exception_probe.adb" \
@@ -163,6 +167,27 @@ for architecture in x86_64 aarch64; do
         "$output/timed_rendezvous_probe.undefined" >/dev/null
     grep -F 'system__tasking__rendezvous__timed_task_entry_call (' \
         "$output/timed_rendezvous_probe.expanded" >/dev/null
+
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-gcc" -c \
+        "$repository/probes/m4/dynamic_task_probe.adb" \
+        -o dynamic_task_probe.o -nostdinc \
+        -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
+        -I"$repository/runtime/m3" -gnat2022 -gnatG -gnatf \
+        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        >"$output/dynamic_task_probe.expanded" 2>&1
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-nm" -u dynamic_task_probe.o \
+        >"$output/dynamic_task_probe.undefined"
+    for symbol in __gnat_malloc \
+        system__tasking__stages__expunge_unactivated_tasks \
+        system__tasking__stages__create_task \
+        system__tasking__stages__activate_tasks \
+        system__tasking__stages__complete_task; do
+        grep -F " $symbol" "$output/dynamic_task_probe.undefined" >/dev/null
+    done
+    grep -F 'system__tasking__stages__expunge_unactivated_tasks (' \
+        "$output/dynamic_task_probe.expanded" >/dev/null
     echo "FLYOLOGY:M4:PROBE:PASS:$architecture"
 done
 
@@ -207,4 +232,13 @@ grep -v ' __clear_cache$' \
     >"$output_root/aarch64/timed_rendezvous_probe.normalized"
 diff -u "$output_root/x86_64/timed_rendezvous_probe.undefined" \
     "$output_root/aarch64/timed_rendezvous_probe.normalized" >/dev/null
+test "$(grep -c ' __clear_cache$' \
+    "$output_root/x86_64/dynamic_task_probe.undefined" || true)" -eq 0
+test "$(grep -c ' __clear_cache$' \
+    "$output_root/aarch64/dynamic_task_probe.undefined")" -eq 1
+grep -v ' __clear_cache$' \
+    "$output_root/aarch64/dynamic_task_probe.undefined" \
+    >"$output_root/aarch64/dynamic_task_probe.normalized"
+diff -u "$output_root/x86_64/dynamic_task_probe.undefined" \
+    "$output_root/aarch64/dynamic_task_probe.normalized" >/dev/null
 echo 'FLYOLOGY:M4:PROBE:PASS'

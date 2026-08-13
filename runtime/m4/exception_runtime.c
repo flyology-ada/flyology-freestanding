@@ -415,6 +415,14 @@ void *malloc(usize count)
     return allocation_pool + start;
 }
 
+void *__gnat_malloc(usize count)
+{
+    void *result = malloc(count);
+    if (result == 0)
+        __gnat_rcheck_SE_Explicit_Raise((void *)"dynamic allocation", 0);
+    return result;
+}
+
 void free(void *object)
 {
     (void)object;
