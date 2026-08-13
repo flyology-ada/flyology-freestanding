@@ -1,8 +1,8 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 --  Product task-root propagation remains deliberately contained while M4
---  grows the exact abnormal-completion contract.
+--  grows the exact abnormal-completion contract. Controlled finalization is
+--  enabled; exception and tag registration remain deliberately unavailable.
 pragma Restrictions (No_Exception_Propagation);
-
---  Execution slots are finalized explicitly by the clean-room runtime.
-pragma Restrictions (No_Finalization);
+pragma Restrictions (No_Exception_Registration);
+pragma Restrictions (No_Tagged_Type_Registration);

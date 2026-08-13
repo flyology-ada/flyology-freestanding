@@ -8,13 +8,12 @@ package body System.Finalization_Primitives is
    is
    begin
       if Object = System.Null_Address or else Finalize = null
-        or else Node.Attached
+        or else Node.Finalize_Address /= null
       then
          raise Program_Error;
       end if;
-      Node.Object := Object;
-      Node.Finalize := Finalize;
-      Node.Attached := True;
+      Node.Object_Address := Object;
+      Node.Finalize_Address := Finalize;
    end Attach_Object_To_Node;
 
    procedure Finalize_Object
@@ -22,14 +21,13 @@ package body System.Finalization_Primitives is
       Finalize : Finalize_Address)
    is
    begin
-      if not Node.Attached or else Finalize = null
-        or else Finalize /= Node.Finalize
+      if Node.Finalize_Address = null or else Finalize = null
+        or else Finalize /= Node.Finalize_Address
       then
          raise Program_Error;
       end if;
-      Finalize (Node.Object);
-      Node.Object := System.Null_Address;
-      Node.Finalize := null;
-      Node.Attached := False;
+      Finalize (Node.Object_Address);
+      Node.Object_Address := System.Null_Address;
+      Node.Finalize_Address := null;
    end Finalize_Object;
 end System.Finalization_Primitives;

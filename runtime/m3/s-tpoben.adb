@@ -3,6 +3,11 @@
 with Flyology.M3_Runtime;
 
 package body System.Tasking.Protected_Objects.Entries is
+   procedure Report_Finalization_Pass
+     with Import,
+          Convention    => C,
+          External_Name => "flyology_m4_report_finalization_pass";
+
    procedure Initialize_Protection_Entries
      (Object           : Protection_Entries_Access;
       Ceiling          : Integer;
@@ -43,7 +48,7 @@ package body System.Tasking.Protected_Objects.Entries is
       Flyology.M3_Runtime.Protected_Leave;
    end Unlock_Entries;
 
-   procedure Finalize (Object : in out Protection_Entries) is
+   overriding procedure Finalize (Object : in out Protection_Entries) is
    begin
       if Object.Initialized then
          if Object.Queue.Length /= 0 then
@@ -55,6 +60,7 @@ package body System.Tasking.Protected_Objects.Entries is
             end if;
          end loop;
          Object.Initialized := False;
+         Report_Finalization_Pass;
       end if;
    end Finalize;
 end System.Tasking.Protected_Objects.Entries;

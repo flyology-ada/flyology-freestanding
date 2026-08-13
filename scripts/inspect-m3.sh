@@ -53,6 +53,9 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     system__tasking__protected_objects__operations__protected_entry_call \
     system__tasking__protected_objects__operations__service_entries \
     system__tasking__protected_objects__operations__complete_entry_body \
+    system__tasking__protected_objects__entries__finalize__2 \
+    system__finalization_primitives__attach_object_to_node \
+    system__finalization_primitives__finalize_object \
     system__tasking__rendezvous__call_simple \
     system__tasking__rendezvous__accept_call \
     system__tasking__rendezvous__complete_rendezvous \
@@ -97,6 +100,7 @@ for marker in 'FLYOLOGY:ADA:ELABORATION:PASS' \
     'FLYOLOGY:M4:DELAYS:PASS' \
     'FLYOLOGY:M4:ABSOLUTE_DELAY:PASS' \
     'FLYOLOGY:M4:PROTECTED:PASS' \
+    'FLYOLOGY:M4:FINALIZATION:PASS' \
     'FLYOLOGY:M4:RENDEZVOUS:PASS' \
     'FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS' \
     'FLYOLOGY:M4:CONDITIONAL_ENTRY:PASS' \

@@ -1,5 +1,6 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
+with Ada.Finalization;
 with Flyology.Task_Primitives_Contract;
 with Flyology.Wait_Queue_Model;
 
@@ -50,7 +51,8 @@ package System.Tasking.Protected_Objects.Entries is
    type Core_Wake_Array is array (System.Address range 0 .. 3) of Boolean;
 
    type Protection_Entries
-     (Entry_Count : Protected_Entry_Index) is limited record
+     (Entry_Count : Protected_Entry_Index) is
+     new Ada.Finalization.Limited_Controlled with record
       Initialized      : Boolean := False;
       Ceiling          : Integer := System.Tasking.Unspecified_Priority;
       Enclosing_Object : System.Address := System.Null_Address;
@@ -74,5 +76,7 @@ package System.Tasking.Protected_Objects.Entries is
 
    procedure Lock_Entries (Object : Protection_Entries_Access);
    procedure Unlock_Entries (Object : Protection_Entries_Access);
-   procedure Finalize (Object : in out Protection_Entries);
+
+private
+   overriding procedure Finalize (Object : in out Protection_Entries);
 end System.Tasking.Protected_Objects.Entries;

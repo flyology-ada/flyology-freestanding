@@ -131,13 +131,25 @@ for architecture in x86_64 aarch64; do
         system__tasking__protected_objects__operations__communication_blockIP \
         system__tasking__protected_objects__operations__complete_entry_body \
         system__tasking__protected_objects__operations__protected_entry_call \
-        system__tasking__protected_objects__operations__service_entries; do
+        system__tasking__protected_objects__operations__service_entries \
+        system__tasking__protected_objects__entries__finalize__2 \
+        system__finalization_primitives__attach_object_to_node \
+        system__finalization_primitives__finalize_object; do
         grep -F " $symbol" "$output/protected_probe.undefined" >/dev/null
     done
     grep -F 'protected_entry_body_array' \
         "$output/protected_probe.expanded" >/dev/null
     grep -F 'system__tasking__protected_objects__operations__service_entries' \
         "$output/protected_probe.expanded" >/dev/null
+    grep -F 'procedure protected_probe__gateTVFD' \
+        "$output/protected_probe.expanded" >/dev/null
+    grep -F 'protected_probe__gateTVFD' \
+        "$output/protected_probe.expanded" | \
+        grep -F 'unrestricted_access' >/dev/null
+    if grep -F 'any id' "$output/protected_probe.expanded" >/dev/null; then
+        echo "anonymous protected finalizer callback: $architecture" >&2
+        exit 1
+    fi
 
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-gcc" -c \

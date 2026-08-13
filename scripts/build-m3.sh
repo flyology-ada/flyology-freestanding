@@ -56,6 +56,11 @@ compile_ada() {
 compile_ada runtime/bootstrap/system.ads system.o yes
 compile_ada runtime/bootstrap/s-stalib.adb s-stalib.o yes
 compile_ada runtime/m3/ada.ads ada.o yes
+compile_ada runtime/m3/s-stoele.ads s-stoele.o yes
+compile_ada runtime/m3/s-secsta.adb s-secsta.o yes
+compile_ada runtime/m3/a-tags.adb a-tags.o yes
+compile_ada runtime/m3/s-finroo.adb s-finroo.o yes
+compile_ada runtime/m3/a-finali.adb a-finali.o yes
 compile_ada runtime/m3/a-calend.ads a-calend.o yes
 compile_ada runtime/m3/a-caldel.adb a-caldel.o yes
 compile_ada runtime/m3/a-reatim.adb a-reatim.o yes
@@ -181,6 +186,11 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/a-retide.o" \
     "$output_directory/a-caldel.o" \
     "$output_directory/a-calend.o" \
+    "$output_directory/a-finali.o" \
+    "$output_directory/s-finroo.o" \
+    "$output_directory/a-tags.o" \
+    "$output_directory/s-secsta.o" \
+    "$output_directory/s-stoele.o" \
     "$output_directory/ada.o" \
     "$output_directory/a-except.o" \
     "$output_directory/flyology-m2_architecture.o" \

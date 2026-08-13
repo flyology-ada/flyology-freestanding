@@ -145,17 +145,26 @@ single wait outcome and removes the stale protected call under the same RTS
 lock. The ordinary-Ada gate requires a closed timed call to time out and leave
 entry `'Count` at zero before the blocking FIFO test.
 
-This increment deliberately compiles the product with `No_Finalization`.
-That restriction removes GNAT's implicit controlled-object attachment and
-Ada.Tags metadata dependency while leaving the protected-entry lowering above
-intact; Flyology still tears down task execution slots explicitly. It is an
-intermediate clean-room boundary, not a final full-runtime contract. M4 cannot
-close until controlled finalization is supported without GNAT-derived code or
-the product scope is otherwise reconciled with ordinary Ada finalization.
-Exceptional entry-body completion currently stops fail-closed. This checkpoint
-does not claim absolute-delay timed protected calls, entry families, requeue,
-priority-ordered entry service, exceptional entry-body
-propagation, abort of a protected-entry waiter, or finalized-object races.
+The product no longer uses `No_Finalization`. Owned two-target expansion
+evidence establishes the compiler-created controlled hierarchy, finalization
+node attachment, named protected-object finalizer callback, and call to the
+`Protection_Entries` `Finalize` override. The clean-room root uses the
+compiler-recognized `Finalizable` implementation aspect solely to request that
+metadata; no GNAT runtime source was consulted or copied. The product finalizer
+fails closed unless the entry queue and every pending-call slot are empty,
+marks the object uninitialized, and emits
+`FLYOLOGY:M4:FINALIZATION:PASS`. The QEMU gate requires that marker exactly
+once, after the binder calls the library finalizer during `adafinal`.
+
+This is a bounded protected-entry teardown contract, not a claim for the full
+`Ada.Finalization` or `Ada.Tags` APIs. Exception registration and tagged-type
+registration remain disabled, task execution slots still use their explicit
+lifecycle, and general controlled-object adjustment, user-defined tag queries,
+and finalization races are not yet demonstrated. Exceptional entry-body
+completion currently stops fail-closed. This checkpoint does not claim
+absolute-delay timed protected calls, entry families, requeue,
+priority-ordered entry service, exceptional entry-body propagation, abort of a
+protected-entry waiter, or concurrent finalized-object access.
 
 The owned `simple_rendezvous_probe.adb` establishes the same compiler surface
 on both cross targets for a simple task entry call: `Create_Task` receives an

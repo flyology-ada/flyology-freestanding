@@ -3,10 +3,14 @@
 package System.Finalization_Primitives is
    type Finalize_Address is access procedure (Object : System.Address);
 
+   type Master_Node;
+   type Master_Node_Ptr is access all Master_Node;
+
    type Master_Node is limited record
-      Object   : System.Address := System.Null_Address;
-      Finalize : Finalize_Address := null;
-      Attached : Boolean := False;
+      Finalize_Address :
+        System.Finalization_Primitives.Finalize_Address := null;
+      Object_Address   : System.Address := System.Null_Address;
+      Next             : Master_Node_Ptr := null;
    end record;
 
    procedure Attach_Object_To_Node

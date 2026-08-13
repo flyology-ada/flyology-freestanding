@@ -194,6 +194,14 @@ void flyology_exception_initialize(void)
     __register_frame(__eh_frame_probe_start);
 }
 
+/* No_Exception_Propagation prevents a library finalizer from recording an
+   occurrence for later propagation.  GNAT's binder still emits this query
+   when a library-level controlled object exists, so the empty state has a
+   narrow, explicit implementation. */
+void __gnat_reraise_library_exception_if_any(void)
+{
+}
+
 void __gnat_rcheck_PE_Explicit_Raise(void *location, int line)
 {
     (void)location;
