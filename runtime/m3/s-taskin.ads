@@ -29,6 +29,7 @@ package System.Tasking is
    end record;
    type Accept_List is array (Positive range <>) of Accept_Alternative;
    type Accept_List_Access is access all Accept_List;
+   type Task_List is array (Positive range <>) of Task_Id;
 
    type Activation_Chain is limited private;
    type Activation_Chain_Access is access all Activation_Chain;

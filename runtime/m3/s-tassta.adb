@@ -70,4 +70,13 @@ package body System.Tasking.Stages is
          raise Program_Error;
       end if;
    end Expunge_Unactivated_Tasks;
+
+   procedure Abort_Tasks (Tasks : System.Tasking.Task_List) is
+      Members : Flyology.M3_Runtime.Task_List (Tasks'Range);
+   begin
+      for Index in Tasks'Range loop
+         Members (Index) := Tasks (Index);
+      end loop;
+      Flyology.M3_Runtime.Abort_Tasks (Members);
+   end Abort_Tasks;
 end System.Tasking.Stages;

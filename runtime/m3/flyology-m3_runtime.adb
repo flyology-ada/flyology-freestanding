@@ -26,6 +26,7 @@ package body Flyology.M3_Runtime is
    use type System.Tasking.Accept_List_Access;
    use type Waits.Resolve_Status;
    use type Waits.Resolution;
+   use type Waits.Wait_Kind;
    use type Clock.Tick;
    use type Core.Timer_Cancel_Status;
 
@@ -57,6 +58,8 @@ package body Flyology.M3_Runtime is
       Masters              : Master_Stack := [others => 0];
       Master_Depth         : Natural range 0 .. Master_Stack'Last := 0;
       Abort_Depth          : Natural range 0 .. 255 := 0;
+      Abort_Pending        : Boolean := False;
+      Abort_In_Progress    : Boolean := False;
       Accepting            : Boolean := False;
       Accept_Entry         : System.Tasking.Task_Entry_Index := 1;
       Accept_Wait          : Core.Wait_Token;
@@ -129,6 +132,10 @@ package body Flyology.M3_Runtime is
    procedure Raise_Tasking_Error (Location : System.Address; Line : Integer)
    with Import, Convention => C,
         External_Name => "__gnat_rcheck_TE_Explicit_Raise",
+        No_Return;
+
+   procedure Raise_Abort
+   with Import, Convention => C, External_Name => "flyology_raise_abort",
         No_Return;
 
    procedure Stop is
@@ -270,6 +277,8 @@ package body Flyology.M3_Runtime is
          Masters              => [others => 0],
          Master_Depth         => 0,
          Abort_Depth          => 1,
+         Abort_Pending        => False,
+         Abort_In_Progress    => False,
          Accepting            => False,
          Accept_Entry         => 1,
          Accept_Wait          =>
@@ -448,6 +457,7 @@ package body Flyology.M3_Runtime is
    procedure Abort_Undefer is
       Dense : constant Core_Number := Core_Of_Current;
       Slot  : Task_Slot;
+      Deliver : Boolean;
    begin
       Enter_Kernel;
       Slot := Record_Of (To_Identity (Core.Current_Locked (Dense)));
@@ -456,8 +466,102 @@ package body Flyology.M3_Runtime is
          Stop;
       end if;
       Tasks (Slot).Abort_Depth := Tasks (Slot).Abort_Depth - 1;
+      Deliver := Tasks (Slot).Abort_Depth = 0
+        and then Tasks (Slot).Abort_Pending;
+      if Deliver then
+         Tasks (Slot).Abort_Pending := False;
+         Tasks (Slot).Abort_In_Progress := True;
+      end if;
       Leave_Kernel;
+      if Deliver then
+         Raise_Abort;
+      end if;
    end Abort_Undefer;
+
+   procedure Deliver_Pending_Abort is
+      Dense   : constant Core_Number := Core_Of_Current;
+      Slot    : Task_Slot;
+      Deliver : Boolean;
+   begin
+      Enter_Kernel;
+      Slot := Record_Of (To_Identity (Core.Current_Locked (Dense)));
+      Deliver := Tasks (Slot).Abort_Depth = 0
+        and then Tasks (Slot).Abort_Pending;
+      if Deliver then
+         Tasks (Slot).Abort_Pending := False;
+         Tasks (Slot).Abort_In_Progress := True;
+      end if;
+      Leave_Kernel;
+      if Deliver then
+         Raise_Abort;
+      end if;
+   end Deliver_Pending_Abort;
+
+   procedure Abort_Tasks (Members : Task_List) is
+      Kicks         : Boolean_Core_Array := [others => False];
+      Reference     : Dispatcher.Task_Ref;
+      Slot          : Task_Slot;
+      State         : Dispatcher.Task_State;
+      Token         : Core.Wait_Token;
+      Kind          : Core.Wait_Kind;
+      Status        : Waits.Resolve_Status;
+      Wake_Core     : Core_Number := 0;
+      Cancel_Status : Core.Timer_Cancel_Status;
+   begin
+      if Members'Length /= 1 then
+         Stop;
+      end if;
+      Enter_Kernel;
+      for Index in Members'Range loop
+         if Members (Index) = null then
+            Leave_Kernel;
+            raise Program_Error;
+         elsif System.Tasking.Identity_Is_Terminated (Members (Index)) then
+            null;
+         else
+            Slot := Record_Of (Members (Index));
+            Reference := To_Reference (Members (Index));
+            State := Core.State_Locked (Reference);
+            if State = Dispatcher.Dormant then
+               Leave_Kernel;
+               Stop;
+            end if;
+            if Tasks (Slot).Abort_In_Progress
+              or else Tasks (Slot).Abort_Pending
+            then
+               null;
+            elsif State = Dispatcher.Blocked then
+               Tasks (Slot).Abort_Pending := True;
+               Core.Active_Wait_Locked (Reference, Token, Kind);
+               if Kind /= Waits.Delay_Wait then
+                  Leave_Kernel;
+                  Stop;
+               end if;
+               Core.Cancel_Deadline_Locked (Token, Cancel_Status);
+               if Cancel_Status /= Core.Cancelled then
+                  Leave_Kernel;
+                  Stop;
+               end if;
+               Core.Resolve_Exact_Locked
+                 (Token, Waits.Abort_Wake, Status, Wake_Core);
+               if Status /= Waits.Made_Ready then
+                  Leave_Kernel;
+                  Stop;
+               end if;
+               Kicks (Wake_Core) := True;
+            else
+               Tasks (Slot).Abort_Pending := True;
+               Kicks (Core.Assigned_Core_Locked (Reference)) := True;
+            end if;
+         end if;
+      end loop;
+      Leave_Kernel;
+      for Candidate in Core_Number loop
+         if Natural (Candidate) < Core.CPU_Count and then Kicks (Candidate) then
+            Kick_Core (System.Address (Candidate));
+         end if;
+      end loop;
+   end Abort_Tasks;
 
    procedure Enter_Master is
       Dense      : constant Core_Number := Core_Of_Current;
@@ -621,11 +725,14 @@ package body Flyology.M3_Runtime is
       Core.Arm_Wait_Locked (Reference, Waits.Delay_Wait, Token);
       Core.Register_Deadline_Locked (Token, Core.Tick (Deadline));
       Core.Block_Current_And_Release (Dense, Token, Outcome);
-      if Outcome /= Waits.Timer_Expiry
+      if Outcome = Waits.Abort_Wake then
+         Deliver_Pending_Abort;
+      elsif Outcome /= Waits.Timer_Expiry
         or else Clock.Tick (Core.Read_Clock) < Deadline
       then
          Stop;
       end if;
+      Deliver_Pending_Abort;
    end Delay_Until_Tick;
 
    procedure Delay_For (Interval : Duration) is
@@ -1154,6 +1261,14 @@ package body Flyology.M3_Runtime is
       Wake      : Boolean := False;
       Master    : Master_Number;
       Status    : Waits.Resolve_Status;
+
+      procedure Invoke_Body is
+      begin
+         Tasks (Slot).Body_Procedure (Tasks (Slot).Discriminants);
+      exception
+         when others =>
+            null;
+      end Invoke_Body;
    begin
       if Task_Address > System.Address (Task_Slot'Last) then
          Stop;
@@ -1170,7 +1285,7 @@ package body Flyology.M3_Runtime is
          Stop;
       end if;
       Leave_Kernel;
-      Tasks (Slot).Body_Procedure (Tasks (Slot).Discriminants);
+      Invoke_Body;
       if not Tasks (Slot).Completion_Requested then
          Stop;
       end if;

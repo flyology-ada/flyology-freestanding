@@ -59,6 +59,11 @@ package Flyology.Task_Core is
 
    function Wait_Is_Pending_Locked (Token : Wait_Token) return Boolean;
 
+   procedure Active_Wait_Locked
+     (Reference : Task_Ref;
+      Token     : out Wait_Token;
+      Kind      : out Wait_Kind);
+
    procedure Block_Current_And_Release
      (Core    : Core_Number;
       Token   : Wait_Token;

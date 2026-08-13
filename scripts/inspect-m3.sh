@@ -59,6 +59,7 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     system__tasking__stages__activate_tasks \
     system__tasking__stages__complete_activation \
     system__tasking__stages__complete_task \
+    system__tasking__stages__abort_tasks flyology_raise_abort \
     ada__task_identification__current_task \
     ada__task_identification__is_callable \
     ada__task_identification__is_terminated \
@@ -97,6 +98,7 @@ for marker in 'FLYOLOGY:ADA:ELABORATION:PASS' \
     'FLYOLOGY:M4:TIMED_ENTRY:PASS' \
     'FLYOLOGY:M4:DYNAMIC_TASK:PASS' \
     'FLYOLOGY:M4:SELECTIVE_WAIT:PASS' \
+    'FLYOLOGY:M4:ABORT:PASS' \
     'FLYOLOGY:M3:ORDINARY_TASKS:PASS' \
     'FLYOLOGY:M3:BOOT_SUBSTRATE:PASS'; do
     scripts/toolchain.sh exec "$architecture" "$target-strings" "$elf" | \

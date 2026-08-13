@@ -38,9 +38,10 @@ from reaching the Ada personality.
 online-core markers under the pinned QEMU/UEFI contract for SMP1 and SMP4.
 
 This checkpoint proves one named caught exception and the generic stack-unwind
-path. It does not yet establish exception occurrences/messages, nested handler
-replacement, re-raise, task-root containment, abort delivery, allocation
-reclamation, or abnormal master semantics. Those require additional ordinary
+path. The later abort increment below adds task-root containment for a private
+abort occurrence. It does not yet establish exception occurrences/messages,
+nested handler replacement, re-raise, general application-exception
+propagation, or abnormal master semantics. Those require additional ordinary
 Ada probes and QEMU gates before M4 closure.
 
 ## Synchronization surface discovered so far
@@ -225,3 +226,42 @@ pairwise distinct, terminated, and not callable before
 is deliberately not reused yet. This does not claim `Unchecked_Deallocation`,
 `Free_Task`, allocation-pool reuse, or freeing an identity retained by user
 code; those require the explicit compiler deallocation hook and lifetime rules.
+
+## Abort checkpoint
+
+The owned `abort_probe.adb` confirms on both pinned cross targets that a plain
+Ada `abort Worker` statement constructs a `System.Tasking.Task_List` and calls
+`System.Tasking.Stages.Abort_Tasks`. The target wrapper's compiler-generated
+cleanup defers abort, calls `Complete_Task`, calls `Abort_Undefer`, and
+continues the
+generic unwind. The separate owned `task_root_probe.adb` records the minimal
+catch-all handler surface used to contain that unwind before a dead task stack
+is retired. These probes establish compiler shape; the QEMU test establishes
+the implemented behavior.
+
+Flyology records an abort request in the stable task record under the single
+RTS lock. For the supported blocked-delay path it retrieves the task's current
+generation-tagged wait token, cancels that exact deadline, and resolves the
+same wait with `Abort_Wake`. Timeout and abort therefore cannot both win or
+enqueue the task twice. Delivery occurs only with abort depth zero: the runtime
+clears the pending request, marks delivery in progress to make duplicate abort
+requests idempotent, and raises a private bounded exception occurrence. The
+compiler cleanup marks completion, and the task-root handler contains the
+unwind before normal Task_Core termination, exact master notification, stack
+canary validation, and execution-slot reclamation.
+
+The ordinary-Ada demonstration lets a pinned task enter a one-second delay,
+aborts it from the environment task, rejects execution after the delay, and
+requires the retained language identity to be terminated and not callable
+before `FLYOLOGY:M4:ABORT:PASS`. On SMP4 the target is pinned to the last core,
+so deadline cancellation and wakeup cross cores; SMP1 covers the same state
+machine locally. This checkpoint intentionally does not claim asynchronous
+abort of a CPU-bound task, abort of rendezvous/protected-entry waits,
+abort-before-activation, multi-task abort statements, ATC, or full abnormal
+master/exception semantics.
+The current minimal personality treats its catch-all identity as matching the
+private abort occurrence so the task root can contain it; application-level
+handlers around an abortible operation are therefore not yet a conforming
+abort boundary and are outside this checkpoint.
+Interrupt-time forced delivery and the decisive no-safe-point behavior remain
+M5 work.

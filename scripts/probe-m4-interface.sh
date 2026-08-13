@@ -49,6 +49,11 @@ for architecture in x86_64 aarch64; do
           "$output/selective_wait_probe.o" \
           "$output/selective_wait_probe.expanded" \
           "$output/selective_wait_probe.undefined"
+    rm -f "$output/abort_probe.ali" "$output/abort_probe.o" \
+          "$output/abort_probe.expanded" "$output/abort_probe.undefined" \
+          "$output/task_root_probe.ali" "$output/task_root_probe.o" \
+          "$output/task_root_probe.expanded" \
+          "$output/task_root_probe.undefined"
 
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-gcc" -c "$repository/probes/m4/exception_probe.adb" \
@@ -231,6 +236,37 @@ for architecture in x86_64 aarch64; do
         "$output/selective_wait_probe.undefined" >/dev/null
     grep -F 'system__tasking__terminate_mode' \
         "$output/selective_wait_probe.expanded" >/dev/null
+
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-gcc" -c "$repository/probes/m4/abort_probe.adb" \
+        -o abort_probe.o -nostdinc \
+        -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
+        -I"$repository/runtime/m3" -gnat2022 -gnatG -gnatf \
+        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        >"$output/abort_probe.expanded" 2>&1
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-nm" -u abort_probe.o >"$output/abort_probe.undefined"
+    grep -F ' system__tasking__stages__abort_tasks' \
+        "$output/abort_probe.undefined" >/dev/null
+    grep -F 'system__tasking__stages__abort_tasks (' \
+        "$output/abort_probe.expanded" >/dev/null
+
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-gcc" -c "$repository/probes/m4/task_root_probe.adb" \
+        -o task_root_probe.o -nostdinc \
+        -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
+        -I"$repository/runtime/m3" -gnat2022 -gnatG -gnatf \
+        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        >"$output/task_root_probe.expanded" 2>&1
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-nm" -u task_root_probe.o \
+        >"$output/task_root_probe.undefined"
+    for symbol in _Unwind_Resume __gnat_begin_handler_v1 \
+        __gnat_end_handler_v1 __gnat_others_value \
+        __gnat_personality_v0; do
+        grep -F " $symbol" "$output/task_root_probe.undefined" >/dev/null
+    done
+    test "$(wc -l <"$output/task_root_probe.undefined" | tr -d ' ')" -eq 5
     echo "FLYOLOGY:M4:PROBE:PASS:$architecture"
 done
 
@@ -295,4 +331,14 @@ grep -v ' __clear_cache$' \
     >"$output_root/aarch64/selective_wait_probe.normalized"
 diff -u "$output_root/x86_64/selective_wait_probe.undefined" \
     "$output_root/aarch64/selective_wait_probe.normalized" >/dev/null
+test "$(grep -c ' __clear_cache$' \
+    "$output_root/x86_64/abort_probe.undefined" || true)" -eq 0
+test "$(grep -c ' __clear_cache$' \
+    "$output_root/aarch64/abort_probe.undefined")" -eq 1
+grep -v ' __clear_cache$' "$output_root/aarch64/abort_probe.undefined" \
+    >"$output_root/aarch64/abort_probe.normalized"
+diff -u "$output_root/x86_64/abort_probe.undefined" \
+    "$output_root/aarch64/abort_probe.normalized" >/dev/null
+diff -u "$output_root/x86_64/task_root_probe.undefined" \
+    "$output_root/aarch64/task_root_probe.undefined" >/dev/null
 echo 'FLYOLOGY:M4:PROBE:PASS'

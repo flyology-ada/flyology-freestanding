@@ -23,6 +23,7 @@ package Flyology.M3_Runtime is
 
    procedure Abort_Defer;
    procedure Abort_Undefer;
+   procedure Abort_Tasks (Members : Task_List);
    procedure Enter_Master;
    procedure Complete_Master;
    function Current_Master return Integer;

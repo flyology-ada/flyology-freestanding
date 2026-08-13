@@ -1042,6 +1042,12 @@ flyology_m4_report_selective_wait_pass:
     address x0, m4_selective_wait_pass
     b serial_puts_locked
 
+.global flyology_m4_report_abort_pass
+.type flyology_m4_report_abort_pass, %function
+flyology_m4_report_abort_pass:
+    address x0, m4_abort_pass
+    b serial_puts_locked
+
 .global flyology_m3_report_master_pass
 .type flyology_m3_report_master_pass, %function
 flyology_m3_report_master_pass:
@@ -1739,6 +1745,7 @@ m4_conditional_pass: .asciz "FLYOLOGY:M4:CONDITIONAL_ENTRY:PASS\n"
 m4_timed_entry_pass: .asciz "FLYOLOGY:M4:TIMED_ENTRY:PASS\n"
 m4_dynamic_task_pass: .asciz "FLYOLOGY:M4:DYNAMIC_TASK:PASS\n"
 m4_selective_wait_pass: .asciz "FLYOLOGY:M4:SELECTIVE_WAIT:PASS\n"
+m4_abort_pass: .asciz "FLYOLOGY:M4:ABORT:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:AARCH64_BOOT\n"
 exception_marker: .asciz "FLYOLOGY:FAIL:AARCH64_EXCEPTION\n"

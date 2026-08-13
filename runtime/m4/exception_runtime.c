@@ -25,6 +25,7 @@ u8 constraint_error;
 u8 program_error;
 u8 storage_error;
 u8 tasking_error;
+static u8 abort_signal;
 u8 __gnat_others_value;
 u8 __gnat_all_others_value;
 
@@ -244,6 +245,12 @@ void __gnat_rcheck_TE_Explicit_Raise(void *location, int line)
     (void)location;
     (void)line;
     raise_identity(&tasking_error);
+}
+
+void flyology_raise_abort(void) __attribute__((noreturn));
+void flyology_raise_abort(void)
+{
+    raise_identity(&abort_signal);
 }
 
 _Unwind_Reason_Code __gnat_personality_v0

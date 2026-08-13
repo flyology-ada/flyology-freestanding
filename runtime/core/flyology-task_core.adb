@@ -343,6 +343,25 @@ package body Flyology.Task_Core is
         and then Tasks (Slot).Wait.Outcome = Waits.Pending;
    end Wait_Is_Pending_Locked;
 
+   procedure Active_Wait_Locked
+     (Reference : Task_Ref;
+      Token     : out Wait_Token;
+      Kind      : out Wait_Kind)
+   is
+      Slot : constant Task_Slot := Slot_Of (Reference);
+   begin
+      if not Known_Locked (Reference)
+        or else Tasks (Slot).Wait.Phase not in Waits.Armed | Waits.Committed
+        or else Tasks (Slot).Wait.Outcome /= Waits.Pending
+      then
+         Stop;
+      end if;
+      Token :=
+        (Task_Reference => Reference,
+         Generation => Tasks (Slot).Wait.Generation);
+      Kind := Tasks (Slot).Wait.Kind;
+   end Active_Wait_Locked;
+
    procedure Block_Current_And_Release
      (Core    : Core_Number;
       Token   : Wait_Token;

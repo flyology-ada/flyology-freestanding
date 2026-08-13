@@ -59,6 +59,10 @@ package body Flyology.M3_Demo is
    Dynamic_Id : Ada.Task_Identification.Task_Id :=
      Ada.Task_Identification.Null_Task_Id with Atomic;
    Selective_Done : Boolean := False with Atomic;
+   Abort_Started : Boolean := False with Atomic;
+   Abort_Continued : Boolean := False with Atomic;
+   Abort_Id : Ada.Task_Identification.Task_Id :=
+     Ada.Task_Identification.Null_Task_Id with Atomic;
 
    task type Specific_Worker_Type
      (CPU_Number : System.Multiprocessors.CPU_Range;
@@ -90,6 +94,10 @@ package body Flyology.M3_Demo is
    task type Selective_Server_Type is
       entry Ping;
    end Selective_Server_Type;
+
+   task type Abort_Worker_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range)
+     with CPU => CPU_Number;
 
    task body Specific_Worker_Type is
       Self : constant Ada.Task_Identification.Task_Id :=
@@ -227,6 +235,14 @@ package body Flyology.M3_Demo is
       Selective_Done := True;
    end Selective_Server_Type;
 
+   task body Abort_Worker_Type is
+   begin
+      Abort_Id := Ada.Task_Identification.Current_Task;
+      Abort_Started := True;
+      delay 1.0;
+      Abort_Continued := True;
+   end Abort_Worker_Type;
+
    procedure Report_Ordinary_Pass
    with Import, Convention => C,
         External_Name => "flyology_m3_report_ordinary_pass";
@@ -282,6 +298,10 @@ package body Flyology.M3_Demo is
    procedure Report_Selective_Wait_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_selective_wait_pass";
+
+   procedure Report_Abort_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_abort_pass";
 
    procedure Report_Master_Pass
    with Import, Convention => C,
@@ -513,6 +533,27 @@ package body Flyology.M3_Demo is
          Report_Failure;
       end if;
       Report_Selective_Wait_Pass;
+
+      declare
+         Worker : Abort_Worker_Type
+           (System.Multiprocessors.CPU_Range (CPU_Count));
+         Worker_Id : constant Ada.Task_Identification.Task_Id :=
+           Worker'Identity;
+      begin
+         delay 0.001;
+         if not Abort_Started or else Abort_Id /= Worker_Id then
+            Report_Failure;
+         end if;
+         abort Worker;
+      end;
+      if Abort_Continued
+        or else Abort_Id = Ada.Task_Identification.Null_Task_Id
+        or else not Ada.Task_Identification.Is_Terminated (Abort_Id)
+        or else Ada.Task_Identification.Is_Callable (Abort_Id)
+      then
+         Report_Failure;
+      end if;
+      Report_Abort_Pass;
 
       for Index in Auto_Id'Range loop
          if not Auto_Done (Index)
