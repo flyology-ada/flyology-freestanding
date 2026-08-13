@@ -164,8 +164,12 @@ scan_done:
     jne fatal
 
     call adainit
+#ifdef FLYOLOGY_M2
+    call _ada_flyology_m2
+#else
     call _ada_flyology_m1
     call adafinal
+#endif
     lea ada_pass(%rip), %rdi
     call serial_puts_locked
 
@@ -193,8 +197,22 @@ wait_online:
     mov online_count(%rip), %eax
     cmp %r13d, %eax
     jne wait_online
+#ifdef FLYOLOGY_M2
+    call initialize_task_fp
+    call flyology_m2_core_entry
+    lock incl m2_complete_count(%rip)
+wait_m2_complete:
+    pause
+    mov m2_complete_count(%rip), %eax
+    cmp %r13d, %eax
+    jne wait_m2_complete
+    lea m2_pass(%rip), %rdi
+    call serial_puts_locked
+    call adafinal
+#else
     lea m1_pass(%rip), %rdi
     call serial_puts_locked
+#endif
 halt:
     hlt
     jmp halt
@@ -222,6 +240,11 @@ ap_entry:
     call print_online
     movq $1, 40(%rbx)
     lock incl online_count(%rip)
+#ifdef FLYOLOGY_M2
+    call initialize_task_fp
+    call flyology_m2_core_entry
+    lock incl m2_complete_count(%rip)
+#endif
 ap_halt:
     hlt
     jmp ap_halt
@@ -324,12 +347,18 @@ fatal_vector:
 
 .global __gnat_last_chance_handler
 .global __gnat_rcheck_CE_Explicit_Raise
+.global __gnat_rcheck_CE_Index_Check
+.global __gnat_rcheck_CE_Invalid_Data
+.global __gnat_rcheck_CE_Overflow_Check
 .global __gnat_rcheck_CE_Range_Check
 .global __gnat_rcheck_PE_Explicit_Raise
 .global __gnat_rcheck_SE_Explicit_Raise
 .type __gnat_last_chance_handler, @function
 __gnat_last_chance_handler:
 __gnat_rcheck_CE_Explicit_Raise:
+__gnat_rcheck_CE_Index_Check:
+__gnat_rcheck_CE_Invalid_Data:
+__gnat_rcheck_CE_Overflow_Check:
 __gnat_rcheck_CE_Range_Check:
 __gnat_rcheck_PE_Explicit_Raise:
 __gnat_rcheck_SE_Explicit_Raise:
@@ -347,6 +376,66 @@ set_core_pointer:
     mov $0xc0000101, %ecx
     wrmsr
     ret
+
+#ifdef FLYOLOGY_M2
+.type initialize_task_fp, @function
+initialize_task_fp:
+    push %rbx
+    mov $1, %eax
+    cpuid
+    bt $24, %edx
+    jnc fatal
+    bt $25, %edx
+    jnc fatal
+    bt $26, %ecx
+    jnc fatal
+    mov %cr0, %rax
+    and $-13, %rax
+    or $2, %rax
+    mov %rax, %cr0
+    mov %cr4, %rax
+    or $0x40600, %rax
+    mov %rax, %cr4
+    xor %ecx, %ecx
+    mov $3, %eax
+    xor %edx, %edx
+    xsetbv
+    fninit
+    sub $16, %rsp
+    movl $0x1f80, (%rsp)
+    ldmxcsr (%rsp)
+    add $16, %rsp
+    pop %rbx
+    ret
+
+.global flyology_current_core
+.type flyology_current_core, @function
+flyology_current_core:
+    mov %gs:0, %rax
+    ret
+
+.global flyology_m2_report_pass
+.type flyology_m2_report_pass, @function
+flyology_m2_report_pass:
+    push %rbx
+    mov %edi, %ebx
+    call serial_lock_acquire
+    lea m2_core_prefix(%rip), %rdi
+    call serial_puts
+    lea digits(%rip), %rax
+    mov (%rax,%rbx,1), %dil
+    call serial_putc
+    lea m2_core_suffix(%rip), %rdi
+    call serial_puts
+    call serial_lock_release
+    pop %rbx
+    ret
+
+.global flyology_m2_report_failure
+.type flyology_m2_report_failure, @function
+flyology_m2_report_failure:
+    jmp fatal
+#endif
 
 .type print_online, @function
 print_online:
@@ -453,6 +542,11 @@ fatal:
 online_prefix: .asciz "FLYOLOGY:CORE:ONLINE:"
 ada_pass:      .asciz "FLYOLOGY:ADA:MAIN:PASS\n"
 m1_pass:       .asciz "FLYOLOGY:M1:PASS\n"
+#ifdef FLYOLOGY_M2
+m2_core_prefix: .asciz "FLYOLOGY:M2:CORE:"
+m2_core_suffix: .asciz ":SUBSTRATE:PASS\n"
+m2_pass:       .asciz "FLYOLOGY:M2:PASS\n"
+#endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:X86_BOOT\n"
 last_chance_marker: .asciz "FLYOLOGY:LAST_CHANCE:X86_64\n"
 digits:        .ascii "0123"
@@ -461,6 +555,9 @@ digits:        .ascii "0123"
 .balign 4
 serial_lock: .skip 4
 online_count: .skip 4
+#ifdef FLYOLOGY_M2
+m2_complete_count: .skip 4
+#endif
 memory_usable_found: .skip 1
 .balign 8
 bsp_record: .skip 8

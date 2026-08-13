@@ -20,6 +20,11 @@ _start:
     cmp x0, #1
     b.ne fatal
 
+    /* Limine may enter EL1t. Normalize the runtime and owned core stacks to
+       EL1h; M2 tasks later use SP_EL0 while exceptions retain SP_EL1. */
+    msr spsel, #1
+    isb
+
     mrs x0, cpacr_el1
     mov x1, #(3 << 20)
     orr x0, x0, x1
@@ -174,8 +179,12 @@ scan_done:
     b.ne fatal
 
     bl adainit
+#ifdef FLYOLOGY_M2
+    bl _ada_flyology_m2
+#else
     bl _ada_flyology_m1
     bl adafinal
+#endif
     address x0, ada_pass
     bl serial_puts_locked
 
@@ -208,8 +217,26 @@ wait_online:
     ldar w1, [x0]
     cmp x1, x20
     b.ne wait_online
+#ifdef FLYOLOGY_M2
+    mov x0, sp
+    msr sp_el0, x0
+    msr spsel, #0
+    isb
+    bl flyology_m2_core_entry
+    bl m2_complete_increment
+wait_m2_complete:
+    wfe
+    address x0, m2_complete_count
+    ldar w1, [x0]
+    cmp x1, x20
+    b.ne wait_m2_complete
+    address x0, m2_pass
+    bl serial_puts_locked
+    bl adafinal
+#else
     address x0, m1_pass
     bl serial_puts_locked
+#endif
 halt:
     wfi
     b halt
@@ -246,6 +273,8 @@ ap_entry:
     cmp x20, #MAX_CORES
     b.hs fatal
     ldr x1, [x19, #32]
+    msr spsel, #1
+    isb
     mov sp, x1
     mov x29, xzr
     mov x30, xzr
@@ -255,6 +284,14 @@ ap_entry:
     mov w1, #1
     stlr w1, [x0]
     bl online_increment
+#ifdef FLYOLOGY_M2
+    mov x0, sp
+    msr sp_el0, x0
+    msr spsel, #0
+    isb
+    bl flyology_m2_core_entry
+    bl m2_complete_increment
+#endif
 ap_halt:
     wfi
     b ap_halt
@@ -320,6 +357,51 @@ online_increment:
     cbnz w2, 1b
     sev
     ret
+
+#ifdef FLYOLOGY_M2
+.type m2_complete_increment, %function
+m2_complete_increment:
+    address x0, m2_complete_count
+1:
+    ldaxr w1, [x0]
+    add w1, w1, #1
+    stlxr w2, w1, [x0]
+    cbnz w2, 1b
+    sev
+    ret
+
+.global flyology_current_core
+.type flyology_current_core, %function
+flyology_current_core:
+    mrs x0, tpidr_el1
+    ldr x0, [x0]
+    ret
+
+.global flyology_m2_report_pass
+.type flyology_m2_report_pass, %function
+flyology_m2_report_pass:
+    stp x29, x30, [sp, #-32]!
+    str x19, [sp, #16]
+    mov x29, sp
+    mov x19, x0
+    bl serial_lock_acquire
+    address x0, m2_core_prefix
+    bl serial_puts
+    address x1, digits
+    ldrb w0, [x1, x19]
+    bl serial_putc
+    address x0, m2_core_suffix
+    bl serial_puts
+    bl serial_lock_release
+    ldr x19, [sp, #16]
+    ldp x29, x30, [sp], #32
+    ret
+
+.global flyology_m2_report_failure
+.type flyology_m2_report_failure, %function
+flyology_m2_report_failure:
+    b fatal
+#endif
 
 /*
  * Limine does not identity-map QEMU virt MMIO. Build a private TTBR0 tree
@@ -451,12 +533,18 @@ serial_init:
 
 .global __gnat_last_chance_handler
 .global __gnat_rcheck_CE_Explicit_Raise
+.global __gnat_rcheck_CE_Index_Check
+.global __gnat_rcheck_CE_Invalid_Data
+.global __gnat_rcheck_CE_Overflow_Check
 .global __gnat_rcheck_CE_Range_Check
 .global __gnat_rcheck_PE_Explicit_Raise
 .global __gnat_rcheck_SE_Explicit_Raise
 .type __gnat_last_chance_handler, %function
 __gnat_last_chance_handler:
 __gnat_rcheck_CE_Explicit_Raise:
+__gnat_rcheck_CE_Index_Check:
+__gnat_rcheck_CE_Invalid_Data:
+__gnat_rcheck_CE_Overflow_Check:
 __gnat_rcheck_CE_Range_Check:
 __gnat_rcheck_PE_Explicit_Raise:
 __gnat_rcheck_SE_Explicit_Raise:
@@ -562,6 +650,11 @@ vector_table:
 online_prefix: .asciz "FLYOLOGY:CORE:ONLINE:"
 ada_pass:      .asciz "FLYOLOGY:ADA:MAIN:PASS\n"
 m1_pass:       .asciz "FLYOLOGY:M1:PASS\n"
+#ifdef FLYOLOGY_M2
+m2_core_prefix: .asciz "FLYOLOGY:M2:CORE:"
+m2_core_suffix: .asciz ":SUBSTRATE:PASS\n"
+m2_pass:       .asciz "FLYOLOGY:M2:PASS\n"
+#endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:AARCH64_BOOT\n"
 exception_marker: .asciz "FLYOLOGY:FAIL:AARCH64_EXCEPTION\n"
 last_chance_marker: .asciz "FLYOLOGY:LAST_CHANCE:AARCH64\n"
@@ -571,6 +664,9 @@ digits:        .ascii "0123"
 .balign 4
 serial_lock: .skip 4
 online_count: .skip 4
+#ifdef FLYOLOGY_M2
+m2_complete_count: .skip 4
+#endif
 .balign 8
 uart_address: .skip 8
 .balign 8

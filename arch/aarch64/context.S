@@ -29,7 +29,10 @@ flyology_context_switch:
     stp x25, x26, [x0, #CTX_X25_X26]
     stp x27, x28, [x0, #CTX_X27_X28]
     stp x29, x30, [x0, #CTX_X29_X30]
-    mrs x2, sp_el0
+    /* Voluntary paths execute with SPSel=0. Accessing SP_EL0 through MRS/MSR
+       while it is current is undefined; the architectural SP operand is the
+       same task stack and is valid in this state. */
+    mov x2, sp
     str x2, [x0, #CTX_SP_EL0]
     stp d8, d9, [x0, #CTX_D8_D9]
     stp d10, d11, [x0, #CTX_D10_D11]
@@ -47,7 +50,7 @@ flyology_context_switch:
     ldp x27, x28, [x1, #CTX_X27_X28]
     ldp x29, x30, [x1, #CTX_X29_X30]
     ldr x2, [x1, #CTX_SP_EL0]
-    msr sp_el0, x2
+    mov sp, x2
     ldp d8, d9, [x1, #CTX_D8_D9]
     ldp d10, d11, [x1, #CTX_D10_D11]
     ldp d12, d13, [x1, #CTX_D12_D13]

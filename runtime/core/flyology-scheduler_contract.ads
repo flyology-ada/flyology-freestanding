@@ -15,7 +15,7 @@ is
    type Queue_Storage is array (Queue_Index) of Task_Ref;
 
    type Ready_Queue is record
-      Storage : Queue_Storage := (others => No_Task);
+      Storage : Queue_Storage := [others => No_Task];
       Length  : Queue_Length := 0;
    end record;
 

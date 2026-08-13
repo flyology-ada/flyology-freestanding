@@ -13,10 +13,9 @@ is
       Priority_Change,
       Voluntary_Yield,
       Stop_Request);
-   type Reason_Set is array (Reschedule_Reason) of Boolean
-     with Pack;
+   type Reason_Set is array (Reschedule_Reason) of Boolean;
 
-   No_Reasons : constant Reason_Set := (others => False);
+   No_Reasons : constant Reason_Set := [others => False];
 
    type Request_State is record
       Requested    : Request_Epoch := Request_Epoch'First;
