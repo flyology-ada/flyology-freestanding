@@ -312,6 +312,7 @@ package body Flyology.M3_Runtime is
          Leave_Kernel;
          Stop;
       end if;
+      Deliver_Pending_Abort_Locked;
 
       --  Validate the complete chain and placement plan before publishing any
       --  Ready transition.  This is the production use of the proved mapping.
@@ -498,6 +499,21 @@ package body Flyology.M3_Runtime is
       end if;
    end Deliver_Pending_Abort;
 
+   procedure Deliver_Pending_Abort_Locked is
+      Dense : constant Core_Number := Core_Of_Current;
+      Slot  : Task_Slot;
+   begin
+      Slot := Record_Of (To_Identity (Core.Current_Locked (Dense)));
+      if Tasks (Slot).Abort_Depth = 0
+        and then Tasks (Slot).Abort_Pending
+      then
+         Tasks (Slot).Abort_Pending := False;
+         Tasks (Slot).Abort_In_Progress := True;
+         Leave_Kernel;
+         Raise_Abort;
+      end if;
+   end Deliver_Pending_Abort_Locked;
+
    procedure Abort_Tasks (Members : Task_List) is
       Kicks         : Boolean_Core_Array := [others => False];
       Reference     : Dispatcher.Task_Ref;
@@ -676,6 +692,7 @@ package body Flyology.M3_Runtime is
          Leave_Kernel;
          Stop;
       end if;
+      Deliver_Pending_Abort_Locked;
       Masters (Master).Open := False;
       if Masters (Master).Dependents > 0 then
          Masters (Master).Waiting := True;
@@ -771,6 +788,7 @@ package body Flyology.M3_Runtime is
       end if;
       Enter_Kernel;
       Reference := Core.Current_Locked (Dense);
+      Deliver_Pending_Abort_Locked;
       Core.Arm_Wait_Locked (Reference, Waits.Delay_Wait, Token);
       Core.Register_Deadline_Locked (Token, Core.Tick (Deadline));
       Core.Block_Current_And_Release (Dense, Token, Outcome);
@@ -928,6 +946,7 @@ package body Flyology.M3_Runtime is
    begin
       Enter_Kernel;
       Caller := Core.Current_Locked (Dense);
+      Deliver_Pending_Abort_Locked;
       Target_Slot := Record_Of (Target);
       Target_Ref := To_Reference (Target);
       if Natural (Entry_Index) > Tasks (Target_Slot).Entry_Count
@@ -1000,6 +1019,7 @@ package body Flyology.M3_Runtime is
       end if;
       Enter_Kernel;
       Caller := Core.Current_Locked (Dense);
+      Deliver_Pending_Abort_Locked;
       Target_Slot := Record_Of (Target);
       Target_Ref := To_Reference (Target);
       if Natural (Entry_Index) > Tasks (Target_Slot).Entry_Count
@@ -1094,6 +1114,7 @@ package body Flyology.M3_Runtime is
 
       Enter_Kernel;
       Caller := Core.Current_Locked (Dense);
+      Deliver_Pending_Abort_Locked;
       Target_Slot := Record_Of (Target);
       Target_Ref := To_Reference (Target);
       if Natural (Entry_Index) > Tasks (Target_Slot).Entry_Count
@@ -1172,6 +1193,7 @@ package body Flyology.M3_Runtime is
    begin
       Enter_Kernel;
       Server := Core.Current_Locked (Dense);
+      Deliver_Pending_Abort_Locked;
       Server_Slot := Record_Of (To_Identity (Server));
       if Natural (Entry_Index) > Tasks (Server_Slot).Entry_Count
         or else Tasks (Server_Slot).Accepting

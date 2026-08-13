@@ -238,6 +238,7 @@ package body System.Tasking.Protected_Objects.Operations is
          raise Program_Error;
       end if;
       Entries.Lock_Entries (Object);
+      Flyology.M3_Runtime.Deliver_Pending_Abort_Locked;
       Mapped := Body_Index (Object, Index);
       if Object.Entry_Bodies (Mapped).Barrier
         (Object.Enclosing_Object, Mapped)
@@ -334,6 +335,7 @@ package body System.Tasking.Protected_Objects.Operations is
       end if;
 
       Entries.Lock_Entries (Object);
+      Flyology.M3_Runtime.Deliver_Pending_Abort_Locked;
       Mapped := Body_Index (Object, Index);
       if Object.Entry_Bodies (Mapped).Barrier
         (Object.Enclosing_Object, Mapped)

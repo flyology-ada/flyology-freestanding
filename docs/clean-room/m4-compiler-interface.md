@@ -243,12 +243,16 @@ cleanup has not yet been implemented.
 
 The allocator is a checked 64-KiB, 16-byte-aligned monotonic pool. Exhaustion
 enters the compiler's `Storage_Error` check path instead of returning null.
-The QEMU demonstration allocates a task with ordinary `new`, observes its
-stable language identity and normal termination only after its lexical master
-returns, and emits `FLYOLOGY:M4:DYNAMIC_TASK:PASS` in all four architecture and
-CPU-count cells. Adding the allocator also exposed and fixed an earlier
-lifecycle omission: the registered environment task now owns an open root
-master before application package elaboration can query `Current_Master`.
+The QEMU demonstration allocates a task with ordinary `new`, then uses standard
+`Is_Terminated` under a bounded real-time deadline to observe its stable
+language identity and normal termination. It does not incorrectly treat return
+from the allocating helper as a master-completion boundary: the access type's
+collection has the wider library-level lifetime. Only after that explicit
+observation does it emit `FLYOLOGY:M4:DYNAMIC_TASK:PASS` in all four
+architecture and CPU-count cells. Adding the allocator also exposed and fixed
+an earlier lifecycle omission: the registered environment task now owns an
+open root master before application package elaboration can query
+`Current_Master`.
 
 This allocation checkpoint deliberately does not claim `Unchecked_Deallocation`,
 `Free_Task`, allocation-pool reuse, unactivated-task expunging, or abort.
@@ -311,6 +315,15 @@ requests idempotent, and raises a private bounded exception occurrence. The
 compiler cleanup marks completion, and the task-root handler contains the
 unwind before normal Task_Core termination, exact master notification, stack
 canary validation, and execution-slot reclamation.
+
+The SMP stress gate exposed the complementary abort-before-publication race: a
+target could announce that it had started, receive an abort while still
+Running, and then arm a delay after the request had been recorded. Every
+GNARL blocking boundary now checks and consumes a deliverable pending abort
+while holding the same RTS lock, before it publishes a wait token, deadline,
+rendezvous call, protected-entry queue record, activation wait, or master wait.
+Thus either the abort wins before publication or it competes through the exact
+generation-tagged wait; there is no unobserved interval between those cases.
 
 The ordinary-Ada demonstration lets a pinned task enter a one-second delay,
 aborts it from the environment task, rejects execution after the delay, and

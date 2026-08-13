@@ -786,6 +786,20 @@ package body Flyology.M3_Demo is
       Report_Timed_Entry_Pass;
 
       Run_Dynamic_Worker;
+      declare
+         use type Ada.Real_Time.Time;
+         Completion_Deadline : constant Ada.Real_Time.Time :=
+           Ada.Real_Time.Clock + Ada.Real_Time.Milliseconds (100);
+      begin
+         while Dynamic_Id = Ada.Task_Identification.Null_Task_Id
+           or else not Ada.Task_Identification.Is_Terminated (Dynamic_Id)
+         loop
+            if not (Ada.Real_Time.Clock < Completion_Deadline) then
+               Report_Failure;
+            end if;
+            delay 0.001;
+         end loop;
+      end;
       if not Dynamic_Done
         or else Dynamic_Id = Ada.Task_Identification.Null_Task_Id
         or else not Ada.Task_Identification.Is_Terminated (Dynamic_Id)
