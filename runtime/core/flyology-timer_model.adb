@@ -3,8 +3,6 @@
 package body Flyology.Timer_Model
   with SPARK_Mode
 is
-   use type Primitives.Wait_Token;
-
    function Register
      (Table    : Timer_Table;
       Token    : Primitives.Wait_Token;

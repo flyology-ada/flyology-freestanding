@@ -43,6 +43,8 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     flyology_m3_prepare_environment flyology_m3_prepare_ap \
     flyology_m3_environment_complete flyology_m3_kick_core \
     flyology_m3_parallel_barrier system__tasking__stages__create_task \
+    flyology_m4_read_clock flyology_m4_clock_frequency \
+    flyology_m4_program_timer flyology_m4_cancel_timer \
     system__tasking__stages__activate_tasks \
     system__tasking__stages__complete_activation \
     system__tasking__stages__complete_task \
@@ -70,6 +72,7 @@ for marker in 'FLYOLOGY:ADA:ELABORATION:PASS' \
     'FLYOLOGY:ADA:MAIN:PASS' 'FLYOLOGY:M3:SPECIFIC_CPU:PASS' \
     'FLYOLOGY:M3:AUTO_MASTER:PASS' 'FLYOLOGY:M3:AUTO_PARALLEL:PASS' \
     'FLYOLOGY:M3:NESTED_MASTER:PASS' 'FLYOLOGY:M3:TASK_STACKS:PASS' \
+    'FLYOLOGY:M4:DELAYS:PASS' \
     'FLYOLOGY:M3:ORDINARY_TASKS:PASS' \
     'FLYOLOGY:M3:BOOT_SUBSTRATE:PASS'; do
     scripts/toolchain.sh exec "$architecture" "$target-strings" "$elf" | \

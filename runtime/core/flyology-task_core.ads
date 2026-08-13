@@ -2,6 +2,7 @@
 
 with Flyology.Dispatcher_Model;
 with Flyology.Task_Primitives_Contract;
+with Flyology.Timer_Model;
 with Flyology.Wait_Arbitration_Model;
 with System;
 
@@ -21,6 +22,8 @@ package Flyology.Task_Core is
    subtype Wait_Resolution is Flyology.Wait_Arbitration_Model.Resolution;
    subtype Wait_Resolve_Status is
      Flyology.Wait_Arbitration_Model.Resolve_Status;
+   subtype Tick is Flyology.Timer_Model.Tick;
+   subtype Timer_Cancel_Status is Flyology.Timer_Model.Cancel_Status;
 
    No_Task : Task_Ref renames Dispatcher.No_Task;
 
@@ -63,6 +66,17 @@ package Flyology.Task_Core is
 
    function Active_Priority_Locked
      (Reference : Task_Ref) return Dispatcher.Priority;
+
+   function Read_Clock return Tick;
+   function Clock_Frequency return Positive;
+
+   procedure Register_Deadline_Locked
+     (Token    : Wait_Token;
+      Deadline : Tick);
+
+   procedure Cancel_Deadline_Locked
+     (Token  : Wait_Token;
+      Status : out Timer_Cancel_Status);
 
    procedure Terminate_Current_Locked
      (Core      : Core_Number;

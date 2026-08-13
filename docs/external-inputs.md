@@ -56,12 +56,17 @@ The first release pins QEMU 10.2.0 because that exact version is installed and e
 Fixed launch geometry:
 
 ```text
-x86-64:  -machine pc-q35-10.2 -accel tcg,thread=multi -cpu max
+x86-64:  -machine pc-q35-10.2 -accel tcg,thread=multi -cpu max,tsc-frequency=1000000000
 AArch64: -machine virt-10.2,gic-version=3,virtualization=off,secure=off,dtb-randomness=off -accel tcg,thread=multi -cpu max
 both:    -smp cpus=N,sockets=1,cores=N,threads=1   where N is 1 or 4
 ```
 
 `virtualization=off` makes the QEMU AArch64 contract EL1, but startup still reads and validates `CurrentEL`. TCG is the reproducibility baseline on the Apple Silicon host; acceleration-specific coverage is not claimed.
+
+The explicit x86 TSC frequency is part of the M4 clock contract. Flyology
+calibrates each local x2APIC timer against it and makes no `invtsc` or physical
+hardware claim. AArch64 uses the architected virtual counter frequency
+reported by `CNTFRQ_EL0` on the pinned `virt-10.2` machine.
 
 ## UEFI firmware
 

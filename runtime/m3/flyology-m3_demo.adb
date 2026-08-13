@@ -78,6 +78,7 @@ package body Flyology.M3_Demo is
       Auto_Id (Index) := Self;
       Auto_Core (Index) := Flyology.M3_Runtime.Current_Core_Number;
       Flyology.M3_Runtime.Demo_Parallel_Barrier (2);
+      delay 0.001;
       Auto_Done (Index) := True;
    end Auto_Worker_Type;
 
@@ -130,6 +131,10 @@ package body Flyology.M3_Demo is
    procedure Report_Auto_Master_Pass
    with Import, Convention => C,
         External_Name => "flyology_m3_report_auto_master_pass";
+
+   procedure Report_Delay_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_delay_pass";
 
    procedure Report_Master_Pass
    with Import, Convention => C,
@@ -227,6 +232,7 @@ package body Flyology.M3_Demo is
          Auto_Object_Id (4) := Worker_4'Identity;
       end;
       Report_Auto_Master_Pass;
+      Report_Delay_Pass;
 
       for Index in Auto_Id'Range loop
          if not Auto_Done (Index)

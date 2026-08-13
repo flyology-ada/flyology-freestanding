@@ -1,12 +1,14 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Flyology.Dispatcher_Model;
+with Flyology.Clock_Model;
 with Flyology.Placement_Model;
 with Flyology.Task_Core;
 with Flyology.Wait_Arbitration_Model;
 
 package body Flyology.M3_Runtime is
    package Dispatcher renames Flyology.Dispatcher_Model;
+   package Clock renames Flyology.Clock_Model;
    package Placement renames Flyology.Placement_Model;
    package Core renames Flyology.Task_Core;
    package Waits renames Flyology.Wait_Arbitration_Model;
@@ -19,6 +21,7 @@ package body Flyology.M3_Runtime is
    use type System.Tasking.Boolean_Access;
    use type Waits.Resolve_Status;
    use type Waits.Resolution;
+   use type Clock.Tick;
 
    Max_Cores   : constant := Core.Max_Cores;
    Max_Tasks   : constant := System.Tasking.Max_Tasks;
@@ -512,6 +515,51 @@ package body Flyology.M3_Runtime is
          Parallel_Barrier (System.Address (Phase));
       end if;
    end Demo_Parallel_Barrier;
+
+   procedure Delay_For (Interval : Duration) is
+      Dense      : constant Core_Number := Core_Of_Current;
+      Reference  : Dispatcher.Task_Ref;
+      Token      : Core.Wait_Token;
+      Outcome    : Waits.Resolution;
+      Nanosecond_Count : Long_Long_Integer;
+      Tick_Count : Clock.Tick;
+      Deadline   : Clock.Tick;
+      Rate       : Clock.Frequency;
+   begin
+      if Interval <= 0.0 then
+         return;
+      end if;
+      if Interval > Duration (Long_Long_Integer'Last / 1_000_000_000) then
+         raise Storage_Error;
+      end if;
+      Nanosecond_Count :=
+        Long_Long_Integer (Interval * 1_000_000_000) + 1;
+      Rate := Clock.Frequency (Core.Clock_Frequency);
+      if Nanosecond_Count <= 0
+        or else Nanosecond_Count > Long_Long_Integer (Clock.Nanoseconds'Last)
+        or else not Clock.Conversion_Fits
+          (Clock.Nanoseconds (Nanosecond_Count), Rate)
+      then
+         raise Storage_Error;
+      end if;
+      Tick_Count := Clock.To_Ticks_Ceiling
+        (Clock.Nanoseconds (Nanosecond_Count), Rate);
+      Deadline := Clock.Tick (Core.Read_Clock);
+      if not Clock.Deadline_Fits (Deadline, Tick_Count) then
+         raise Storage_Error;
+      end if;
+      Deadline := Clock.Add_Delay (Deadline, Tick_Count);
+      Enter_Kernel;
+      Reference := Core.Current_Locked (Dense);
+      Core.Arm_Wait_Locked (Reference, Waits.Delay_Wait, Token);
+      Core.Register_Deadline_Locked (Token, Core.Tick (Deadline));
+      Core.Block_Current_And_Release (Dense, Token, Outcome);
+      if Outcome /= Waits.Timer_Expiry
+        or else Clock.Tick (Core.Read_Clock) < Deadline
+      then
+         Stop;
+      end if;
+   end Delay_For;
 
    procedure Core_Initialize (CPU_Count : System.Address) is
       Environment : Task_Id;

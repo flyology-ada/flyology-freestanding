@@ -33,6 +33,7 @@ package Flyology.M3_Runtime is
    function Current_Core_Number return Natural;
    function Validate_Current_Stack (Probe : System.Address) return Boolean;
    procedure Demo_Parallel_Barrier (Phase : Positive);
+   procedure Delay_For (Interval : Duration);
 
    procedure Core_Initialize (CPU_Count : System.Address)
    with Export, Convention => C,

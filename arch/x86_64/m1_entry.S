@@ -1180,6 +1180,12 @@ flyology_m3_report_auto_master_pass:
     lea m3_auto_master_pass(%rip), %rdi
     jmp serial_puts_locked
 
+.global flyology_m4_report_delay_pass
+.type flyology_m4_report_delay_pass, @function
+flyology_m4_report_delay_pass:
+    lea m4_delay_pass(%rip), %rdi
+    jmp serial_puts_locked
+
 .global flyology_m3_report_master_pass
 .type flyology_m3_report_master_pass, @function
 flyology_m3_report_master_pass:
@@ -1206,6 +1212,132 @@ flyology_m3_parallel_barrier:
     pause
     jmp 1b
 2:
+    ret
+
+.global flyology_m4_read_clock
+.type flyology_m4_read_clock, @function
+flyology_m4_read_clock:
+    lfence
+    rdtsc
+    shl $32, %rdx
+    or %rdx, %rax
+    lfence
+    ret
+
+.global flyology_m4_clock_frequency
+.type flyology_m4_clock_frequency, @function
+flyology_m4_clock_frequency:
+    mov $1000000000, %eax
+    ret
+
+.type m4_calibrate_apic_timer, @function
+m4_calibrate_apic_timer:
+    mov $0x832, %ecx
+    mov $(0x10000 | TIMER_VECTOR), %eax
+    xor %edx, %edx
+    wrmsr
+    mov $0x83e, %ecx
+    mov $3, %eax
+    xor %edx, %edx
+    wrmsr
+    mov $0x838, %ecx
+    mov $0xffffffff, %eax
+    xor %edx, %edx
+    wrmsr
+    call flyology_m4_read_clock
+    mov %rax, %r8
+1:
+    mov $0x839, %ecx
+    rdmsr
+    mov $0xffffffff, %r9d
+    sub %eax, %r9d
+    cmp $100000, %r9d
+    jb 1b
+    call flyology_m4_read_clock
+    sub %r8, %rax
+    jz fatal
+    mov %rax, %r10
+    mov %r9, %rax
+    mov $1000000000, %ecx
+    mul %rcx
+    div %r10
+    cmp $1000000, %rax
+    jb fatal
+    cmp $1000000000, %rax
+    ja fatal
+    ret
+
+.global flyology_m4_cancel_timer
+.type flyology_m4_cancel_timer, @function
+flyology_m4_cancel_timer:
+    mov $0x832, %ecx
+    mov $(0x10000 | TIMER_VECTOR), %eax
+    xor %edx, %edx
+    wrmsr
+    mov $0x838, %ecx
+    xor %eax, %eax
+    xor %edx, %edx
+    wrmsr
+    ret
+
+.global flyology_m4_program_timer
+.type flyology_m4_program_timer, @function
+flyology_m4_program_timer:
+    push %rbx
+    push %r12
+    push %r13
+    mov %rdi, %r12
+    call flyology_m4_read_clock
+    cmp %rax, %r12
+    jbe 1f
+    sub %rax, %r12
+    jmp 2f
+1:
+    mov $1, %r12
+2:
+    mov %gs:0, %rbx
+    lea m4_apic_rates(%rip), %r13
+    mov (%r13,%rbx,8), %r11
+    test %r11, %r11
+    jnz 3f
+    call m4_calibrate_apic_timer
+    mov %rax, %r11
+    mov %rax, (%r13,%rbx,8)
+3:
+    mov %r12, %rax
+    mul %r11
+    add $999999999, %rax
+    adc $0, %rdx
+    mov $1000000000, %ecx
+    cmp %rcx, %rdx
+    jae 4f
+    div %rcx
+    test %rax, %rax
+    jnz 5f
+    mov $1, %eax
+    jmp 5f
+4:
+    mov $0xffffffff, %eax
+5:
+    mov $0xffffffff, %r10d
+    cmp %r10, %rax
+    cmova %r10, %rax
+    mov %eax, %r12d
+    mov $0x83e, %ecx
+    mov $3, %eax
+    xor %edx, %edx
+    wrmsr
+    mov $0x832, %ecx
+    mov $TIMER_VECTOR, %eax
+    xor %edx, %edx
+    wrmsr
+    mov $0x838, %ecx
+    mov %r12d, %eax
+    xor %edx, %edx
+    wrmsr
+    pop %r13
+    pop %r12
+    pop %rbx
     ret
 
 .global __gnat_personality_v0
@@ -1455,6 +1587,7 @@ m3_parallel_pass: .asciz "FLYOLOGY:M3:AUTO_PARALLEL:PASS\n"
 m3_auto_master_pass: .asciz "FLYOLOGY:M3:AUTO_MASTER:PASS\n"
 m3_master_pass: .asciz "FLYOLOGY:M3:NESTED_MASTER:PASS\n"
 m3_stack_pass: .asciz "FLYOLOGY:M3:TASK_STACKS:PASS\n"
+m4_delay_pass: .asciz "FLYOLOGY:M4:DELAYS:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:X86_BOOT\n"
 last_chance_marker: .asciz "FLYOLOGY:LAST_CHANCE:X86_64\n"
@@ -1473,6 +1606,8 @@ rts_lock: .skip 4
 #ifdef FLYOLOGY_M3
 dispatcher_ready_count: .skip 4
 m3_parallel_barrier_count: .skip 4
+.balign 8
+m4_apic_rates: .skip MAX_CORES * 8
 #endif
 #endif
 memory_usable_found: .skip 1

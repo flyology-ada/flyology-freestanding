@@ -978,6 +978,12 @@ flyology_m3_report_auto_master_pass:
     address x0, m3_auto_master_pass
     b serial_puts_locked
 
+.global flyology_m4_report_delay_pass
+.type flyology_m4_report_delay_pass, %function
+flyology_m4_report_delay_pass:
+    address x0, m4_delay_pass
+    b serial_puts_locked
+
 .global flyology_m3_report_master_pass
 .type flyology_m3_report_master_pass, %function
 flyology_m3_report_master_pass:
@@ -1011,6 +1017,35 @@ flyology_m3_parallel_barrier:
     b 2b
 3:
     sev
+    ret
+
+.global flyology_m4_read_clock
+.type flyology_m4_read_clock, %function
+flyology_m4_read_clock:
+    isb
+    mrs x0, cntvct_el0
+    ret
+
+.global flyology_m4_clock_frequency
+.type flyology_m4_clock_frequency, %function
+flyology_m4_clock_frequency:
+    mrs x0, cntfrq_el0
+    ret
+
+.global flyology_m4_program_timer
+.type flyology_m4_program_timer, %function
+flyology_m4_program_timer:
+    msr cntv_cval_el0, x0
+    mov x0, #1
+    msr cntv_ctl_el0, x0
+    isb
+    ret
+
+.global flyology_m4_cancel_timer
+.type flyology_m4_cancel_timer, %function
+flyology_m4_cancel_timer:
+    msr cntv_ctl_el0, xzr
+    isb
     ret
 
 .global __gnat_personality_v0
@@ -1634,6 +1669,7 @@ m3_parallel_pass: .asciz "FLYOLOGY:M3:AUTO_PARALLEL:PASS\n"
 m3_auto_master_pass: .asciz "FLYOLOGY:M3:AUTO_MASTER:PASS\n"
 m3_master_pass: .asciz "FLYOLOGY:M3:NESTED_MASTER:PASS\n"
 m3_stack_pass: .asciz "FLYOLOGY:M3:TASK_STACKS:PASS\n"
+m4_delay_pass: .asciz "FLYOLOGY:M4:DELAYS:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:AARCH64_BOOT\n"
 exception_marker: .asciz "FLYOLOGY:FAIL:AARCH64_EXCEPTION\n"

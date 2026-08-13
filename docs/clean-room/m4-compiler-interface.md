@@ -53,3 +53,13 @@ and dynamic-priority operations. Private controlled record layouts that the
 compiler does not expose remain deliberately unspecified. Implementations must
 bind these facades to the single Task_Core state authority and exact-token wait
 arbitration rather than introduce a second scheduler or public task API.
+
+The native GNAT 15.3 expansion of the owned delay probe lowers relative
+`delay 0.001` to `Ada.Calendar.Delays.Delay_For (Duration)`. Flyology's owned
+facade routes that call through checked nanosecond-to-tick conversion, the
+per-core exact-token timer table, and the common wait arbitration kernel. The
+ordinary-task QEMU gate requires four simultaneous delayed tasks in the SMP4
+image, rejects early resume by comparing the architecture clock with the
+registered absolute deadline, and emits one `FLYOLOGY:M4:DELAYS:PASS` marker
+only after their lexical master observes all completions. Absolute delays,
+timed entry calls, and cancellation races remain separate M4 gates.

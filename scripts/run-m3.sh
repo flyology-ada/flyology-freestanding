@@ -31,6 +31,7 @@ case "$architecture" in
         vars_template="$firmware_root/edk2-i386-vars.fd"
         vars_digest=5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e
         machine=pc-q35-10.2
+        cpu_model=max,tsc-frequency=1000000000
         ;;
     aarch64)
         qemu="$qemu_root/bin/qemu-system-aarch64"
@@ -40,6 +41,7 @@ case "$architecture" in
         vars_template="$firmware_root/edk2-arm-vars.fd"
         vars_digest=b3b855c5a80310168051164986855692d1bdb06e67619856177965cd87c6774f
         machine=virt-10.2,gic-version=3,virtualization=off,secure=off,dtb-randomness=off
+        cpu_model=max
         ;;
     *) echo "unsupported architecture: $architecture" >&2; exit 64 ;;
 esac
@@ -79,7 +81,7 @@ test "$("$timeout_command" --version | sed -n '1p')" = \
 
 set +e
 "$timeout_command" --signal=TERM --kill-after=2s 20s "$qemu" \
-    -machine "$machine" -accel tcg,thread=multi -cpu max \
+    -machine "$machine" -accel tcg,thread=multi -cpu "$cpu_model" \
     -smp "cpus=$cpu_count,sockets=1,cores=$cpu_count,threads=1" -m 256M \
     -drive "if=pflash,format=raw,unit=0,readonly=on,file=$code" \
     -drive "if=pflash,format=raw,unit=1,file=$vars" \
@@ -109,6 +111,7 @@ test "$(count_marker 'FLYOLOGY:ADA:MAIN:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:ORDINARY_TASKS:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:SPECIFIC_CPU:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:AUTO_MASTER:PASS')" -eq 1
+test "$(count_marker 'FLYOLOGY:M4:DELAYS:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:NESTED_MASTER:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:TASK_STACKS:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:BOOT_SUBSTRATE:PASS')" -eq 1

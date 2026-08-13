@@ -54,6 +54,8 @@ compile_ada() {
 compile_ada runtime/bootstrap/system.ads system.o yes
 compile_ada runtime/bootstrap/s-stalib.adb s-stalib.o yes
 compile_ada runtime/m3/ada.ads ada.o yes
+compile_ada runtime/m3/a-calend.ads a-calend.o yes
+compile_ada runtime/m3/a-caldel.adb a-caldel.o yes
 compile_ada runtime/m3/a-reatim.ads a-reatim.o yes
 compile_ada runtime/m3/s-parame.ads s-parame.o yes
 compile_ada runtime/m3/s-tasinf.ads s-tasinf.o yes
@@ -66,6 +68,8 @@ compile_ada runtime/core/flyology-dispatcher_model.adb \
 compile_ada runtime/core/flyology-placement_model.adb flyology-placement_model.o
 compile_ada runtime/core/flyology-task_primitives_contract.ads \
     flyology-task_primitives_contract.o
+compile_ada runtime/core/flyology-clock_model.adb flyology-clock_model.o
+compile_ada runtime/core/flyology-timer_model.adb flyology-timer_model.o
 compile_ada runtime/core/flyology-priority_queue_model.adb \
     flyology-priority_queue_model.o
 compile_ada runtime/core/flyology-wait_arbitration_model.adb \
@@ -127,6 +131,8 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/flyology-task_core.o" \
     "$output_directory/flyology-placement_model.o" \
     "$output_directory/flyology-task_primitives_contract.o" \
+    "$output_directory/flyology-clock_model.o" \
+    "$output_directory/flyology-timer_model.o" \
     "$output_directory/flyology-priority_queue_model.o" \
     "$output_directory/flyology-wait_arbitration_model.o" \
     "$output_directory/flyology-dispatcher_model.o" \
@@ -134,6 +140,8 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/s-tasinf.o" \
     "$output_directory/s-parame.o" \
     "$output_directory/a-reatim.o" \
+    "$output_directory/a-caldel.o" \
+    "$output_directory/a-calend.o" \
     "$output_directory/ada.o" \
     "$output_directory/flyology-m2_architecture.o" \
     "$output_directory/flyology-architecture_context.o" \

@@ -2,11 +2,13 @@
 
 with Flyology.M2_Architecture;
 with Flyology.Priority_Queue_Model;
+with Flyology.Timer_Model;
 with Flyology.Wait_Arbitration_Model;
 
 package body Flyology.Task_Core is
    package Architecture renames Flyology.M2_Architecture;
    package Scheduler renames Flyology.Priority_Queue_Model;
+   package Timers renames Flyology.Timer_Model;
    package Waits renames Flyology.Wait_Arbitration_Model;
    use type Dispatcher.Task_Ref;
    use type Dispatcher.Task_Slot;
@@ -16,6 +18,9 @@ package body Flyology.Task_Core is
    use type Scheduler.Enqueue_Status;
    use type Scheduler.Change_Status;
    use type Scheduler.Arrival_Sequence;
+   use type Timers.Register_Status;
+   use type Timers.Cancel_Status;
+   use type Timers.Tick;
    use type Waits.Arm_Status;
    use type Waits.Commit_Status;
    use type Waits.Resolve_Status;
@@ -53,6 +58,7 @@ package body Flyology.Task_Core is
    type Kernel_Task_Array is array (Task_Slot) of Kernel_Task;
    type Current_Array is array (Core_Number) of Task_Ref;
    type Queue_Array is array (Core_Number) of Scheduler.Ready_Queue;
+   type Timer_Array is array (Core_Number) of Timers.Timer_Table;
    type Boolean_Core_Array is array (Core_Number) of Boolean;
 
    Dispatcher_Stacks   : Dispatcher_Stack_Array;
@@ -64,6 +70,7 @@ package body Flyology.Task_Core is
    Tasks               : Kernel_Task_Array;
    Current_Tasks       : Current_Array := [others => No_Task];
    Ready_Queues        : Queue_Array;
+   Timer_Tables        : Timer_Array := [others => Timers.Empty_Table];
    Next_Sequence       : Scheduler.Arrival_Sequence :=
      Scheduler.Arrival_Sequence'First + 1;
    Configured          : Positive range 1 .. Max_Cores := 1;
@@ -149,6 +156,7 @@ package body Flyology.Task_Core is
       Configured := CPU_Count;
       Current_Tasks := [others => No_Task];
       Ready_Queues := [others => (others => <>)];
+      Timer_Tables := [others => Timers.Empty_Table];
       Next_Sequence := Scheduler.Arrival_Sequence'First + 1;
       Dispatcher_Ready := [others => False];
       Tasks := [others => (others => <>)];
@@ -400,6 +408,82 @@ package body Flyology.Task_Core is
       return Tasks (Slot).Active_Priority;
    end Active_Priority_Locked;
 
+   function Read_Clock return Tick is
+      Value : constant Architecture.Tick := Architecture.Read_Clock;
+   begin
+      return Tick (Value);
+   end Read_Clock;
+
+   function Clock_Frequency return Positive is
+     (Positive (Architecture.Clock_Frequency));
+
+   procedure Register_Deadline_Locked
+     (Token    : Wait_Token;
+      Deadline : Tick)
+   is
+      Slot    : constant Task_Slot := Slot_Of (Token.Task_Reference);
+      Core    : Core_Number;
+      Attempt : Timers.Register_Result;
+   begin
+      if not Known_Locked (Token.Task_Reference) then
+         Stop;
+      end if;
+      Core := Tasks (Slot).Assigned_Core;
+      Attempt := Timers.Register (Timer_Tables (Core), Token, Deadline);
+      if Attempt.Status /= Timers.Registered then
+         Stop;
+      end if;
+      Timer_Tables (Core) := Attempt.Table;
+   end Register_Deadline_Locked;
+
+   procedure Cancel_Deadline_Locked
+     (Token  : Wait_Token;
+      Status : out Timer_Cancel_Status)
+   is
+      Slot    : constant Task_Slot := Slot_Of (Token.Task_Reference);
+      Core    : Core_Number;
+      Attempt : Timers.Cancel_Result;
+   begin
+      if not Known_Locked (Token.Task_Reference) then
+         Stop;
+      end if;
+      Core := Tasks (Slot).Assigned_Core;
+      Attempt := Timers.Cancel (Timer_Tables (Core), Token);
+      Timer_Tables (Core) := Attempt.Table;
+      Status := Attempt.Status;
+   end Cancel_Deadline_Locked;
+
+   procedure Drain_Timers_Locked (Core : Core_Number) is
+      Now       : constant Tick := Read_Clock;
+      Expiry    : Timers.Expiry_Result;
+      Status    : Waits.Resolve_Status;
+      Wake_Core : Core_Number;
+   begin
+      loop
+         Expiry := Timers.Take_Due (Timer_Tables (Core), Now);
+         exit when not Expiry.Found;
+         Timer_Tables (Core) := Expiry.Table;
+         Resolve_Exact_Locked
+           (Expiry.Token, Waits.Timer_Expiry, Status, Wake_Core);
+         if Status not in Waits.Won_Before_Block | Waits.Made_Ready |
+           Waits.Duplicate | Waits.Stale
+         then
+            Stop;
+         end if;
+      end loop;
+   end Drain_Timers_Locked;
+
+   procedure Program_Next_Timer_Locked (Core : Core_Number) is
+      Next : constant Timers.Deadline_Result :=
+        Timers.Earliest (Timer_Tables (Core));
+   begin
+      if Next.Found then
+         Architecture.Program_Timer (Architecture.Tick (Next.Deadline));
+      else
+         Architecture.Cancel_Timer;
+      end if;
+   end Program_Next_Timer_Locked;
+
    procedure Terminate_Current_Locked
      (Core      : Core_Number;
       Reference : Task_Ref)
@@ -529,6 +613,8 @@ package body Flyology.Task_Core is
       end if;
       loop
          Enter_Kernel;
+         Drain_Timers_Locked (Dense);
+         Program_Next_Timer_Locked (Dense);
          Choice := Scheduler.Select_Next (Ready_Queues (Dense));
          if not Choice.Found then
             Prepare_Idle;
