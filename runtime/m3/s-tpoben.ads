@@ -41,6 +41,7 @@ package System.Tasking.Protected_Objects.Entries is
       Entry_Index : Protected_Entry_Index := 0;
       Parameters  : System.Address := System.Null_Address;
       Token       : Wait_Token;
+      Timed       : Boolean := False;
    end record;
 
    type Pending_Call_Array is

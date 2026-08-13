@@ -17,7 +17,7 @@ package System.Tasking is
    Unspecified_CPU : constant Integer := -1;
 
    type Task_Entry_Index is range 1 .. 255;
-   type Call_Mode is (Simple_Call, Conditional_Call, Asynchronous_Call);
+   type Call_Modes is (Simple_Call, Conditional_Call, Asynchronous_Call);
    type Select_Mode is
      (Simple_Mode, Else_Mode, Terminate_Mode, Delay_Mode);
    type Select_Index is range 0 .. 255;

@@ -21,7 +21,7 @@ package body Flyology.M3_Runtime is
    use type System.Tasking.Task_Procedure_Access;
    use type System.Tasking.Boolean_Access;
    use type System.Tasking.Task_Entry_Index;
-   use type System.Tasking.Call_Mode;
+   use type System.Tasking.Call_Modes;
    use type System.Tasking.Select_Mode;
    use type System.Tasking.Accept_List_Access;
    use type Waits.Resolve_Status;
@@ -972,7 +972,7 @@ package body Flyology.M3_Runtime is
      (Target      : Task_Id;
       Entry_Index : System.Tasking.Task_Entry_Index;
       Parameters  : System.Address;
-      Mode        : System.Tasking.Call_Mode;
+      Mode        : System.Tasking.Call_Modes;
       Accepted    : out Boolean)
    is
       Dense       : constant Core_Number := Core_Of_Current;

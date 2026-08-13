@@ -124,6 +124,26 @@ proves neither passed while closed, opens it from the environment task, checks
 that the protected entry bodies ran in call order, and requires master-observed
 completion before
 `FLYOLOGY:M4:PROTECTED_ENTRY:PASS` on x86-64 and AArch64 at SMP1 and SMP4.
+The separately owned `protected_conditional_probe.adb` establishes the
+conditional-call lowering on both cross targets: GNAT passes
+`Conditional_Call` through the same `Protected_Entry_Call` boundary and then
+queries `Cancelled`; protected entry `'Count` calls `Protected_Count`. The
+product evaluates the barrier while holding the protected-object lock and, if
+it is closed, reports cancellation without publishing a wait token or adding a
+queue member. The ordinary-Ada gate requires that rejection and a subsequent
+zero entry count before starting the blocking FIFO test above.
+
+The owned `protected_timed_probe.adb` establishes the duration-bearing
+`Timed_Protected_Entry_Call` profile with both pinned cross compilers; an
+independent owned native GNAT 15.3 probe produced the same call shape. This
+required the exact compiler-facing type name
+`System.Tasking.Call_Modes`; the earlier singular clean-room name caused an
+invalid lowering and was removed. The product registers the same exact wait
+token in the protected queue and per-core deadline table. Entry service
+cancels that deadline before resolving the waiter, while expiry wins the
+single wait outcome and removes the stale protected call under the same RTS
+lock. The ordinary-Ada gate requires a closed timed call to time out and leave
+entry `'Count` at zero before the blocking FIFO test.
 
 This increment deliberately compiles the product with `No_Finalization`.
 That restriction removes GNAT's implicit controlled-object attachment and
@@ -133,8 +153,8 @@ intermediate clean-room boundary, not a final full-runtime contract. M4 cannot
 close until controlled finalization is supported without GNAT-derived code or
 the product scope is otherwise reconciled with ordinary Ada finalization.
 Exceptional entry-body completion currently stops fail-closed. This checkpoint
-also does not claim conditional/timed protected entry calls,
-entry families, requeue, priority-ordered entry service, exceptional entry-body
+does not claim absolute-delay timed protected calls, entry families, requeue,
+priority-ordered entry service, exceptional entry-body
 propagation, abort of a protected-entry waiter, or finalized-object races.
 
 The owned `simple_rendezvous_probe.adb` establishes the same compiler surface

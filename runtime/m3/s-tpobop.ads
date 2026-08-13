@@ -11,8 +11,16 @@ package System.Tasking.Protected_Objects.Operations is
      (Object     : Entries.Protection_Entries_Access;
       Index      : Protected_Entry_Index;
       Parameters : System.Address;
-      Mode       : System.Tasking.Call_Mode;
+      Mode       : System.Tasking.Call_Modes;
       Block      : in out Communication_Block);
+
+   procedure Timed_Protected_Entry_Call
+     (Object     : Entries.Protection_Entries_Access;
+      Index      : Protected_Entry_Index;
+      Parameters : System.Address;
+      Timeout    : Duration;
+      Delay_Mode : Integer;
+      Accepted   : out Boolean);
 
    function Cancelled (Block : Communication_Block) return Boolean;
 

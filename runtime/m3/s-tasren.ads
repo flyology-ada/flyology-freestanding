@@ -17,7 +17,7 @@ package System.Tasking.Rendezvous is
      (Target      : System.Tasking.Task_Id;
       Entry_Index : System.Tasking.Task_Entry_Index;
       Parameters  : System.Address;
-      Mode        : System.Tasking.Call_Mode;
+      Mode        : System.Tasking.Call_Modes;
       Accepted    : out Boolean);
 
    procedure Timed_Task_Entry_Call

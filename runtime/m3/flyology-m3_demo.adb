@@ -42,6 +42,7 @@ package body Flyology.M3_Demo is
       procedure Open;
       entry Wait (Index : Positive);
       function Service_Order (Index : Positive) return Natural;
+      function Waiting return Natural;
    private
       Opened        : Boolean := False;
       Service_Count : Natural := 0;
@@ -62,6 +63,8 @@ package body Flyology.M3_Demo is
 
       function Service_Order (Index : Positive) return Natural is
         (Service_Log (Index));
+
+      function Waiting return Natural is (Wait'Count);
    end Protected_Gate;
 
    Auto_Done     : Done_Array := [others => False];
@@ -563,6 +566,28 @@ package body Flyology.M3_Demo is
          Report_Failure;
       end if;
       Report_Protected_Pass;
+
+      declare
+         Rejected  : Boolean := False;
+         Timed_Out : Boolean := False;
+      begin
+         select
+            Protected_Gate.Wait (1);
+         else
+            Rejected := True;
+         end select;
+         select
+            Protected_Gate.Wait (2);
+         or
+            delay 0.001;
+            Timed_Out := True;
+         end select;
+         if not Rejected or else not Timed_Out
+           or else Protected_Gate.Waiting /= 0
+         then
+            Report_Failure;
+         end if;
+      end;
 
       declare
          Worker_1 : Protected_Entry_Worker_Type

@@ -23,7 +23,15 @@ for architecture in x86_64 aarch64; do
           "$output/base_protected_probe.undefined"
     rm -f "$output/protected_probe.ali" "$output/protected_probe.o" \
           "$output/protected_probe.expanded" \
-          "$output/protected_probe.undefined"
+          "$output/protected_probe.undefined" \
+          "$output/protected_conditional_probe.ali" \
+          "$output/protected_conditional_probe.o" \
+          "$output/protected_conditional_probe.expanded" \
+          "$output/protected_conditional_probe.undefined" \
+          "$output/protected_timed_probe.ali" \
+          "$output/protected_timed_probe.o" \
+          "$output/protected_timed_probe.expanded" \
+          "$output/protected_timed_probe.undefined"
     rm -f "$output/simple_rendezvous_probe.ali" \
           "$output/simple_rendezvous_probe.o" \
           "$output/simple_rendezvous_probe.expanded" \
@@ -130,6 +138,44 @@ for architecture in x86_64 aarch64; do
         "$output/protected_probe.expanded" >/dev/null
     grep -F 'system__tasking__protected_objects__operations__service_entries' \
         "$output/protected_probe.expanded" >/dev/null
+
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-gcc" -c \
+        "$repository/probes/m4/protected_conditional_probe.adb" \
+        -o protected_conditional_probe.o -nostdinc \
+        -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
+        -I"$repository/runtime/m3" -gnat2022 -gnatG -gnatf \
+        -gnatec="$repository/runtime/m4/product.adc" \
+        >"$output/protected_conditional_probe.expanded" 2>&1
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-nm" -u protected_conditional_probe.o \
+        >"$output/protected_conditional_probe.undefined"
+    for symbol in \
+        system__tasking__protected_objects__operations__cancelled \
+        system__tasking__protected_objects__operations__protected_count \
+        system__tasking__protected_objects__operations__protected_entry_call; do
+        grep -F " $symbol" "$output/protected_conditional_probe.undefined" \
+            >/dev/null
+    done
+    grep -F 'system__tasking__conditional_call' \
+        "$output/protected_conditional_probe.expanded" >/dev/null
+
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-gcc" -c \
+        "$repository/probes/m4/protected_timed_probe.adb" \
+        -o protected_timed_probe.o -nostdinc \
+        -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
+        -I"$repository/runtime/m3" -gnat2022 -gnatG -gnatf \
+        -gnatec="$repository/runtime/m4/product.adc" \
+        >"$output/protected_timed_probe.expanded" 2>&1
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-nm" -u protected_timed_probe.o \
+        >"$output/protected_timed_probe.undefined"
+    grep -F \
+        ' system__tasking__protected_objects__operations__timed_protected_entry_call' \
+        "$output/protected_timed_probe.undefined" >/dev/null
+    grep -F 'timed_protected_entry_call' \
+        "$output/protected_timed_probe.expanded" >/dev/null
 
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-gcc" -c \
@@ -318,6 +364,24 @@ grep -v ' __clear_cache$' \
     >"$output_root/aarch64/protected_probe.normalized"
 diff -u "$output_root/x86_64/protected_probe.undefined" \
     "$output_root/aarch64/protected_probe.normalized" >/dev/null
+test "$(grep -c ' __clear_cache$' \
+    "$output_root/x86_64/protected_conditional_probe.undefined" || true)" -eq 0
+test "$(grep -c ' __clear_cache$' \
+    "$output_root/aarch64/protected_conditional_probe.undefined")" -eq 1
+grep -v ' __clear_cache$' \
+    "$output_root/aarch64/protected_conditional_probe.undefined" \
+    >"$output_root/aarch64/protected_conditional_probe.normalized"
+diff -u "$output_root/x86_64/protected_conditional_probe.undefined" \
+    "$output_root/aarch64/protected_conditional_probe.normalized" >/dev/null
+test "$(grep -c ' __clear_cache$' \
+    "$output_root/x86_64/protected_timed_probe.undefined" || true)" -eq 0
+test "$(grep -c ' __clear_cache$' \
+    "$output_root/aarch64/protected_timed_probe.undefined")" -eq 1
+grep -v ' __clear_cache$' \
+    "$output_root/aarch64/protected_timed_probe.undefined" \
+    >"$output_root/aarch64/protected_timed_probe.normalized"
+diff -u "$output_root/x86_64/protected_timed_probe.undefined" \
+    "$output_root/aarch64/protected_timed_probe.normalized" >/dev/null
 test "$(grep -c ' __clear_cache$' \
     "$output_root/x86_64/simple_rendezvous_probe.undefined" || true)" -eq 0
 test "$(grep -c ' __clear_cache$' \
