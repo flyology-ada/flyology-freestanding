@@ -16,6 +16,12 @@ test -x "$gnatprove_command" || {
     echo "gnatprove not found; set FLYOLOGY_GNATPROVE" >&2
     exit 69
 }
+gnatprove_digest=1feba230ab840e8adff492d25c5beb231c9a89565fa11fed48c778e625cab900
+printf '%s  %s\n' "$gnatprove_digest" "$gnatprove_command" | \
+    shasum -a 256 -c - >/dev/null || {
+        echo "GNATprove binary digest contract failed" >&2
+        exit 1
+    }
 test "$("$gnatprove_command" --version | sed -n '1p')" = 'FSF 16.1.0' || {
     echo "GNATprove version contract failed" >&2
     exit 1

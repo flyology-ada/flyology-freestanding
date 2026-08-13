@@ -11,9 +11,12 @@ The authoritative host path is Alire 2.1.1 with per-target local selections in `
 | x86-64 ELF GNAT | `gnat_x86_64_elf=15.3.1`, GNAT-FSF `15.3.0-1`, Darwin/AArch64 archive | SHA-256 `07e52e6ebdaaca0093b06cb5bd9c55a24ac464001282161f3d8113f8a0dab411` |
 | AArch64 ELF GNAT | `gnat_aarch64_elf=15.3.1`, GNAT-FSF `15.3.0-1`, Darwin/AArch64 archive | SHA-256 `113b747396eb88ae46bdc29bf990a037edd4960f931ebc2513295e4573ae8ca0` |
 | GPRbuild | `gprbuild=26.0.1`, Darwin/AArch64 archive | SHA-256 `6bf7d80c8a9702d851c5b992d7c72a07a9dbf13e8de9947b80927ea2667b6be8` |
+| GNATprove executable | FSF `16.1.0`, installed native Darwin/AArch64 bundle | SHA-256 `1feba230ab840e8adff492d25c5beb231c9a89565fa11fed48c778e625cab900` |
 | GCC sources (toolchain provenance only) | `gcc-15.3.0.tar.xz` | SHA-512 `0de9e296153b52c021b1c7e63c9c62151d7a0ac03f23ce6e9f772c1b0eb783f6acdd81cc4567bfe4128a6f64968c2cfc8eff40b36229cba7425349f7d637c654` |
 
 Native GNAT 16.1.0 is intentionally not used for target compilation. The current Alire cross releases are GCC/GNAT 15.3.0 and have no default target runtime.
+
+GNATprove 16.1.0 is a native host proof tool, not a target runtime input. The proof gate checks both its first version line and the locally tested executable digest before analysis.
 
 The GCC archive identifies the compiler source release and satisfies toolchain provenance. ADR-0004 forbids using its GNAT runtime sources as Flyology implementation inputs.
 
