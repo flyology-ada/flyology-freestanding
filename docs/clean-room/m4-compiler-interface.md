@@ -389,7 +389,8 @@ over the production wait-arbitration, exact FIFO token, deadline, priority,
 ceiling, and clock kernels. It covers winner-before-block and winner-after-
 commit for normal wake, timeout, and abort; every second resolution is required
 to be a state-preserving duplicate. Stale task incarnations, stale/future wait
-generations, invalid phases, full/duplicate queues, deadline order, priority
+generations, invalid phases, full/duplicate queues, exact queue removal,
+deadline cancellation and order, priority
 reordering, ceiling overflow/violation, and checked conversion boundaries are
 also enumerated. The gate pins both the edge count and serialized-state hash so
 an accidental search reduction fails.

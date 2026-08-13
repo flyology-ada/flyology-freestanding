@@ -30,7 +30,11 @@ procedure M4_Model_Tests is
    use type Priority.Change_Status;
    use type Priority.Enqueue_Status;
    use type Timers.Register_Status;
+   use type Timers.Cancel_Status;
+   use type Timers.Timer_Table;
    use type Wait_Queue.Enqueue_Status;
+   use type Wait_Queue.Remove_Status;
+   use type Wait_Queue.Wait_Queue;
    use type Waits.Arm_Status;
    use type Waits.Commit_Status;
    use type Waits.Resolve_Status;
@@ -239,20 +243,59 @@ procedure M4_Model_Tests is
              Timers.Duplicate_Task);
       Count (6_100);
 
-      for Index in 1 .. Wait_Queue.Capacity loop
+      --  Cancellation/removal must target the complete token, reject stale
+      --  generations without mutation, and preserve the relative order of
+      --  every surviving queue member.
+      declare
+         Stale_Token : constant Primitives.Wait_Token :=
+           (Reference (3), 2);
+         Exact_Token : constant Primitives.Wait_Token :=
+           (Reference (3), 1);
+         Stale_Remove : constant Wait_Queue.Remove_Result :=
+           Wait_Queue.Remove_Exact (Queue, Stale_Token);
+         Stale_Cancel : constant Timers.Cancel_Result :=
+           Timers.Cancel (Table, Stale_Token);
+         Removed : constant Wait_Queue.Remove_Result :=
+           Wait_Queue.Remove_Exact (Queue, Exact_Token);
+         Cancelled : constant Timers.Cancel_Result :=
+           Timers.Cancel (Table, Exact_Token);
+      begin
+         pragma Assert (Stale_Remove.Status = Wait_Queue.Stale);
+         pragma Assert (Stale_Remove.Queue = Queue);
+         pragma Assert (Stale_Cancel.Status = Timers.Stale);
+         pragma Assert (Stale_Cancel.Table = Table);
+         pragma Assert (Removed.Status = Wait_Queue.Removed);
+         pragma Assert (Cancelled.Status = Timers.Cancelled);
+         pragma Assert (not Wait_Queue.Contains (Removed.Queue, Exact_Token));
+         pragma Assert (not Timers.Contains (Cancelled.Table, Exact_Token));
+         Queue := Removed.Queue;
+         Table := Cancelled.Table;
+         Count (6_101);
+      end;
+
+      for Index in 1 .. Wait_Queue.Capacity - 1 loop
          declare
             Head : constant Wait_Queue.Head_Result :=
               Wait_Queue.Take_Head (Queue);
             Due : constant Timers.Expiry_Result :=
               Timers.Take_Due
-                (Table, Timers.Tick (Index - 1));
+                (Table,
+                 Timers.Tick
+                   (if Index <= Wait_Queue.Capacity - 3
+                    then Index - 1
+                    else Index));
          begin
             pragma Assert (Head.Found);
-            pragma Assert (Head.Token.Task_Reference = Reference (Index));
+            pragma Assert
+              (Head.Token.Task_Reference =
+                 Reference (if Index < 3 then Index else Index + 1));
             pragma Assert (Due.Found);
             pragma Assert
               (Due.Token.Task_Reference =
-                 Reference (Wait_Queue.Capacity - Index + 1));
+                 Reference
+                   (if Index <= Wait_Queue.Capacity - 3
+                    then Wait_Queue.Capacity - Index + 1
+                    else Wait_Queue.Capacity - Index));
             Queue := Head.Queue;
             Table := Due.Table;
             Count (6_200 + Index);
