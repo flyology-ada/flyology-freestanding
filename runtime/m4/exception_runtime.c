@@ -31,6 +31,7 @@ u8 program_error;
 u8 storage_error;
 u8 tasking_error;
 static u8 abort_signal;
+static u8 terminate_signal;
 u8 __gnat_others_value;
 u8 __gnat_all_others_value;
 
@@ -396,6 +397,12 @@ void flyology_raise_abort(void)
     raise_identity(&abort_signal);
 }
 
+void flyology_raise_terminate(void) __attribute__((noreturn));
+void flyology_raise_terminate(void)
+{
+    raise_identity(&terminate_signal);
+}
+
 _Unwind_Reason_Code __gnat_personality_v0
   (int version, _Unwind_Action actions, u64 exception_class,
    struct _Unwind_Exception *exception_object,
@@ -481,7 +488,8 @@ _Unwind_Reason_Code __gnat_personality_v0
                 if (identity == &__gnat_all_others_value) {
                     matched = 1;
                     cleanup_match = 0;
-                } else if (exception->identity == &abort_signal) {
+                } else if (exception->identity == &abort_signal ||
+                           exception->identity == &terminate_signal) {
                     matched = identity == &__gnat_others_value &&
                         region_start == (uptr)flyology_task_root_invoke;
                 } else {

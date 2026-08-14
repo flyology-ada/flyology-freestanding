@@ -6,6 +6,7 @@ with Flyology.Clock_Model;
 with Flyology.Exceptional_Completion_Model;
 with Flyology.Placement_Model;
 with Flyology.Task_Core;
+with Flyology.Termination_Model;
 with Flyology.Wait_Arbitration_Model;
 
 package body Flyology.M3_Runtime is
@@ -14,7 +15,11 @@ package body Flyology.M3_Runtime is
    package Completions renames Flyology.Exceptional_Completion_Model;
    package Placement renames Flyology.Placement_Model;
    package Core renames Flyology.Task_Core;
+   package Termination renames Flyology.Termination_Model;
    package Waits renames Flyology.Wait_Arbitration_Model;
+   pragma Compile_Time_Error
+     (Termination.Task_Capacity /= Core.Max_Tasks,
+      "termination snapshot and task-core capacities differ");
    use type Dispatcher.Task_Ref;
    use type Dispatcher.Task_Slot;
    use type Dispatcher.Task_Incarnation;
@@ -34,6 +39,7 @@ package body Flyology.M3_Runtime is
    use type Completions.Complete_Status;
    use type Completions.Completion_Phase;
    use type Completions.Consume_Status;
+   use type Termination.Dependent_Phase;
    use type Core.Timer_Cancel_Status;
    use type Core.Wait_Token;
 
@@ -73,6 +79,8 @@ package body Flyology.M3_Runtime is
       Accept_Entry         : System.Tasking.Task_Entry_Index := 1;
       Accept_Wait          : Core.Wait_Token;
       Active_Call          : Natural range 0 .. Max_Calls := 0;
+      Terminate_Open       : Boolean := False;
+      Terminate_Selected   : Boolean := False;
       Free_Wait_Active     : Boolean := False;
       Free_Wait            : Core.Wait_Token;
    end record;
@@ -158,6 +166,10 @@ package body Flyology.M3_Runtime is
    procedure Raise_Abort
    with Import, Convention => C, External_Name => "flyology_raise_abort",
         No_Return;
+
+   procedure Raise_Terminate
+   with Import, Convention => C,
+        External_Name => "flyology_raise_terminate", No_Return;
 
    function Snapshot_Exception_Identity
      (Occurrence : System.Address) return System.Address
@@ -252,6 +264,101 @@ package body Flyology.M3_Runtime is
       return Task_Slot (Slot);
    end Record_Of;
 
+   function Depends_On_Master_Locked
+     (Slot   : Task_Slot;
+      Master : Master_Number) return Boolean
+   is
+      Current : Integer := Tasks (Slot).Master;
+      Owner   : Dispatcher.Task_Ref;
+      Hops    : Natural := 0;
+   begin
+      while Current in Integer (Master_Number'First) ..
+        Integer (Master_Number'Last)
+      loop
+         if Current = Integer (Master) then
+            return True;
+         end if;
+         if Hops = Max_Masters then
+            Stop;
+         end if;
+         Hops := Hops + 1;
+         if not Masters (Master_Number (Current)).Used then
+            Stop;
+         end if;
+         Owner := Masters (Master_Number (Current)).Owner;
+         if Owner = Core.No_Task then
+            return False;
+         end if;
+         Current := Tasks (Record_Of (To_Identity (Owner))).Master;
+      end loop;
+      return False;
+   end Depends_On_Master_Locked;
+
+   procedure Try_Select_Termination_Locked
+     (Master : Master_Number;
+      Kicks  : in out Boolean_Core_Array)
+   is
+      Before : Termination.Snapshot := [others => Termination.Not_Dependent];
+      After  : Termination.Snapshot;
+      State  : Dispatcher.Task_State;
+      Status : Waits.Resolve_Status;
+      Wake_Core : Core_Number := 0;
+   begin
+      if not Masters (Master).Used or else Masters (Master).Open then
+         return;
+      end if;
+      for Slot in Task_Slot range 1 .. Task_Slot'Last loop
+         if Tasks (Slot).Identity /= null
+           and then Depends_On_Master_Locked (Slot, Master)
+         then
+            State := Core.State_Locked
+              (To_Reference (Tasks (Slot).Identity));
+            if State = Dispatcher.Terminated then
+               Before (Termination.Slot (Slot)) := Termination.Terminated;
+            elsif State in Dispatcher.Running | Dispatcher.Blocked
+              and then Tasks (Slot).Terminate_Open
+              and then Tasks (Slot).Accepting
+              and then Tasks (Slot).Active_Call = 0
+              and then Core.Wait_Is_Pending_Locked (Tasks (Slot).Accept_Wait)
+            then
+               Before (Termination.Slot (Slot)) := Termination.Waiting;
+            else
+               Before (Termination.Slot (Slot)) := Termination.Active;
+            end if;
+         end if;
+      end loop;
+      if not Termination.Can_Select (Before) then
+         return;
+      end if;
+      After := Termination.Select_Termination (Before);
+      for Slot in Task_Slot range 1 .. Task_Slot'Last loop
+         if After (Termination.Slot (Slot)) = Termination.Selected then
+            Tasks (Slot).Terminate_Open := False;
+            Tasks (Slot).Terminate_Selected := True;
+            Tasks (Slot).Accepting := False;
+            Core.Resolve_Exact_Locked
+              (Tasks (Slot).Accept_Wait, Waits.Object_Wake, Status,
+               Wake_Core);
+            if Status = Waits.Made_Ready then
+               Kicks (Wake_Core) := True;
+            elsif Status /= Waits.Won_Before_Block then
+               Stop;
+            end if;
+         end if;
+      end loop;
+   end Try_Select_Termination_Locked;
+
+   procedure Try_All_Closed_Masters_Locked
+     (Kicks : in out Boolean_Core_Array)
+   is
+   begin
+      for Master in Master_Number loop
+         if Masters (Master).Used and then not Masters (Master).Open then
+            Try_Select_Termination_Locked (Master, Kicks);
+         end if;
+      end loop;
+   end Try_All_Closed_Masters_Locked;
+
    function Allocate_Group return Group_Number is
    begin
       for Group in Group_Number loop
@@ -336,6 +443,8 @@ package body Flyology.M3_Runtime is
          Accept_Wait          =>
            (Task_Reference => Core.No_Task, Generation => 0),
          Active_Call          => 0,
+         Terminate_Open       => False,
+         Terminate_Selected   => False,
          Free_Wait_Active     => False,
          Free_Wait            =>
            (Task_Reference => Core.No_Task, Generation => 0));
@@ -1088,6 +1197,7 @@ package body Flyology.M3_Runtime is
       Master : Master_Number;
       Outcome : Waits.Resolution;
       Dormant_Count : Natural := 0;
+      Kicks : Boolean_Core_Array := [others => False];
    begin
       Enter_Kernel;
       Owner := Core.Current_Locked (Dense);
@@ -1127,6 +1237,12 @@ package body Flyology.M3_Runtime is
              Dispatcher.Dormant
          then
             Release_Unactivated_Locked (Candidate);
+         end if;
+      end loop;
+      Try_Select_Termination_Locked (Master, Kicks);
+      for Candidate in Core_Number loop
+         if Natural (Candidate) < Core.CPU_Count and then Kicks (Candidate) then
+            Kick_Core (System.Address (Candidate));
          end if;
       end loop;
       if Masters (Master).Dependents > 0 then
@@ -1385,6 +1501,56 @@ package body Flyology.M3_Runtime is
       return Result;
    end Allocate_Call_Sequence_Locked;
 
+   function Oldest_Queued_Call_Locked
+     (Server      : Dispatcher.Task_Ref;
+      Entry_Index : System.Tasking.Task_Entry_Index) return Natural
+   is
+      Selected : Natural range 0 .. Max_Calls := 0;
+      Oldest   : Call_Sequence := Call_Sequence'Last;
+   begin
+      for Call in Call_Number loop
+         if Calls (Call).Phase = Queued
+           and then Calls (Call).Target = Server
+           and then Calls (Call).Entry_Index = Entry_Index
+           and then Core.Wait_Is_Pending_Locked (Calls (Call).Caller_Wait)
+         then
+            if Calls (Call).Sequence = No_Call_Sequence then
+               Stop;
+            elsif Calls (Call).Sequence < Oldest then
+               Selected := Natural (Call);
+               Oldest := Calls (Call).Sequence;
+            end if;
+         end if;
+      end loop;
+      return Selected;
+   end Oldest_Queued_Call_Locked;
+
+   procedure Accept_Queued_Call_Locked
+     (Server_Slot : Task_Slot;
+      Selected    : Call_Number;
+      Parameters  : out System.Address)
+   is
+      Cancel_Status : Core.Timer_Cancel_Status;
+   begin
+      if Calls (Selected).Phase /= Queued
+        or else Tasks (Server_Slot).Active_Call /= 0
+      then
+         Stop;
+      end if;
+      if Calls (Selected).Timed then
+         Core.Cancel_Deadline_Locked
+           (Calls (Selected).Caller_Wait, Cancel_Status);
+         if Cancel_Status /= Core.Cancelled then
+            Stop;
+         end if;
+      end if;
+      Calls (Selected).Phase := Accepted_Call;
+      Tasks (Server_Slot).Active_Call := Natural (Selected);
+      Tasks (Server_Slot).Accepting := False;
+      Tasks (Server_Slot).Terminate_Open := False;
+      Parameters := Calls (Selected).Parameters;
+   end Accept_Queued_Call_Locked;
+
    procedure Consume_Call_Completion
      (Call     : Call_Number;
       Caller   : Dispatcher.Task_Ref)
@@ -1442,12 +1608,15 @@ package body Flyology.M3_Runtime is
       Deliver_Pending_Abort_Locked;
       Target_Slot := Record_Of (Target);
       Target_Ref := To_Reference (Target);
-      if Natural (Entry_Index) > Tasks (Target_Slot).Entry_Count
+      if Natural (Entry_Index) > Tasks (Target_Slot).Entry_Count then
+         Leave_Kernel;
+         raise Program_Error;
+      elsif Tasks (Target_Slot).Terminate_Selected
         or else Core.State_Locked (Target_Ref) in
           Dispatcher.Retiring | Dispatcher.Terminated
       then
          Leave_Kernel;
-         raise Program_Error;
+         Raise_Tasking_Error (System.Null_Address, 0);
       end if;
       Call := Allocate_Call_Locked;
       Calls (Call) :=
@@ -1519,12 +1688,15 @@ package body Flyology.M3_Runtime is
       Deliver_Pending_Abort_Locked;
       Target_Slot := Record_Of (Target);
       Target_Ref := To_Reference (Target);
-      if Natural (Entry_Index) > Tasks (Target_Slot).Entry_Count
+      if Natural (Entry_Index) > Tasks (Target_Slot).Entry_Count then
+         Leave_Kernel;
+         raise Program_Error;
+      elsif Tasks (Target_Slot).Terminate_Selected
         or else Core.State_Locked (Target_Ref) in
           Dispatcher.Retiring | Dispatcher.Terminated
       then
          Leave_Kernel;
-         raise Program_Error;
+         Raise_Tasking_Error (System.Null_Address, 0);
       end if;
       if not Tasks (Target_Slot).Accepting
         or else Tasks (Target_Slot).Accept_Entry /= Entry_Index
@@ -1619,12 +1791,15 @@ package body Flyology.M3_Runtime is
       Deliver_Pending_Abort_Locked;
       Target_Slot := Record_Of (Target);
       Target_Ref := To_Reference (Target);
-      if Natural (Entry_Index) > Tasks (Target_Slot).Entry_Count
+      if Natural (Entry_Index) > Tasks (Target_Slot).Entry_Count then
+         Leave_Kernel;
+         raise Program_Error;
+      elsif Tasks (Target_Slot).Terminate_Selected
         or else Core.State_Locked (Target_Ref) in
           Dispatcher.Retiring | Dispatcher.Terminated
       then
          Leave_Kernel;
-         raise Program_Error;
+         Raise_Tasking_Error (System.Null_Address, 0);
       end if;
       Call := Allocate_Call_Locked;
       Calls (Call) :=
@@ -1703,7 +1878,6 @@ package body Flyology.M3_Runtime is
       Server     : Dispatcher.Task_Ref;
       Server_Slot : Task_Slot;
       Selected   : Natural range 0 .. Max_Calls := 0;
-      Oldest     : Call_Sequence := Call_Sequence'Last;
       Outcome    : Waits.Resolution;
    begin
       Enter_Kernel;
@@ -1717,22 +1891,7 @@ package body Flyology.M3_Runtime is
          Leave_Kernel;
          raise Program_Error;
       end if;
-      for Call in Call_Number loop
-         if Calls (Call).Phase = Queued
-           and then Calls (Call).Target = Server
-           and then Calls (Call).Entry_Index = Entry_Index
-         then
-            if Core.Wait_Is_Pending_Locked (Calls (Call).Caller_Wait) then
-               if Calls (Call).Sequence = No_Call_Sequence then
-                  Leave_Kernel;
-                  Stop;
-               elsif Calls (Call).Sequence < Oldest then
-                  Selected := Natural (Call);
-                  Oldest := Calls (Call).Sequence;
-               end if;
-            end if;
-         end if;
-      end loop;
+      Selected := Oldest_Queued_Call_Locked (Server, Entry_Index);
 
       if Selected = 0 then
          Tasks (Server_Slot).Accepting := True;
@@ -1763,24 +1922,17 @@ package body Flyology.M3_Runtime is
             Stop;
          end if;
       else
-         if Calls (Call_Number (Selected)).Timed then
-            declare
-               Cancel_Status : Core.Timer_Cancel_Status;
-            begin
-               Core.Cancel_Deadline_Locked
-                 (Calls (Call_Number (Selected)).Caller_Wait,
-                  Cancel_Status);
-               if Cancel_Status /= Core.Cancelled then
-                  Leave_Kernel;
-                  Stop;
-               end if;
-            end;
-         end if;
-         Calls (Call_Number (Selected)).Phase := Accepted_Call;
-         Tasks (Server_Slot).Active_Call := Selected;
+         Accept_Queued_Call_Locked
+           (Server_Slot, Call_Number (Selected), Parameters);
       end if;
       Tasks (Server_Slot).Accepting := False;
-      Parameters := Calls (Call_Number (Selected)).Parameters;
+      Tasks (Server_Slot).Terminate_Open := False;
+      if Selected /= 0 and then Tasks (Server_Slot).Active_Call = Selected then
+         Parameters := Calls (Call_Number (Selected)).Parameters;
+      else
+         Leave_Kernel;
+         Stop;
+      end if;
       Leave_Kernel;
    end Accept_Call;
 
@@ -1880,7 +2032,13 @@ package body Flyology.M3_Runtime is
       Parameters   : out System.Address;
       Selected     : out System.Tasking.Select_Index)
    is
+      Dense       : constant Core_Number := Core_Of_Current;
       Alternative : System.Tasking.Accept_Alternative;
+      Server      : Dispatcher.Task_Ref;
+      Server_Slot : Task_Slot;
+      Call        : Natural range 0 .. Max_Calls := 0;
+      Outcome     : Waits.Resolution;
+      Kicks       : Boolean_Core_Array := [others => False];
    begin
       if Alternatives = null or else Alternatives'Length /= 1
         or else Mode /= System.Tasking.Terminate_Mode
@@ -1888,8 +2046,86 @@ package body Flyology.M3_Runtime is
          raise Program_Error;
       end if;
       Alternative := Alternatives (Alternatives'First);
-      Accept_Call (Alternative.S, Parameters);
-      Selected := System.Tasking.Select_Index (Alternatives'First);
+      Enter_Kernel;
+      Server := Core.Current_Locked (Dense);
+      Deliver_Pending_Abort_Locked;
+      Server_Slot := Record_Of (To_Identity (Server));
+      if Natural (Alternative.S) > Tasks (Server_Slot).Entry_Count
+        or else Tasks (Server_Slot).Accepting
+        or else Tasks (Server_Slot).Active_Call /= 0
+        or else Tasks (Server_Slot).Terminate_Open
+        or else Tasks (Server_Slot).Terminate_Selected
+      then
+         Leave_Kernel;
+         raise Program_Error;
+      end if;
+      Call := Oldest_Queued_Call_Locked (Server, Alternative.S);
+      if Call /= 0 then
+         Accept_Queued_Call_Locked
+           (Server_Slot, Call_Number (Call), Parameters);
+         Selected := System.Tasking.Select_Index (Alternatives'First);
+         Leave_Kernel;
+      else
+         Tasks (Server_Slot).Accepting := True;
+         Tasks (Server_Slot).Accept_Entry := Alternative.S;
+         Tasks (Server_Slot).Terminate_Open := True;
+         Core.Arm_Wait_Locked
+           (Server, Waits.Object_Wait, Tasks (Server_Slot).Accept_Wait);
+         Try_All_Closed_Masters_Locked (Kicks);
+         for Candidate in Core_Number loop
+            if Natural (Candidate) < Core.CPU_Count
+              and then Kicks (Candidate)
+            then
+               Kick_Core (System.Address (Candidate));
+            end if;
+         end loop;
+         Core.Block_Current_And_Release
+           (Dense, Tasks (Server_Slot).Accept_Wait, Outcome);
+         if Outcome = Waits.Abort_Wake then
+            Enter_Kernel;
+            if not Tasks (Server_Slot).Accepting
+              or else not Tasks (Server_Slot).Terminate_Open
+              or else Tasks (Server_Slot).Active_Call /= 0
+              or else Tasks (Server_Slot).Terminate_Selected
+            then
+               Leave_Kernel;
+               Stop;
+            end if;
+            Tasks (Server_Slot).Accepting := False;
+            Tasks (Server_Slot).Terminate_Open := False;
+            Leave_Kernel;
+            Deliver_Pending_Abort;
+            Stop;
+         elsif Outcome /= Waits.Object_Wake then
+            Stop;
+         end if;
+         Enter_Kernel;
+         if Tasks (Server_Slot).Terminate_Selected then
+            if Tasks (Server_Slot).Accepting
+              or else Tasks (Server_Slot).Terminate_Open
+              or else Tasks (Server_Slot).Active_Call /= 0
+            then
+               Leave_Kernel;
+               Stop;
+            end if;
+            Selected := System.Tasking.No_Rendezvous;
+            Parameters := System.Null_Address;
+            Leave_Kernel;
+            Raise_Terminate;
+         end if;
+         Call := Tasks (Server_Slot).Active_Call;
+         if Call = 0 or else not Tasks (Server_Slot).Accepting
+           or else not Tasks (Server_Slot).Terminate_Open
+         then
+            Leave_Kernel;
+            Stop;
+         end if;
+         Tasks (Server_Slot).Accepting := False;
+         Tasks (Server_Slot).Terminate_Open := False;
+         Parameters := Calls (Call_Number (Call)).Parameters;
+         Selected := System.Tasking.Select_Index (Alternatives'First);
+         Leave_Kernel;
+      end if;
       if Alternative.Null_Body then
          Complete_Rendezvous;
       end if;
@@ -1997,6 +2233,7 @@ package body Flyology.M3_Runtime is
       Activation_Wake      : Boolean := False;
       Free_Wake_Core       : Core_Number := 0;
       Free_Wake            : Boolean := False;
+      Termination_Kicks    : Boolean_Core_Array := [others => False];
       Master    : Master_Number;
       Group     : Group_Number;
       Status    : Waits.Resolve_Status;
@@ -2058,6 +2295,7 @@ package body Flyology.M3_Runtime is
          Stop;
       end if;
       Masters (Master).Dependents := Masters (Master).Dependents - 1;
+      Try_All_Closed_Masters_Locked (Termination_Kicks);
       if not Masters (Master).Open and then Masters (Master).Waiting
         and then Masters (Master).Dependents = 0
       then
@@ -2090,6 +2328,13 @@ package body Flyology.M3_Runtime is
       if Free_Wake then
          Kick_Core (System.Address (Free_Wake_Core));
       end if;
+      for Candidate in Core_Number loop
+         if Natural (Candidate) < Core.CPU_Count
+           and then Termination_Kicks (Candidate)
+         then
+            Kick_Core (System.Address (Candidate));
+         end if;
+      end loop;
    end Finish_Task_Retirement;
 begin
    --  The architecture has validated topology and installed the BSP core

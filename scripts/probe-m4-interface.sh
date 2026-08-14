@@ -368,6 +368,10 @@ for architecture in x86_64 aarch64; do
         "$output/selective_wait_probe.undefined" >/dev/null
     grep -F 'system__tasking__terminate_mode' \
         "$output/selective_wait_probe.expanded" >/dev/null
+    grep -F 'when system__tasking__no_rendezvous =>' \
+        "$output/selective_wait_probe.expanded" >/dev/null
+    grep -F 'null_body => true' \
+        "$output/selective_wait_probe.expanded" >/dev/null
 
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-gcc" -c "$repository/probes/m4/abort_probe.adb" \

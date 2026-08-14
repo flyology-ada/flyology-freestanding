@@ -133,6 +133,12 @@ package body Flyology.M3_Demo is
    Free_Race_Id : Ada.Task_Identification.Task_Id :=
      Ada.Task_Identification.Null_Task_Id with Atomic;
    Selective_Done : Boolean := False with Atomic;
+   Terminate_Started : Done_Array := [others => False];
+   Terminate_Continued : Done_Array := [others => False];
+   Terminate_User_Handler_Ran : Done_Array := [others => False];
+   Terminate_Selected_Early : Boolean := False with Atomic;
+   Terminate_Ids : Identity_Array :=
+     [others => Ada.Task_Identification.Null_Task_Id];
    Abort_Started : Boolean := False with Atomic;
    Abort_Continued : Boolean := False with Atomic;
    Abort_User_Handler_Ran : Boolean := False with Atomic;
@@ -217,6 +223,15 @@ package body Flyology.M3_Demo is
    task type Selective_Server_Type is
       entry Ping;
    end Selective_Server_Type;
+
+   task type Terminate_Server_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range;
+      Index      : Positive)
+     with CPU => CPU_Number
+   is
+      entry Ping;
+      pragma Unreferenced (Ping);
+   end Terminate_Server_Type;
 
    task type Abort_Worker_Type
      (CPU_Number : System.Multiprocessors.CPU_Range)
@@ -553,6 +568,64 @@ package body Flyology.M3_Demo is
       Selective_Done := True;
    end Selective_Server_Type;
 
+   task body Terminate_Server_Type is
+   begin
+      Terminate_Ids (Index) := Ada.Task_Identification.Current_Task;
+      Terminate_Started (Index) := True;
+      if Index = 2 then
+         while not Terminate_Started (1) loop
+            delay 0.001;
+         end loop;
+         delay 0.005;
+         Terminate_Selected_Early :=
+           Ada.Task_Identification.Is_Terminated (Terminate_Ids (1));
+      end if;
+      begin
+         select
+            accept Ping;
+         or
+            terminate;
+         end select;
+      exception
+         when others =>
+            Terminate_User_Handler_Ran (Index) := True;
+      end;
+      Terminate_Continued (Index) := True;
+   end Terminate_Server_Type;
+
+   procedure Run_Terminate_Alternative is
+      First_Id  : Ada.Task_Identification.Task_Id;
+      Second_Id : Ada.Task_Identification.Task_Id;
+   begin
+      Terminate_Started := [others => False];
+      Terminate_Continued := [others => False];
+      Terminate_User_Handler_Ran := [others => False];
+      Terminate_Selected_Early := False;
+      Terminate_Ids := [others => Ada.Task_Identification.Null_Task_Id];
+      declare
+         First : Terminate_Server_Type (1, 1);
+         Second : Terminate_Server_Type
+           (System.Multiprocessors.Number_Of_CPUs, 2);
+      begin
+         First_Id := First'Identity;
+         Second_Id := Second'Identity;
+      end;
+      if not Terminate_Started (1) or else not Terminate_Started (2)
+        or else Terminate_Continued (1) or else Terminate_Continued (2)
+        or else Terminate_User_Handler_Ran (1)
+        or else Terminate_User_Handler_Ran (2)
+        or else Terminate_Selected_Early
+        or else Terminate_Ids (1) /= First_Id
+        or else Terminate_Ids (2) /= Second_Id
+        or else not Ada.Task_Identification.Is_Terminated (First_Id)
+        or else not Ada.Task_Identification.Is_Terminated (Second_Id)
+        or else Ada.Task_Identification.Is_Callable (First_Id)
+        or else Ada.Task_Identification.Is_Callable (Second_Id)
+      then
+         Report_Failure;
+      end if;
+   end Run_Terminate_Alternative;
+
    task body Abort_Worker_Type is
    begin
       Abort_Id := Ada.Task_Identification.Current_Task;
@@ -737,6 +810,10 @@ package body Flyology.M3_Demo is
    procedure Report_Selective_Wait_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_selective_wait_pass";
+
+   procedure Report_Terminate_Alternative_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_terminate_alternative_pass";
 
    procedure Report_Abort_Pass
    with Import, Convention => C,
@@ -1241,6 +1318,9 @@ package body Flyology.M3_Demo is
          Report_Failure;
       end if;
       Report_Selective_Wait_Pass;
+
+      Run_Terminate_Alternative;
+      Report_Terminate_Alternative_Pass;
 
       Cleanup_Queries_Before := Abort_Cleanup_Query_Count;
       declare

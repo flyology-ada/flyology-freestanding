@@ -381,17 +381,34 @@ parameter address, and an out selected alternative index. AArch64 again adds
 only the local-probe cache trampoline; the package-level product task avoids
 it and the ELF gate rejects it.
 
-Flyology's first selective-wait increment accepts exactly one alternative. It
-uses the established rendezvous call table and generation-tagged waits, and
+Flyology's selective-wait increment accepts exactly one alternative. It uses
+the established rendezvous call table and generation-tagged waits, and
 completes a compiler-marked null body before returning its selected index. The
 ordinary-Ada demonstration couples that server with a concurrent client and
 requires master-observed task completion before
-`FLYOLOGY:M4:SELECTIVE_WAIT:PASS` in every QEMU cell. Although the compiler
-surface includes `Terminate_Mode`, this checkpoint does not yet implement the
-openness/dependency rules that permit a terminate alternative to be selected;
-the demonstrated client always calls the accept alternative. Multiple
-alternatives, guarded alternatives, else/delay alternatives, timed selective
-wait, and priority queueing remain M4 work.
+`FLYOLOGY:M4:SELECTIVE_WAIT:PASS` in every QEMU cell.
+
+The terminate branch implements the collective rule from ARM 9.3. A task
+publishes both its open terminate alternative and exact accept wait under the
+RTS lock. The production wrapper constructs a bounded snapshot and calls the
+SPARK `Termination_Model`; selection is permitted only after a depended-on
+master is closed and every task transitively dependent on that master is
+already terminated or similarly waiting. All selected waits are resolved in
+one locked transaction. A queued call wins first if it was published first;
+after collective selection, later calls receive `Tasking_Error`. GNAT's
+generated task wrapper does not branch around statements following the select,
+so the runtime raises an internal termination signal. The clean-room
+personality admits that signal through compiler-generated cleanup handlers and
+only the task-root containment frame; ordinary user `when others` handlers do
+not intercept it, and it is not classified as abort.
+
+The product declares two ordinary sibling tasks on CPU 1 and the last
+configured CPU, makes no entry calls, and leaves their master. Both must have
+published the open alternative before collective completion, neither may
+execute its post-select statement, both identities must be terminated and not
+callable, and only then is `FLYOLOGY:M4:TERMINATE_ALTERNATIVE:PASS` emitted.
+Multiple accept alternatives, guarded alternatives, else/delay alternatives,
+timed selective wait, and priority queueing remain M4 work.
 
 Normal task destruction now separates the stable language identity from its
 bounded execution slot. Completion is also explicitly two-phase: the task
@@ -517,9 +534,10 @@ required before M4 closure.
 
 ## Model and stress closure gates
 
-The authoritative M4 host model enumerates 37,728 deterministic operations
+The authoritative M4 host model enumerates 50,853 deterministic operations
 over the production wait-arbitration, exact FIFO token, deadline, priority,
-ceiling, clock, allocator-arithmetic, and exceptional-completion kernels. It
+ceiling, clock, allocator-arithmetic, exceptional-completion, and collective-
+termination kernels. It
 covers
 winner-before-block and winner-after-
 commit for normal wake, timeout, and abort; every second resolution is required
@@ -530,7 +548,7 @@ reordering, ceiling overflow/violation, and checked conversion boundaries are
 also enumerated. Every completion phase is checked for legal normal/exceptional
 completion, consumption, and identity-presence invariants. The gate pins both
 the edge count and serialized-state hash so an accidental search reduction
-fails. GNATprove 16.1 reports all 346 generated checks proved across the
+fails. GNATprove 16.1 reports all 358 generated checks proved across the
 SPARK-analyzed deterministic core units. The concurrent Task_Core facade, the
 imported `Task_Primitives_Contract` declarations, compiler-facing GNARL
 facades, architecture assembly, C unwinder, and allocator CAS facade remain

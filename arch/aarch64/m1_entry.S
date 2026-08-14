@@ -1095,6 +1095,12 @@ flyology_m4_report_selective_wait_pass:
     address x0, m4_selective_wait_pass
     b serial_puts_locked
 
+.global flyology_m4_report_terminate_alternative_pass
+.type flyology_m4_report_terminate_alternative_pass, %function
+flyology_m4_report_terminate_alternative_pass:
+    address x0, m4_terminate_alternative_pass
+    b serial_puts_locked
+
 .global flyology_m4_report_abort_pass
 .type flyology_m4_report_abort_pass, %function
 flyology_m4_report_abort_pass:
@@ -1830,6 +1836,7 @@ m4_free_task_pass: .asciz "FLYOLOGY:M4:FREE_TASK:PASS\n"
 m4_free_wait_pass: .asciz "FLYOLOGY:M4:FREE_TASK_WAIT:PASS\n"
 m4_free_abort_race_pass: .asciz "FLYOLOGY:M4:FREE_TASK_ABORT_RACE:PASS\n"
 m4_selective_wait_pass: .asciz "FLYOLOGY:M4:SELECTIVE_WAIT:PASS\n"
+m4_terminate_alternative_pass: .asciz "FLYOLOGY:M4:TERMINATE_ALTERNATIVE:PASS\n"
 m4_abort_pass: .asciz "FLYOLOGY:M4:ABORT:PASS\n"
 m4_abort_rendezvous_pass: .asciz "FLYOLOGY:M4:ABORT_RENDEZVOUS:PASS\n"
 m4_abort_timeout_pass: .asciz "FLYOLOGY:M4:ABORT_TIMEOUT:PASS\n"

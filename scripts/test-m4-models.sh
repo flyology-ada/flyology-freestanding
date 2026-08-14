@@ -14,4 +14,4 @@ rm -rf build/host-m4-model
 output=$(build/host-m4-model/bin/m4_model_tests)
 printf '%s\n' "$output"
 test "$output" = \
-    'FLYOLOGY:M4:MODEL:PASS:EDGES 37728:HASH 5624508605122737117'
+    'FLYOLOGY:M4:MODEL:PASS:EDGES 50853:HASH 3891007855751582960'

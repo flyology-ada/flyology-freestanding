@@ -72,6 +72,7 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     system__tasking__stages__expunge_unactivated_tasks \
     system__tasking__stages__free_task \
     system__tasking__stages__abort_tasks flyology_raise_abort \
+    flyology_raise_terminate \
     ada__task_identification__current_task \
     ada__task_identification__is_callable \
     ada__task_identification__is_terminated \
@@ -88,7 +89,10 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     flyology__exceptional_completion_model__consume \
     flyology__dispatcher_model__try_transition \
     flyology__dispatcher_model__next_incarnation \
-    flyology__placement_model__place __gnat_personality_v0 \
+    flyology__placement_model__place \
+    flyology__termination_model__can_select \
+    flyology__termination_model__select_termination \
+    __gnat_personality_v0 \
     __gnat_begin_handler_v1 __gnat_end_handler_v1 \
     system__soft_links__save_library_occurrence \
     flyology_current_exception flyology_current_exception_is_abort \
@@ -127,6 +131,7 @@ for marker in 'FLYOLOGY:ADA:ELABORATION:PASS' \
     'FLYOLOGY:M4:FREE_TASK_WAIT:PASS' \
     'FLYOLOGY:M4:FREE_TASK_ABORT_RACE:PASS' \
     'FLYOLOGY:M4:SELECTIVE_WAIT:PASS' \
+    'FLYOLOGY:M4:TERMINATE_ALTERNATIVE:PASS' \
     'FLYOLOGY:M4:ABORT:PASS' \
     'FLYOLOGY:M4:ABORT_RENDEZVOUS:PASS' \
     'FLYOLOGY:M4:ABORT_TIMEOUT:PASS' \

@@ -85,6 +85,8 @@ compile_ada runtime/core/flyology-task_primitives_contract.ads \
 compile_ada runtime/core/flyology-clock_model.adb flyology-clock_model.o
 compile_ada runtime/core/flyology-exceptional_completion_model.adb \
     flyology-exceptional_completion_model.o
+compile_ada runtime/core/flyology-termination_model.adb \
+    flyology-termination_model.o
 compile_ada runtime/core/flyology-timer_model.adb flyology-timer_model.o
 compile_ada runtime/core/flyology-ceiling_model.adb flyology-ceiling_model.o
 compile_ada runtime/core/flyology-priority_queue_model.adb \
@@ -180,6 +182,7 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/flyology-task_primitives_contract.o" \
     "$output_directory/flyology-clock_model.o" \
     "$output_directory/flyology-exceptional_completion_model.o" \
+    "$output_directory/flyology-termination_model.o" \
     "$output_directory/flyology-timer_model.o" \
     "$output_directory/flyology-ceiling_model.o" \
     "$output_directory/flyology-priority_queue_model.o" \

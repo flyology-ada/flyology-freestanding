@@ -8,6 +8,7 @@ with Flyology.Dispatcher_Model;
 with Flyology.Exceptional_Completion_Model;
 with Flyology.Priority_Queue_Model;
 with Flyology.Task_Primitives_Contract;
+with Flyology.Termination_Model;
 with Flyology.Timer_Model;
 with Flyology.Wait_Arbitration_Model;
 with Flyology.Wait_Queue_Model;
@@ -20,6 +21,7 @@ procedure M4_Model_Tests is
    package Completions renames Flyology.Exceptional_Completion_Model;
    package Priority renames Flyology.Priority_Queue_Model;
    package Primitives renames Flyology.Task_Primitives_Contract;
+   package Termination renames Flyology.Termination_Model;
    package Timers renames Flyology.Timer_Model;
    package Waits renames Flyology.Wait_Arbitration_Model;
    package Wait_Queue renames Flyology.Wait_Queue_Model;
@@ -38,6 +40,8 @@ procedure M4_Model_Tests is
    use type Completions.Consume_Status;
    use type Priority.Change_Status;
    use type Priority.Enqueue_Status;
+   use type Termination.Dependent_Phase;
+   use type Termination.Snapshot;
    use type Timers.Register_Status;
    use type Timers.Cancel_Status;
    use type Timers.Timer_Table;
@@ -520,6 +524,46 @@ procedure M4_Model_Tests is
       end loop;
    end Check_Exceptional_Completions;
 
+   procedure Check_Collective_Termination is
+   begin
+      for First in Termination.Dependent_Phase loop
+         for Second in Termination.Dependent_Phase loop
+            for Third in Termination.Dependent_Phase loop
+               for Fourth in Termination.Dependent_Phase loop
+                  declare
+                     Before : constant Termination.Snapshot :=
+                       [0 => First, 1 => Second, 2 => Third, 3 => Fourth,
+                        others => Termination.Not_Dependent];
+                     After : constant Termination.Snapshot :=
+                       Termination.Select_Termination (Before);
+                  begin
+                     if Termination.Can_Select (Before) then
+                        for Position in Termination.Slot loop
+                           pragma Assert
+                             (After (Position) =
+                                (if Before (Position) = Termination.Waiting
+                                 then Termination.Selected
+                                 else Before (Position)));
+                        end loop;
+                     else
+                        pragma Assert (After = Before);
+                     end if;
+                     Count (9_300 + Termination.Dependent_Phase'Pos (First));
+                     Count (Termination.Dependent_Phase'Pos (Second));
+                     Count (Termination.Dependent_Phase'Pos (Third));
+                     Count (Termination.Dependent_Phase'Pos (Fourth));
+                     Count (Boolean'Pos (Termination.Can_Select (Before)));
+                     for Position in Termination.Slot loop
+                        Count
+                          (Termination.Dependent_Phase'Pos (After (Position)));
+                     end loop;
+                  end;
+               end loop;
+            end loop;
+         end loop;
+      end loop;
+   end Check_Collective_Termination;
+
 begin
    Check_Allocator;
    Check_Wait_Enumeration;
@@ -528,6 +572,7 @@ begin
    Check_Priority_And_Ceilings;
    Check_Clock;
    Check_Exceptional_Completions;
+   Check_Collective_Termination;
    Ada.Text_IO.Put_Line
      ("FLYOLOGY:M4:MODEL:PASS:EDGES" & Natural'Image (Edges) &
         ":HASH" & Hash_Word'Image (Hash));
