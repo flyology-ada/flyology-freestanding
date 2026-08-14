@@ -204,6 +204,10 @@ package body Flyology.M3_Demo is
    Abort_User_Handler_Ran : Boolean := False with Atomic;
    Abort_Id : Ada.Task_Identification.Task_Id :=
      Ada.Task_Identification.Null_Task_Id with Atomic;
+   Multi_Abort_Started : Done_Array := [others => False];
+   Multi_Abort_Continued : Done_Array := [others => False];
+   Multi_Abort_Ids : Identity_Array :=
+     [others => Ada.Task_Identification.Null_Task_Id];
    Abort_Call_Started : Boolean := False with Atomic;
    Abort_Call_Continued : Boolean := False with Atomic;
    Abort_Call_Id : Ada.Task_Identification.Task_Id :=
@@ -295,6 +299,11 @@ package body Flyology.M3_Demo is
 
    task type Abort_Worker_Type
      (CPU_Number : System.Multiprocessors.CPU_Range)
+     with CPU => CPU_Number;
+
+   task type Multi_Abort_Worker_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range;
+      Index      : Positive)
      with CPU => CPU_Number;
 
    task type Abort_Rendezvous_Server_Type
@@ -699,6 +708,14 @@ package body Flyology.M3_Demo is
       Abort_Continued := True;
    end Abort_Worker_Type;
 
+   task body Multi_Abort_Worker_Type is
+   begin
+      Multi_Abort_Ids (Index) := Ada.Task_Identification.Current_Task;
+      Multi_Abort_Started (Index) := True;
+      delay 10.0;
+      Multi_Abort_Continued (Index) := True;
+   end Multi_Abort_Worker_Type;
+
    task body Abort_Rendezvous_Server_Type is
    begin
       if Delay_Before_Accept then
@@ -885,6 +902,10 @@ package body Flyology.M3_Demo is
    procedure Report_Abort_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_abort_pass";
+
+   procedure Report_Multi_Abort_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_multi_abort_pass";
 
    procedure Report_Abort_Rendezvous_Pass
    with Import, Convention => C,
@@ -1465,6 +1486,44 @@ package body Flyology.M3_Demo is
          Report_Failure;
       end if;
       Report_Abort_Pass;
+
+      Multi_Abort_Started := [others => False];
+      Multi_Abort_Continued := [others => False];
+      Multi_Abort_Ids :=
+        [others => Ada.Task_Identification.Null_Task_Id];
+      declare
+         First : Multi_Abort_Worker_Type (1, 1);
+         Second : Multi_Abort_Worker_Type
+           (System.Multiprocessors.CPU_Range (CPU_Count), 2);
+         First_Id : constant Ada.Task_Identification.Task_Id :=
+           First'Identity;
+         Second_Id : constant Ada.Task_Identification.Task_Id :=
+           Second'Identity;
+      begin
+         for Attempt in 1 .. 1_000 loop
+            exit when Multi_Abort_Started (1)
+              and then Multi_Abort_Started (2);
+            delay 0.001;
+         end loop;
+         if not Multi_Abort_Started (1) or else not Multi_Abort_Started (2)
+           or else Multi_Abort_Ids (1) /= First_Id
+           or else Multi_Abort_Ids (2) /= Second_Id
+         then
+            Report_Failure;
+         end if;
+         abort First, Second;
+      end;
+      if Multi_Abort_Continued (1) or else Multi_Abort_Continued (2)
+        or else not Ada.Task_Identification.Is_Terminated
+          (Multi_Abort_Ids (1))
+        or else not Ada.Task_Identification.Is_Terminated
+          (Multi_Abort_Ids (2))
+        or else Ada.Task_Identification.Is_Callable (Multi_Abort_Ids (1))
+        or else Ada.Task_Identification.Is_Callable (Multi_Abort_Ids (2))
+      then
+         Report_Failure;
+      end if;
+      Report_Multi_Abort_Pass;
 
       declare
          Server : aliased Abort_Rendezvous_Server_Type

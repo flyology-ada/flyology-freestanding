@@ -456,7 +456,8 @@ the bounded identity and monotonic heap pools remain deliberately unreclaimed.
 ## Abort checkpoint
 
 The owned `abort_probe.adb` confirms on both pinned cross targets that a plain
-Ada `abort Worker` statement constructs a `System.Tasking.Task_List` and calls
+two-name Ada abort statement constructs one two-element
+`System.Tasking.Task_List` containing the exact task identities and calls
 `System.Tasking.Stages.Abort_Tasks`. The target wrapper's compiler-generated
 cleanup defers abort, calls `Complete_Task`, calls `Abort_Undefer`, and
 continues the
@@ -488,11 +489,18 @@ generation-tagged wait; there is no unobserved interval between those cases.
 The ordinary-Ada demonstration lets a pinned task enter a one-second delay,
 aborts it from the environment task, rejects execution after the delay, and
 requires the retained language identity to be terminated and not callable
-before `FLYOLOGY:M4:ABORT:PASS`. On SMP4 the target is pinned to the last core,
-so deadline cancellation and wakeup cross cores; SMP1 covers the same state
-machine locally. This checkpoint intentionally does not claim asynchronous
-abort of a CPU-bound task, abort-before-activation, multi-task abort
-statements, ATC, or full abnormal master/exception semantics.
+before `FLYOLOGY:M4:ABORT:PASS`. A separate declaration places two tasks on
+CPU 1 and the last configured CPU, waits until both are blocked in delays, and
+executes one `abort First, Second` statement. `Abort_Tasks` validates and
+deduplicates the exact identities, rejects dormant named tasks before
+publication, and serializes both requests under one RTS-lock acquisition;
+both identities must be terminated and not callable, with neither continuation
+executed, before `FLYOLOGY:M4:MULTI_ABORT:PASS`. SMP4 therefore covers a
+single atomic request plan spanning two cores, while SMP1 covers the same
+state machine locally. This checkpoint intentionally does not claim recursive
+abortion of tasks dependent on a named task, asynchronous abort of a CPU-bound
+task, abort-before-activation, ATC, or full abnormal master/exception
+semantics.
 The private abort identity does not match an ordinary `when others`. Compiler
 zero-filter action-chain cleanups continue during phase two without terminating
 phase-one search. Compiler `all_others` is a real internal handler used by the

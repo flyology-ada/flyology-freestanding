@@ -987,6 +987,8 @@ package body Flyology.M3_Runtime is
    end Deliver_Pending_Abort_Locked;
 
    procedure Abort_Tasks (Members : Task_List) is
+      type Abort_Plan is array (Task_Slot) of Boolean;
+      Plan          : Abort_Plan := [others => False];
       Kicks         : Boolean_Core_Array := [others => False];
       Reference     : Dispatcher.Task_Ref;
       Slot          : Task_Slot;
@@ -1001,9 +1003,6 @@ package body Flyology.M3_Runtime is
         (Resolve_Only, Resolve_And_Remove_Call, Retain_Natural_Wake);
       Wait_Action : Abort_Wait_Action;
    begin
-      if Members'Length /= 1 then
-         Stop;
-      end if;
       Enter_Kernel;
       for Index in Members'Range loop
          if Members (Index) = null then
@@ -1015,14 +1014,21 @@ package body Flyology.M3_Runtime is
             Slot := Record_Of (Members (Index));
             Reference := To_Reference (Members (Index));
             State := Core.State_Locked (Reference);
-            Wait_Action := Resolve_Only;
-            if State = Dispatcher.Dormant then
+            if Slot = 0 or else State = Dispatcher.Dormant then
                Leave_Kernel;
                Stop;
-            elsif State in Dispatcher.Retiring | Dispatcher.Terminated then
-               null;
             end if;
-            if State = Dispatcher.Retiring
+            Plan (Slot) := True;
+         end if;
+      end loop;
+
+      for Candidate in Task_Slot range 1 .. Task_Slot'Last loop
+         if Plan (Candidate) then
+            Slot := Candidate;
+            Reference := To_Reference (Tasks (Slot).Identity);
+            State := Core.State_Locked (Reference);
+            Wait_Action := Resolve_Only;
+            if State in Dispatcher.Retiring | Dispatcher.Terminated
               or else Tasks (Slot).Abort_In_Progress
               or else Tasks (Slot).Abort_Pending
             then
@@ -1030,7 +1036,7 @@ package body Flyology.M3_Runtime is
             else
                Tasks (Slot).Abort_Pending := True;
             end if;
-            if State = Dispatcher.Retiring
+            if State in Dispatcher.Retiring | Dispatcher.Terminated
               or else Tasks (Slot).Abort_In_Progress
               or else not Tasks (Slot).Abort_Pending
             then

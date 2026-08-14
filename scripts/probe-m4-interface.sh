@@ -390,6 +390,12 @@ for architecture in x86_64 aarch64; do
         "$output/abort_probe.undefined" >/dev/null
     grep -F 'system__tasking__stages__abort_tasks (' \
         "$output/abort_probe.expanded" >/dev/null
+    grep -F "system__tasking__task_list'((" \
+        "$output/abort_probe.expanded" >/dev/null
+    grep -F 'abort_probe__firstTKV!(first)._task_id' \
+        "$output/abort_probe.expanded" >/dev/null
+    grep -F 'abort_probe__secondTKV!(' \
+        "$output/abort_probe.expanded" >/dev/null
 
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-gcc" -c \
