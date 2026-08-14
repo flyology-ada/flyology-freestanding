@@ -1179,6 +1179,12 @@ flyology_m4_report_abort_protected_pass:
     address x0, m4_abort_protected_pass
     b serial_puts_locked
 
+.global flyology_m4_report_collision_stress_pass
+.type flyology_m4_report_collision_stress_pass, %function
+flyology_m4_report_collision_stress_pass:
+    address x0, m4_collision_stress_pass
+    b serial_puts_locked
+
 .global flyology_m3_report_master_pass
 .type flyology_m3_report_master_pass, %function
 flyology_m3_report_master_pass:
@@ -1898,6 +1904,7 @@ m4_abort_rendezvous_pass: .asciz "FLYOLOGY:M4:ABORT_RENDEZVOUS:PASS\n"
 m4_abort_timeout_pass: .asciz "FLYOLOGY:M4:ABORT_TIMEOUT:PASS\n"
 m4_abort_accepted_pass: .asciz "FLYOLOGY:M4:ABORT_ACCEPTED:PASS\n"
 m4_abort_protected_pass: .asciz "FLYOLOGY:M4:ABORT_PROTECTED:PASS\n"
+m4_collision_stress_pass: .asciz "FLYOLOGY:M4:COLLISION_STRESS:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:AARCH64_BOOT\n"
 exception_marker: .asciz "FLYOLOGY:FAIL:AARCH64_EXCEPTION\n"

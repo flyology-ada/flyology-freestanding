@@ -495,7 +495,7 @@ The QEMU image creates more cumulative ordinary tasks than the 15 non-
 environment execution slots while retaining earlier standard `Task_Id` values.
 Later tasks validate their reused stack bounds, and the old identities remain
 pairwise distinct, terminated, and not callable before
-`FLYOLOGY:M4:RECLAMATION:PASS`. The stable identity table is bounded at 128 and
+`FLYOLOGY:M4:RECLAMATION:PASS`. The stable identity table is bounded at 256 and
 is deliberately not reused yet. The compiler activation chain remains bounded
 at 32 tasks, separately from the lifetime identity pool, so terminated
 identities do not consume the live execution-slot capacity. Identity exhaustion
@@ -601,9 +601,15 @@ abort before returning to user code. `FLYOLOGY:M4:ABORT_RENDEZVOUS:PASS`,
 required in every QEMU cell and every SMP4 stress repeat. The timing is
 driven by a passive exact queued-call count read under the RTS lock, so abort is
 requested only after the compiler-created caller record is actually published.
-The observer does not schedule, wake, or create tasks. The winner ordering is
-still deliberately separated rather than a near-simultaneous boundary collision;
-adversarial accept/timeout/abort ordering stress remains an M4 closure gate.
+The observer does not schedule, wake, or create tasks. A subsequent bounded
+collision campaign creates a fresh server and timed caller for each of six
+orderings: acceptance before timeout, timeout before acceptance, abort of an
+unaccepted caller, an equal accept/timeout boundary, abort just before that
+boundary, and abort while an accepted rendezvous is held open. Each case
+requires exactly one server acceptance, exact caller termination, exactly one
+normal timed outcome when not aborted, no queued call, and normal server master
+completion. The server and caller use separate compiler activation chains so
+activation handshakes are not mistaken for rendezvous arbitration evidence.
 
 The protected-entry abort composition uses distinct protected wait kinds, so
 it cannot be confused with a server-side rendezvous accept wait. An abort of a
@@ -623,9 +629,15 @@ blocking case opens the gate immediately after the abort request, exercising
 the race in which entry service removes the already-resolved stale record
 before the caller resumes. The timed case checks exact deadline cancellation
 before `FLYOLOGY:M4:ABORT_PROTECTED:PASS`. SMP4 exercises the remote wake path
-while SMP1 exercises the same arbitration locally. This is deterministic
-separated-order evidence; simultaneous service/timeout/abort stress remains
-required before M4 closure.
+while SMP1 exercises the same arbitration locally. A six-case follow-on
+campaign covers service before timeout, timeout before service, abort before
+service, service at the timeout boundary, abort immediately before that
+boundary, and service followed by abort before the gate closes. Every case
+requires exactly one terminal outcome, a zero entry count, terminated/noncallable
+caller identity, and a fresh successful protected call afterward. The shared
+`FLYOLOGY:M4:COLLISION_STRESS:PASS` marker is emitted only after both the task-
+entry and protected-entry campaigns complete. These forced orderings are
+bounded production integration stress, not an exhaustive concurrency proof.
 
 ## Model and stress closure gates
 
@@ -659,8 +671,9 @@ section facade remain outside SPARK behind typed boundaries.
 ordinary-Ada runs per architecture. Each run repeats cross-core delay wakeups,
 conditional and timed protected entries, rendezvous and timed calls, dynamic
 priority changes, master observation, abort against delay/rendezvous/protected
-waits, execution-slot reclamation, and post-`adafinal` protected-object
-teardown. The baseline image also performs cumulative dynamic heap traffic
+wakes, the six-case protected and rendezvous collision campaigns, execution-
+slot reclamation, and post-`adafinal` protected-object teardown. The baseline
+image also performs cumulative dynamic heap traffic
 larger than the bounded pool. These runs exercise the production global lock,
 architecture timer,
 IPI/SGI, context switch, and compiler wrappers; they are bounded integration

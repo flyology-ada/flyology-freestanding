@@ -36,7 +36,7 @@ package body Flyology.M3_Demo is
      with Atomic_Components;
    type Stack_Probe_Array is array (Natural range 0 .. 255) of Character;
    type Counter_Pair is array (Positive range 1 .. 2) of Natural;
-   type Service_Log_Array is array (Positive range 1 .. 4) of Natural;
+   type Service_Log_Array is array (Positive range 1 .. 64) of Natural;
 
    Ceiling_Body_Ran : Boolean := False with Atomic;
    Ceiling_Check_Failed : Boolean := False with Atomic;
@@ -124,6 +124,7 @@ package body Flyology.M3_Demo is
       entry Wait (Index : Positive);
       entry Fail;
       function Service_Order (Index : Positive) return Natural;
+      function Services return Natural;
       function Waiting return Natural;
       function Failing return Natural;
    private
@@ -156,6 +157,8 @@ package body Flyology.M3_Demo is
 
       function Service_Order (Index : Positive) return Natural is
         (Service_Log (Index));
+
+      function Services return Natural is (Service_Count);
 
       function Waiting return Natural is (Wait'Count);
       function Failing return Natural is (Fail'Count);
@@ -237,6 +240,15 @@ package body Flyology.M3_Demo is
    Abort_Timed_Protected_Continued : Boolean := False with Atomic;
    Abort_Timed_Protected_Id : Ada.Task_Identification.Task_Id :=
      Ada.Task_Identification.Null_Task_Id with Atomic;
+   Collision_Call_Started : Boolean := False with Atomic;
+   Collision_Call_Accepted : Boolean := False with Atomic;
+   Collision_Call_Timed_Out : Boolean := False with Atomic;
+   Collision_Call_Continued : Boolean := False with Atomic;
+   Collision_Call_Id : Ada.Task_Identification.Task_Id :=
+     Ada.Task_Identification.Null_Task_Id with Atomic;
+   Collision_Server_Accepted : Boolean := False with Atomic;
+   Collision_Server_Completed : Boolean := False with Atomic;
+   Collision_Server_Accept_Count : Natural := 0 with Atomic;
    Exceptional_Protected_Caught : Boolean := False with Atomic;
    Exceptional_Rendezvous_Caller_Caught : Boolean := False with Atomic;
    Exceptional_Rendezvous_Server_Caught : Boolean := False with Atomic;
@@ -379,7 +391,23 @@ package body Flyology.M3_Demo is
      with CPU => CPU_Number;
 
    task type Abort_Timed_Protected_Worker_Type
-     (CPU_Number : System.Multiprocessors.CPU_Range)
+     (CPU_Number : System.Multiprocessors.CPU_Range;
+      Timeout_Milliseconds : Positive)
+     with CPU => CPU_Number;
+
+   task type Collision_Rendezvous_Server_Type
+     (CPU_Number  : System.Multiprocessors.CPU_Range;
+      Accept_Delay_Milliseconds : Natural;
+      Hold_Milliseconds         : Natural)
+     with CPU => CPU_Number
+   is
+      entry Ping;
+   end Collision_Rendezvous_Server_Type;
+
+   task type Collision_Rendezvous_Client_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range;
+      Server     : not null access Collision_Rendezvous_Server_Type;
+      Timeout_Milliseconds : Positive)
      with CPU => CPU_Number;
 
    task type Exceptional_Protected_Worker_Type
@@ -898,11 +926,39 @@ package body Flyology.M3_Demo is
          Protected_Gate.Wait (2);
          Abort_Timed_Protected_Accepted := True;
       or
-         delay 1.0;
+         delay 0.001 * Timeout_Milliseconds;
          Abort_Timed_Protected_Timed_Out := True;
       end select;
       Abort_Timed_Protected_Continued := True;
    end Abort_Timed_Protected_Worker_Type;
+
+   task body Collision_Rendezvous_Server_Type is
+   begin
+      delay 0.001 * Accept_Delay_Milliseconds;
+      accept Ping do
+         Collision_Server_Accept_Count :=
+           Collision_Server_Accept_Count + 1;
+         Collision_Server_Accepted := True;
+         if Hold_Milliseconds > 0 then
+            delay 0.001 * Hold_Milliseconds;
+         end if;
+      end Ping;
+      Collision_Server_Completed := True;
+   end Collision_Rendezvous_Server_Type;
+
+   task body Collision_Rendezvous_Client_Type is
+   begin
+      Collision_Call_Id := Ada.Task_Identification.Current_Task;
+      Collision_Call_Started := True;
+      select
+         Server.Ping;
+         Collision_Call_Accepted := True;
+      or
+         delay 0.001 * Timeout_Milliseconds;
+         Collision_Call_Timed_Out := True;
+      end select;
+      Collision_Call_Continued := True;
+   end Collision_Rendezvous_Client_Type;
 
    task body Exceptional_Protected_Worker_Type is
    begin
@@ -951,6 +1007,249 @@ package body Flyology.M3_Demo is
       raise Program_Error;
       return 0;
    end Fail_Before_Activation;
+
+   procedure Run_Protected_Collision_Campaign is
+      CPU_Count : constant Positive :=
+        Positive (System.Multiprocessors.Number_Of_CPUs);
+   begin
+      for Scenario in Positive range 1 .. 6 loop
+         Abort_Timed_Protected_Started := False;
+         Abort_Timed_Protected_Accepted := False;
+         Abort_Timed_Protected_Timed_Out := False;
+         Abort_Timed_Protected_Continued := False;
+         Abort_Timed_Protected_Id :=
+           Ada.Task_Identification.Null_Task_Id;
+         Protected_Gate.Close;
+         declare
+            Timeout_Milliseconds : constant Positive :=
+              (case Scenario is
+                 when 1 | 3 | 6 => 100,
+                 when 2         => 20,
+                 when 4         => 30,
+                 when 5         => 40);
+            Worker : Abort_Timed_Protected_Worker_Type
+              (System.Multiprocessors.CPU_Range (CPU_Count),
+               Timeout_Milliseconds);
+            Worker_Id : constant Ada.Task_Identification.Task_Id :=
+              Worker'Identity;
+         begin
+            for Attempt in 1 .. 1_000 loop
+               exit when Abort_Timed_Protected_Started
+                 and then Abort_Timed_Protected_Id = Worker_Id
+                 and then Protected_Gate.Waiting = 1;
+               delay 0.001;
+            end loop;
+            if not Abort_Timed_Protected_Started
+              or else Abort_Timed_Protected_Id /= Worker_Id
+              or else Protected_Gate.Waiting /= 1
+            then
+               Report_Failure;
+            end if;
+            case Scenario is
+               when 1 =>
+                  Protected_Gate.Open;
+                  Protected_Gate.Close;
+               when 2 =>
+                  delay 0.030;
+               when 3 =>
+                  abort Worker;
+                  Protected_Gate.Open;
+                  Protected_Gate.Close;
+               when 4 =>
+                  delay 0.030;
+                  Protected_Gate.Open;
+                  Protected_Gate.Close;
+               when 5 =>
+                  delay 0.030;
+                  abort Worker;
+                  Protected_Gate.Open;
+                  Protected_Gate.Close;
+               when 6 =>
+                  delay 0.030;
+                  Protected_Gate.Open;
+                  abort Worker;
+                  Protected_Gate.Close;
+            end case;
+         end;
+
+         if Protected_Gate.Waiting /= 0
+           or else Abort_Timed_Protected_Id =
+             Ada.Task_Identification.Null_Task_Id
+           or else not Ada.Task_Identification.Is_Terminated
+             (Abort_Timed_Protected_Id)
+           or else Ada.Task_Identification.Is_Callable
+             (Abort_Timed_Protected_Id)
+         then
+            Report_Failure;
+         end if;
+         if Scenario in 3 | 6 then
+            if Abort_Timed_Protected_Accepted
+              or else Abort_Timed_Protected_Timed_Out
+              or else Abort_Timed_Protected_Continued
+            then
+               Report_Failure;
+            end if;
+         elsif Scenario = 5 then
+            --  This is the deliberately near-boundary three-way case.  TCG
+            --  may resume the environment before or after the timeout/service
+            --  winner.  Accept either abort (no user continuation) or exactly
+            --  one normal winner, but never a double or partial outcome.
+            if Abort_Timed_Protected_Accepted
+              and then Abort_Timed_Protected_Timed_Out
+            then
+               Report_Failure;
+            elsif Abort_Timed_Protected_Continued /=
+              (Abort_Timed_Protected_Accepted
+               or else Abort_Timed_Protected_Timed_Out)
+            then
+               Report_Failure;
+            end if;
+         elsif Abort_Timed_Protected_Accepted =
+             Abort_Timed_Protected_Timed_Out
+           or else not Abort_Timed_Protected_Continued
+         then
+            Report_Failure;
+         end if;
+
+         --  A fresh immediate call after every collision proves that no stale
+         --  protected queue/parameter record prevents subsequent service.
+         declare
+            Services_Before : constant Natural := Protected_Gate.Services;
+         begin
+            Protected_Gate.Open;
+            Protected_Gate.Wait (4);
+            Protected_Gate.Close;
+            if Protected_Gate.Services /= Services_Before + 1
+              or else Protected_Gate.Waiting /= 0
+            then
+               Report_Failure;
+            end if;
+         end;
+      end loop;
+   end Run_Protected_Collision_Campaign;
+
+   procedure Run_Rendezvous_Collision_Campaign is
+      CPU_Count : constant Positive :=
+        Positive (System.Multiprocessors.Number_Of_CPUs);
+   begin
+      for Scenario in Positive range 1 .. 6 loop
+         Collision_Call_Started := False;
+         Collision_Call_Accepted := False;
+         Collision_Call_Timed_Out := False;
+         Collision_Call_Continued := False;
+         Collision_Call_Id := Ada.Task_Identification.Null_Task_Id;
+         Collision_Server_Accepted := False;
+         Collision_Server_Completed := False;
+         Collision_Server_Accept_Count := 0;
+         declare
+            Accept_Delay_Milliseconds : constant Natural :=
+              (case Scenario is
+                 when 1         => 200,
+                 when 2 | 3     => 1_000,
+                 when 4         => 200,
+                 when 5         => 300,
+                 when 6         => 200);
+            Hold_Milliseconds : constant Natural :=
+              (if Scenario = 6 then 200 else 0);
+            Timeout_Milliseconds : constant Positive :=
+              (case Scenario is
+                 when 1 | 3 | 6 => 1_000,
+                 when 2         => 300,
+                 when 4         => 200,
+                 when 5         => 300);
+            Server : aliased Collision_Rendezvous_Server_Type
+              (System.Multiprocessors.CPU_Range (CPU_Count),
+               Accept_Delay_Milliseconds, Hold_Milliseconds);
+         begin
+            --  Activate the server in its own compiler activation chain, then
+            --  create the timed caller.  This keeps the test's activation
+            --  handshake distinct from the rendezvous race being exercised.
+            declare
+               Client : Collision_Rendezvous_Client_Type
+                 (1, Server'Access, Timeout_Milliseconds);
+               Client_Id : constant Ada.Task_Identification.Task_Id :=
+                 Client'Identity;
+            begin
+               for Attempt in 1 .. 1_000 loop
+                  exit when Collision_Call_Started
+                    and then Collision_Call_Id = Client_Id
+                    and then Flyology.M3_Runtime.Demo_Queued_Call_Count = 1;
+                  delay 0.001;
+               end loop;
+               if not Collision_Call_Started
+                 or else Collision_Call_Id /= Client_Id
+                 or else Flyology.M3_Runtime.Demo_Queued_Call_Count /= 1
+               then
+                  Report_Failure;
+               end if;
+
+               case Scenario is
+                  when 1 =>
+                     null;
+                  when 2 =>
+                     delay 0.400;
+                     Server.Ping;
+                  when 3 =>
+                     abort Client;
+                     Server.Ping;
+                  when 4 =>
+                     for Attempt in 1 .. 1_000 loop
+                        exit when Collision_Call_Accepted
+                          or else Collision_Call_Timed_Out;
+                        delay 0.001;
+                     end loop;
+                     if Collision_Call_Timed_Out then
+                        Server.Ping;
+                     elsif not Collision_Call_Accepted then
+                        Report_Failure;
+                     end if;
+                  when 5 =>
+                     delay 0.250;
+                     abort Client;
+                     Server.Ping;
+                  when 6 =>
+                     for Attempt in 1 .. 1_000 loop
+                        exit when Collision_Server_Accepted;
+                        delay 0.001;
+                     end loop;
+                     if not Collision_Server_Accepted then
+                        Report_Failure;
+                     end if;
+                     abort Client;
+               end case;
+            end;
+         end;
+         if Collision_Server_Accept_Count /= 1
+           or else not Collision_Server_Completed
+           or else Flyology.M3_Runtime.Demo_Queued_Call_Count /= 0
+           or else Collision_Call_Id = Ada.Task_Identification.Null_Task_Id
+           or else not Ada.Task_Identification.Is_Terminated
+             (Collision_Call_Id)
+           or else Ada.Task_Identification.Is_Callable (Collision_Call_Id)
+         then
+            Report_Failure;
+         end if;
+         if Scenario in 3 | 6 then
+            if Collision_Call_Accepted or else Collision_Call_Timed_Out
+              or else Collision_Call_Continued
+            then
+               Report_Failure;
+            end if;
+         elsif Scenario = 5 then
+            if Collision_Call_Accepted and then Collision_Call_Timed_Out then
+               Report_Failure;
+            elsif Collision_Call_Continued /=
+              (Collision_Call_Accepted or else Collision_Call_Timed_Out)
+            then
+               Report_Failure;
+            end if;
+         elsif Collision_Call_Accepted = Collision_Call_Timed_Out
+           or else not Collision_Call_Continued
+         then
+            Report_Failure;
+         end if;
+      end loop;
+   end Run_Rendezvous_Collision_Campaign;
 
    procedure Report_Ordinary_Pass
    with Import, Convention => C,
@@ -1086,6 +1385,10 @@ package body Flyology.M3_Demo is
    procedure Report_Abort_Protected_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_abort_protected_pass";
+
+   procedure Report_Collision_Stress_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_collision_stress_pass";
 
    procedure Report_Master_Pass
    with Import, Convention => C,
@@ -1415,7 +1718,7 @@ package body Flyology.M3_Demo is
       end if;
       declare
          Worker : Abort_Timed_Protected_Worker_Type
-           (System.Multiprocessors.CPU_Range (CPU_Count));
+           (System.Multiprocessors.CPU_Range (CPU_Count), 1_000);
          Worker_Id : constant Ada.Task_Identification.Task_Id :=
            Worker'Identity;
       begin
@@ -1585,6 +1888,7 @@ package body Flyology.M3_Demo is
          Report_Failure;
       end if;
       Report_Exception_Abort_Protected_Pass;
+      Run_Protected_Collision_Campaign;
 
       declare
          Server : Rendezvous_Server_Type
@@ -1964,6 +2268,8 @@ package body Flyology.M3_Demo is
          Report_Failure;
       end if;
       Report_Abort_Timeout_Pass;
+      Run_Rendezvous_Collision_Campaign;
+      Report_Collision_Stress_Pass;
 
       for Index in Auto_Id'Range loop
          if not Auto_Done (Index)

@@ -4,7 +4,7 @@ package body System.Tasking is
    --  Stable Task_Id values outlive execution-slot reclamation.  Keep their
    --  bounded lifetime pool distinct from Max_Tasks, which bounds one
    --  activation chain and the concurrently admitted execution substrate.
-   Identity_Capacity : constant := 128;
+   Identity_Capacity : constant := 256;
    type Identity_Array is array (Natural range 0 .. Identity_Capacity - 1) of
      aliased Ada_Task_Control_Block;
 
