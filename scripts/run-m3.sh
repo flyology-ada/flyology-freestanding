@@ -119,6 +119,10 @@ test "$(count_marker 'FLYOLOGY:M4:PROTECTED_ENTRY:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:FINALIZATION:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:RENDEZVOUS:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:EXCEPTIONAL_SYNC:PASS')" -eq 1
+test "$(count_marker 'FLYOLOGY:M4:EXCEPTIONAL_PROTECTED_IMMEDIATE:PASS')" -eq 1
+test "$(count_marker 'FLYOLOGY:M4:EXCEPTIONAL_PROTECTED_QUEUED:PASS')" -eq 1
+test "$(count_marker 'FLYOLOGY:M4:EXCEPTION_ABORT_PROTECTED:PASS')" -eq 1
+test "$(count_marker 'FLYOLOGY:M4:EXCEPTIONAL_RENDEZVOUS:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:EXCEPTION_ABORT:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:UNACTIVATED_CLEANUP:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:ALLOCATOR_TARGET:PASS')" -eq 1

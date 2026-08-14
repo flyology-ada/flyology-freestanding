@@ -9,3 +9,4 @@ ADRs are numbered, immutable once accepted except for status links, and supersed
 - [ADR-0005: Separate context forms and generation-qualified rescheduling](0005-m2-context-and-reschedule-boundary.md) — accepted.
 - [ADR-0006: Clean-room compiler tasking compatibility](0006-clean-room-compiler-tasking-interface.md) — accepted.
 - [ADR-0007: Pin the QEMU monotonic-clock and local-timer contract](0007-qemu-monotonic-clock-and-local-timers.md) — accepted.
+- [ADR-0008: Reclaim compiler heap objects under the RTS critical section](0008-bounded-reclaiming-allocator.md) — accepted.

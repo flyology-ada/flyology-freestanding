@@ -175,6 +175,7 @@ procedure M4_Model_Tests is
    end Check_Wait_Enumeration;
 
    procedure Check_Allocator is
+      use type Allocator.Occupancy_Map;
       type Count_Array is array (Natural range <>) of Allocator.Byte_Count;
       type Cursor_Array is array (Natural range <>) of Allocator.Byte_Offset;
       Counts : constant Count_Array :=
@@ -228,6 +229,50 @@ procedure M4_Model_Tests is
       pragma Assert
         (Allocator.Reserve (65_520, 17) =
            (Accepted => False, Start => 65_520, Size => 0, Next => 65_520));
+
+      --  Exhaust every occupancy pattern in the first half of the bounded
+      --  state model.  The unused upper half makes end-of-map fits visible,
+      --  while every pattern still checks exact first-fit choice and that a
+      --  matching release restores the complete prior map.
+      for Bits in Natural range 0 .. 255 loop
+         declare
+            Used : Allocator.Occupancy_Map := [others => False];
+         begin
+            for Unit in Allocator.Model_Unit_Index range 0 .. 7 loop
+               Used (Unit) := (Bits / (2 ** Unit)) mod 2 = 1;
+            end loop;
+            for Needed in Allocator.Model_Unit_Count range 1 .. 4 loop
+               declare
+                  Fit : constant Allocator.Fit_Result :=
+                    Allocator.Find_First_Fit (Used, Needed);
+               begin
+                  pragma Assert
+                    (if Fit.Accepted
+                     then Allocator.Range_Is_Free
+                       (Used, Fit.Start, Needed));
+                  Count (10_000 + Bits * 10 + Needed);
+                  Count (Boolean'Pos (Fit.Accepted));
+                  Count (Fit.Start);
+                  if Fit.Accepted then
+                     declare
+                        Marked : constant Allocator.Occupancy_Map :=
+                          Allocator.Mark_Allocated
+                            (Used, Fit.Start, Needed);
+                        Restored : constant Allocator.Occupancy_Map :=
+                          Allocator.Release_Range
+                            (Marked, Fit.Start, Needed);
+                     begin
+                        pragma Assert (Restored = Used);
+                        Count
+                          (20_000 + Fit.Start * 10 + Needed);
+                     end;
+                  else
+                     Count (20_999);
+                  end if;
+               end;
+            end loop;
+         end;
+      end loop;
    end Check_Allocator;
 
    procedure Check_Winner_Orders is

@@ -59,6 +59,12 @@ with acquire loads before cross-core task-slot reclamation; stack entries are
 written before their corresponding depth publication. The RTS lock still owns
 the Ada lifecycle transition, while this narrow atomic boundary makes the C
 unwind state visible to the master that releases an execution slot.
+Every owned exception also records the exact task slot that reserved it.
+Unwind deletion removes every reference to that object from the owner's
+propagation stack before it release-publishes the pool entry as free. A stale
+propagation reference therefore cannot silently name a later exception that
+reuses the same bounded pool address; retirement still fails closed if a
+genuinely live occupied exception remains.
 The compiler-visible occurrence record is deliberately opaque; product
 semantics currently preserve only the raw current handle returned through
 `Get_Gnat_Exception` and a stable exception identity snapshot.
@@ -78,6 +84,13 @@ The native GNAT 15.3 expansion of the owned delay probe lowers relative
 `delay 0.001` to `Ada.Calendar.Delays.Delay_For (Duration)`. Flyology's owned
 facade routes that call through checked nanosecond-to-tick conversion, the
 per-core exact-token timer table, and the common wait arbitration kernel. The
+conversion splits a positive interval into checked whole seconds and a
+sub-second remainder. Only the bounded remainder is scaled as fixed point;
+the billion-scale whole-second operation uses checked integer arithmetic, so
+it never forms the overflowing fixed-point intermediate
+`Interval * 1_000_000_000`. The repeated multi-abort gate enters a valid
+ten-second relative delay on both architectures and thus guards this boundary
+as well as abort arbitration. The
 ordinary-task QEMU gate requires four simultaneous delayed tasks in the SMP4
 image, rejects early resume by comparing the architecture clock with the
 registered absolute deadline, and emits one `FLYOLOGY:M4:DELAYS:PASS` marker
@@ -193,10 +206,15 @@ its exact retained record from `Queued` to `Completed_Exceptional`, snapshots
 the stable exception identity, resolves the exact caller token once, and lets
 the servicing task continue to later calls. The caller consumes and clears the
 record before raising a fresh occurrence with that identity. The ordinary-Ada
-gate requires both immediate and cross-core queued Program_Error handlers, a
-subsequent normally serviced call, and an empty entry queue before the shared
-`FLYOLOGY:M4:EXCEPTIONAL_SYNC:PASS` marker. Only exception identity is
-preserved; messages and tracebacks are not copied.
+gate requires the immediate handler before
+`FLYOLOGY:M4:EXCEPTIONAL_PROTECTED_IMMEDIATE:PASS`, then a cross-core queued
+handler, a subsequent normally serviced call, and an empty entry queue before
+`FLYOLOGY:M4:EXCEPTIONAL_PROTECTED_QUEUED:PASS`. The abort-over-transferred-
+exception case must pass before `FLYOLOGY:M4:EXCEPTION_ABORT_PROTECTED:PASS`,
+and both rendezvous participants must catch the transferred identity before
+`FLYOLOGY:M4:EXCEPTIONAL_RENDEZVOUS:PASS`. The aggregate
+`FLYOLOGY:M4:EXCEPTIONAL_SYNC:PASS` follows all four boundaries. Only exception
+identity is preserved; messages and tracebacks are not copied.
 
 An owned hosted GNAT 15.3 black-box queues a protected entry, begins its action,
 requests abort of the caller, and then lets that action raise Constraint_Error.
@@ -345,19 +363,26 @@ ordinary-Ada QEMU scenario exercises a raised task-body declarative initializer;
 the false body-elaboration predicate is compiler-interface and checked-runtime
 evidence, not a separately forced product-cell claim.
 
-The allocator is a bounded 64-KiB, 16-byte-aligned monotonic pool. Its atomic
-compare/exchange reservation validates the request and complete aligned extent
-before publishing a new cursor, so exhaustion and oversized requests cannot
-wrap the cursor or overlap live storage. A zero-size request consumes one
-16-byte extent. Exhaustion enters the compiler's `Storage_Error` check path
-instead of returning null. The exact production C source passes a pinned native
-eight-thread test covering alignment, pairwise disjointness, capacity edges,
-zero-size uniqueness, and unchanged cursor state after rejected reservations.
-Both target QEMU images also catch `Storage_Error` from an ordinary Ada
-65,537-byte allocator request, then successfully allocate and use a small
-object. The unwind gate requires an FDE covering `__gnat_malloc` on each target,
-so that exception path cannot cross an opaque C frame.
-Reclaiming allocation remains M4 closure work.
+The allocator is a bounded 64-KiB pool divided into 4,096 16-byte units. Under
+the existing recursive RTS critical section, deterministic first-fit selection
+marks a complete free run and records its exact head and length. Raw free
+accepts null, but rejects an interior, stale, out-of-pool, or double-free
+pointer before changing metadata; a valid release clears the exact run, so
+adjacent free ranges are immediately reusable without a second free-list
+authority. A zero-size request consumes one unit. Exhaustion enters the
+compiler's `Storage_Error` check path instead of returning null.
+
+The exact production C source passes a pinned native eight-thread test covering
+alignment, pairwise-disjoint simultaneously live allocations, first-fit hole
+reuse, exact live-byte accounting, whole-pool recovery after fragmentation,
+capacity edges, zero-size uniqueness, null free, and unchanged state after
+invalid or duplicate frees. Both target QEMU images catch `Storage_Error` from
+an ordinary Ada 65,537-byte allocator request, release a small object through
+compiler-lowered `Ada.Unchecked_Deallocation`, then allocate, validate, and
+release forty 4-KiB objects sequentially. The cumulative traffic exceeds the
+entire pool twice and cannot reach `FLYOLOGY:M4:ALLOCATOR_TARGET:PASS` if raw
+free remains a no-op. The unwind gate requires FDEs covering both
+`__gnat_malloc` and `__gnat_free` on each target.
 The QEMU demonstration allocates a task with ordinary `new`, then uses standard
 `Is_Terminated` under a bounded real-time deadline to observe its stable
 language identity and normal termination. It does not incorrectly treat return
@@ -408,11 +433,12 @@ the target's natural retirement wake lets the compiler's indivisible
 `Free_Task`/raw-free/null sequence finish; the freer then reaches a delay safe
 point and terminates by abort. The test requires the shared access value to be
 null first, rejects continuation past that safe point, and subsequently reuses
-the released execution slot. The current raw allocator free remains a no-op,
-so this checkpoint claims task execution-slot/stack reclamation and access
-nulling, not allocation-pool reuse or dynamic heap-object reclamation. General
-non-task object finalization/deallocation is compiler-lowered but remains
-outside the exercised product semantics until a reclaiming heap exists.
+the released execution slot. Raw free now releases the dynamic heap object's
+exact allocation after this task-lifecycle transaction, so the checkpoint
+covers execution-slot, stack, and heap-object reuse as three distinct
+lifetimes while retaining the stable language identity tombstone. General
+controlled-object adjustment/finalization races remain outside the exercised
+bounded semantics.
 
 The owned `selective_wait_probe.adb` confirms that both compilers construct an
 `Accept_List`, mark a null accept body in its `Accept_Alternative`, and call
@@ -475,7 +501,8 @@ at 32 tasks, separately from the lifetime identity pool, so terminated
 identities do not consume the live execution-slot capacity. Identity exhaustion
 follows the checked `Storage_Error` path. The explicit `Free_Task` hook now
 reclaims the execution slot while retaining the standard identity tombstone;
-the bounded identity and monotonic heap pools remain deliberately unreclaimed.
+compiler raw free separately releases the heap object. The bounded stable
+identity table remains deliberately unreclaimed.
 
 ## Abort checkpoint
 
@@ -513,15 +540,17 @@ generation-tagged wait; there is no unobserved interval between those cases.
 The ordinary-Ada demonstration lets a pinned task enter a one-second delay,
 aborts it from the environment task, rejects execution after the delay, and
 requires the retained language identity to be terminated and not callable
-before `FLYOLOGY:M4:ABORT:PASS`. A separate declaration places two tasks on
+before `FLYOLOGY:M4:ABORT:PASS`. A repeated declaration places two tasks on
 CPU 1 and the last configured CPU, waits until both are blocked in delays, and
-executes one `abort First, Second` statement. `Abort_Tasks` validates and
+executes one `abort First, Second` statement in each of four complete
+create/block/abort/retire cycles. `Abort_Tasks` validates and
 deduplicates the exact identities, rejects dormant named tasks before
 publication, and serializes both requests under one RTS-lock acquisition;
 both identities must be terminated and not callable, with neither continuation
-executed, before `FLYOLOGY:M4:MULTI_ABORT:PASS`. SMP4 therefore covers a
-single atomic request plan spanning two cores, while SMP1 covers the same
-state machine locally.
+executed, before `FLYOLOGY:M4:MULTI_ABORT:PASS`. The repeated cycles force
+bounded exception-pool and execution-slot reuse. SMP4 therefore covers four
+atomic request plans spanning two cores, while SMP1 covers the same state
+machine locally.
 
 Before publishing that plan, the runtime also snapshots the direct lexical
 master owner of every live task under the RTS lock. The SPARK
@@ -600,7 +629,7 @@ required before M4 closure.
 
 ## Model and stress closure gates
 
-The authoritative M4 host model enumerates 220,873 deterministic operations
+The authoritative M4 host model enumerates 224,969 deterministic operations
 over the production wait-arbitration, exact FIFO token, deadline, priority,
 ceiling, clock, allocator-arithmetic, exceptional-completion, and collective-
 termination kernels, plus the fixed-capacity abort-owner closure. It
@@ -610,24 +639,30 @@ state-preserving duplicate. Stale task incarnations, stale/future wait
 generations, invalid phases, full/duplicate queues, exact queue removal,
 deadline cancellation and order, priority reordering, ceiling
 overflow/violation, and checked conversion boundaries are also enumerated.
+All 256 occupancy patterns in the lower half of the bounded allocator map are
+combined with request lengths one through four; the model requires the first
+legal run and proves that marking then releasing that exact run restores the
+complete prior map.
 Every four-task owner-map shape and named-task subset is closed over the same
 16-slot model used by production, with every output bit serialized into the
 pinned hash. Every completion phase is checked for legal normal/exceptional
 completion, consumption, identity-presence, and abort-before-transferred-
 exception delivery invariants. The gate pins both
 the edge count and serialized-state hash so an accidental search reduction
-fails. GNATprove 16.1 reports all 374 generated checks proved across the
+fails. GNATprove 16.1 reports all 403 generated checks proved across the
 SPARK-analyzed deterministic core units. The concurrent Task_Core facade, the
 imported `Task_Primitives_Contract` declarations, compiler-facing GNARL
-facades, architecture assembly, C unwinder, and allocator CAS facade remain
-outside SPARK behind typed boundaries.
+facades, architecture assembly, C unwinder, and allocator metadata/critical-
+section facade remain outside SPARK behind typed boundaries.
 
 `scripts/stress-m4.sh` complements that pure model with ten complete SMP4
 ordinary-Ada runs per architecture. Each run repeats cross-core delay wakeups,
 conditional and timed protected entries, rendezvous and timed calls, dynamic
 priority changes, master observation, abort against delay/rendezvous/protected
 waits, execution-slot reclamation, and post-`adafinal` protected-object
-teardown. These runs exercise the production global lock, architecture timer,
+teardown. The baseline image also performs cumulative dynamic heap traffic
+larger than the bounded pool. These runs exercise the production global lock,
+architecture timer,
 IPI/SGI, context switch, and compiler wrappers; they are bounded integration
 stress, not an exhaustive concurrent-state proof. Interrupt-time forced task
 preemption remains M5.

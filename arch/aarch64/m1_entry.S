@@ -1035,6 +1035,30 @@ flyology_m4_report_exceptional_sync_pass:
     address x0, m4_exceptional_sync_pass
     b serial_puts_locked
 
+.global flyology_m4_report_exceptional_protected_immediate_pass
+.type flyology_m4_report_exceptional_protected_immediate_pass, %function
+flyology_m4_report_exceptional_protected_immediate_pass:
+    address x0, m4_exceptional_protected_immediate_pass
+    b serial_puts_locked
+
+.global flyology_m4_report_exceptional_protected_queued_pass
+.type flyology_m4_report_exceptional_protected_queued_pass, %function
+flyology_m4_report_exceptional_protected_queued_pass:
+    address x0, m4_exceptional_protected_queued_pass
+    b serial_puts_locked
+
+.global flyology_m4_report_exception_abort_protected_pass
+.type flyology_m4_report_exception_abort_protected_pass, %function
+flyology_m4_report_exception_abort_protected_pass:
+    address x0, m4_exception_abort_protected_pass
+    b serial_puts_locked
+
+.global flyology_m4_report_exceptional_rendezvous_pass
+.type flyology_m4_report_exceptional_rendezvous_pass, %function
+flyology_m4_report_exceptional_rendezvous_pass:
+    address x0, m4_exceptional_rendezvous_pass
+    b serial_puts_locked
+
 .global flyology_m4_report_exception_abort_pass
 .type flyology_m4_report_exception_abort_pass, %function
 flyology_m4_report_exception_abort_pass:
@@ -1850,6 +1874,10 @@ m4_protected_entry_pass: .asciz "FLYOLOGY:M4:PROTECTED_ENTRY:PASS\n"
 m4_finalization_pass: .asciz "FLYOLOGY:M4:FINALIZATION:PASS\n"
 m4_rendezvous_pass: .asciz "FLYOLOGY:M4:RENDEZVOUS:PASS\n"
 m4_exceptional_sync_pass: .asciz "FLYOLOGY:M4:EXCEPTIONAL_SYNC:PASS\n"
+m4_exceptional_protected_immediate_pass: .asciz "FLYOLOGY:M4:EXCEPTIONAL_PROTECTED_IMMEDIATE:PASS\n"
+m4_exceptional_protected_queued_pass: .asciz "FLYOLOGY:M4:EXCEPTIONAL_PROTECTED_QUEUED:PASS\n"
+m4_exception_abort_protected_pass: .asciz "FLYOLOGY:M4:EXCEPTION_ABORT_PROTECTED:PASS\n"
+m4_exceptional_rendezvous_pass: .asciz "FLYOLOGY:M4:EXCEPTIONAL_RENDEZVOUS:PASS\n"
 m4_exception_abort_pass: .asciz "FLYOLOGY:M4:EXCEPTION_ABORT:PASS\n"
 m4_unactivated_cleanup_pass: .asciz "FLYOLOGY:M4:UNACTIVATED_CLEANUP:PASS\n"
 m4_allocator_pass: .asciz "FLYOLOGY:M4:ALLOCATOR_TARGET:PASS\n"

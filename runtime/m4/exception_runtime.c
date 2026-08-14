@@ -23,7 +23,10 @@ enum {
 struct flyology_exception {
     struct _Unwind_Exception unwind;
     void *identity;
+    void *source_location;
+    int source_line;
     u8 occupied;
+    u8 owner_slot;
 };
 
 u8 constraint_error;
@@ -45,6 +48,7 @@ static struct _Unwind_Exception
 static u8 propagation_depths[TASK_CAPACITY];
 static u64 abort_cleanup_queries;
 static void *library_exception_identity;
+static char release_location[128];
 
 extern const u8 __eh_frame_start[];
 extern void __register_frame(const void *);
@@ -60,6 +64,35 @@ static unsigned current_task_slot(void)
     if (slot >= TASK_CAPACITY)
         __gnat_last_chance_handler((void *)"invalid exception task slot", 0);
     return (unsigned)slot;
+}
+
+static void *location_with_line(void *raw_location, int line)
+{
+    const char *source = (const char *)raw_location;
+    usize write = 0;
+    unsigned value;
+    char reversed[10];
+    unsigned digits = 0;
+    if (source == 0 || line <= 0)
+        return raw_location;
+    while (source[write] != '\0' && write + 2 < sizeof release_location) {
+        release_location[write] = source[write];
+        ++write;
+    }
+    if (write + 2 >= sizeof release_location)
+        return raw_location;
+    release_location[write++] = ':';
+    value = (unsigned)line;
+    do {
+        reversed[digits++] = (char)('0' + value % 10U);
+        value /= 10U;
+    } while (value != 0 && digits < sizeof reversed);
+    if (write + digits >= sizeof release_location)
+        return raw_location;
+    while (digits != 0)
+        release_location[write++] = reversed[--digits];
+    release_location[write] = '\0';
+    return release_location;
 }
 
 void *flyology_current_exception(void)
@@ -124,10 +157,40 @@ void flyology_exception_release_task_slot(uptr raw_slot)
     if (propagation_depth != 0) {
         exception = (struct flyology_exception *)
             propagation_stacks[slot][propagation_depth - 1];
-        if (propagation_depth == 1 &&
-            exception != 0 && exception->identity == &abort_signal)
+        if (exception == 0)
+            __gnat_last_chance_handler(
+                (void *)"null exception propagation at task release", 0);
+        if (__atomic_load_n(&exception->occupied, __ATOMIC_ACQUIRE) == 0)
+            __gnat_last_chance_handler(
+                (void *)"stale exception propagation at task release", 0);
+        if (exception->owner_slot != slot)
+            __gnat_last_chance_handler(
+                (void *)"foreign exception propagation at task release", 0);
+        if (propagation_depth > 1)
+            __gnat_last_chance_handler(
+                (void *)"nested exception propagation at task release", 0);
+        if (exception->identity == &abort_signal)
             __gnat_last_chance_handler(
                 (void *)"live abort propagation at task release", 0);
+        if (exception->identity == &program_error)
+            __gnat_last_chance_handler(
+                (void *)"live program error at task release", 0);
+        if (exception->identity == &constraint_error)
+            __gnat_last_chance_handler(
+                exception->source_location != 0 ?
+                location_with_line(exception->source_location,
+                                   exception->source_line) :
+                (void *)"live constraint error at task release",
+                exception->source_line);
+        if (exception->identity == &storage_error)
+            __gnat_last_chance_handler(
+                (void *)"live storage error at task release", 0);
+        if (exception->identity == &tasking_error)
+            __gnat_last_chance_handler(
+                (void *)"live tasking error at task release", 0);
+        if (exception->identity == &terminate_signal)
+            __gnat_last_chance_handler(
+                (void *)"live termination at task release", 0);
         __gnat_last_chance_handler((void *)"live exception at task release", 0);
     }
 }
@@ -242,7 +305,39 @@ static void exception_cleanup(_Unwind_Reason_Code reason,
 {
     struct flyology_exception *exception =
         (struct flyology_exception *)object;
+    unsigned slot = exception->owner_slot;
+    u8 handler_depth;
+    u8 propagation_depth;
+    u8 read_index;
+    u8 write_index = 0;
     (void)reason;
+    if (slot >= TASK_CAPACITY)
+        __gnat_last_chance_handler((void *)"invalid exception owner", 0);
+    handler_depth =
+        __atomic_load_n(&handler_depths[slot], __ATOMIC_ACQUIRE);
+    for (read_index = 0; read_index < handler_depth; ++read_index)
+        if (handler_stacks[slot][read_index] == object)
+            __gnat_last_chance_handler(
+                (void *)"deleting active exception handler", 0);
+
+    /* Once the unwind ABI deletes an object it cannot remain a propagating
+       occurrence.  Compact every reference before publishing the pool entry
+       free; this also removes duplicate references left by nested cleanup
+       landing pads without weakening the task-retirement live-object check. */
+    propagation_depth =
+        __atomic_load_n(&propagation_depths[slot], __ATOMIC_ACQUIRE);
+    for (read_index = 0; read_index < propagation_depth; ++read_index) {
+        struct _Unwind_Exception *entry =
+            propagation_stacks[slot][read_index];
+        if (entry != object) {
+            propagation_stacks[slot][write_index] = entry;
+            ++write_index;
+        }
+    }
+    for (read_index = write_index; read_index < propagation_depth;
+         ++read_index)
+        propagation_stacks[slot][read_index] = 0;
+    __atomic_store_n(&propagation_depths[slot], write_index, __ATOMIC_RELEASE);
     __atomic_store_n(&exception->occupied, 0, __ATOMIC_RELEASE);
 }
 
@@ -257,6 +352,9 @@ static struct flyology_exception *reserve_exception(void *identity)
                                         __ATOMIC_ACQUIRE)) {
             struct flyology_exception *result = &exceptions[index];
             result->identity = identity;
+            result->source_location = 0;
+            result->source_line = 0;
+            result->owner_slot = (u8)current_task_slot();
             result->unwind.exception_class = 0x464c594f41444100ULL;
             result->unwind.exception_cleanup = exception_cleanup;
             result->unwind.private_1 = 0;
@@ -278,6 +376,7 @@ static struct flyology_exception *validated_exception(void *occurrence)
         __gnat_last_chance_handler((void *)"invalid exception occurrence", 0);
     exception = (struct flyology_exception *)occurrence;
     if (__atomic_load_n(&exception->occupied, __ATOMIC_ACQUIRE) == 0 ||
+        exception->owner_slot >= TASK_CAPACITY ||
         exception->unwind.exception_class != 0x464c594f41444100ULL ||
         exception->identity == 0)
         __gnat_last_chance_handler((void *)"stale exception occurrence", 0);
@@ -289,11 +388,15 @@ void *flyology_exception_identity(void *occurrence)
     return validated_exception(occurrence)->identity;
 }
 
-static void raise_identity(void *identity) __attribute__((noreturn));
-static void raise_identity(void *identity)
+static void raise_identity_at(void *identity, void *location, int line)
+    __attribute__((noreturn));
+static void raise_identity_at(void *identity, void *location, int line)
 {
     struct flyology_exception *exception = reserve_exception(identity);
-    _Unwind_Reason_Code result = _Unwind_RaiseException(&exception->unwind);
+    _Unwind_Reason_Code result;
+    exception->source_location = location;
+    exception->source_line = line;
+    result = _Unwind_RaiseException(&exception->unwind);
     if (result == _URC_NO_REASON)
         last_personality = "unwinder returned no reason";
     else if (result == _URC_FOREIGN_EXCEPTION_CAUGHT)
@@ -313,6 +416,12 @@ static void raise_identity(void *identity)
     else if (result == _URC_CONTINUE_UNWIND)
         last_personality = "unwinder leaked continue result";
     __gnat_last_chance_handler((void *)last_personality, 0);
+}
+
+static void raise_identity(void *identity) __attribute__((noreturn));
+static void raise_identity(void *identity)
+{
+    raise_identity_at(identity, 0, 0);
 }
 
 void flyology_raise_exception_identity(void *identity)
@@ -361,9 +470,7 @@ void __gnat_rcheck_PE_Finalize_Raised_Exception(void *location, int line)
 
 void __gnat_rcheck_CE_Explicit_Raise(void *location, int line)
 {
-    (void)location;
-    (void)line;
-    raise_identity(&constraint_error);
+    raise_identity_at(&constraint_error, location, line);
 }
 
 void __gnat_rcheck_CE_Access_Check(void *location, int line)

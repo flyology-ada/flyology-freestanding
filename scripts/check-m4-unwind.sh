@@ -22,12 +22,15 @@ root=$(printf '%s\n' "$nm_output" | awk \
     '$3 == "flyology_task_root_invoke" { print $1 }')
 gnat_malloc=$(printf '%s\n' "$nm_output" | awk \
     '$3 == "__gnat_malloc" { print $1 }')
+gnat_free=$(printf '%s\n' "$nm_output" | awk \
+    '$3 == "__gnat_free" { print $1 }')
 frame_start=$(printf '%s\n' "$nm_output" | awk \
     '$3 == "__eh_frame_start" { print $1 }')
 frame_end=$(printf '%s\n' "$nm_output" | awk \
     '$3 == "__eh_frame_end" { print $1 }')
 test -n "$root"
 test -n "$gnat_malloc"
+test -n "$gnat_free"
 test -n "$frame_start"
 test -n "$frame_end"
 test "$frame_start" != "$frame_end"
@@ -55,6 +58,9 @@ test "$(printf '%s\n' "$root_line" | grep -c .)" -eq 1
 malloc_line=$(printf '%s\n' "$frames" | grep -F \
     "FDE cie=" | grep -F "pc=$gnat_malloc.." || true)
 test "$(printf '%s\n' "$malloc_line" | grep -c .)" -eq 1
+free_line=$(printf '%s\n' "$frames" | grep -F \
+    "FDE cie=" | grep -F "pc=$gnat_free.." || true)
+test "$(printf '%s\n' "$free_line" | grep -c .)" -eq 1
 printf '%s\n' "$frames" | grep -F -A2 "$root_line" | \
     grep -F 'Augmentation data:' >/dev/null
 test "$(printf '%s\n' "$frames" | grep -c 'ZERO terminator')" -eq 1

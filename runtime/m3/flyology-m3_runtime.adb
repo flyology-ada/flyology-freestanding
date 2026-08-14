@@ -1465,6 +1465,8 @@ package body Flyology.M3_Runtime is
    end Delay_Until_Tick;
 
    procedure Delay_For (Interval : Duration) is
+      Whole_Seconds   : Long_Long_Integer;
+      Fraction        : Duration;
       Nanosecond_Count : Long_Long_Integer;
       Tick_Count : Clock.Tick;
       Deadline   : Clock.Tick;
@@ -1476,8 +1478,15 @@ package body Flyology.M3_Runtime is
       if Interval > Duration (Long_Long_Integer'Last / 1_000_000_000) then
          raise Storage_Error;
       end if;
+      Whole_Seconds := Long_Long_Integer (Interval);
+      if Duration (Whole_Seconds) > Interval then
+         Whole_Seconds := Whole_Seconds - 1;
+      end if;
+      Fraction := Interval - Duration (Whole_Seconds);
       Nanosecond_Count :=
-        Long_Long_Integer (Interval * 1_000_000_000) + 1;
+        Whole_Seconds * 1_000_000_000
+        + Long_Long_Integer (Fraction * 1_000_000_000)
+        + 1;
       Rate := Clock.Frequency (Core.Clock_Frequency);
       if Nanosecond_Count <= 0
         or else Nanosecond_Count > Long_Long_Integer (Clock.Nanoseconds'Last)

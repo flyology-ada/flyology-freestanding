@@ -996,6 +996,25 @@ package body Flyology.M3_Demo is
    with Import, Convention => C,
         External_Name => "flyology_m4_report_exceptional_sync_pass";
 
+   procedure Report_Exceptional_Protected_Immediate_Pass
+   with Import, Convention => C,
+        External_Name =>
+          "flyology_m4_report_exceptional_protected_immediate_pass";
+
+   procedure Report_Exceptional_Protected_Queued_Pass
+   with Import, Convention => C,
+        External_Name =>
+          "flyology_m4_report_exceptional_protected_queued_pass";
+
+   procedure Report_Exception_Abort_Protected_Pass
+   with Import, Convention => C,
+        External_Name =>
+          "flyology_m4_report_exception_abort_protected_pass";
+
+   procedure Report_Exceptional_Rendezvous_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_exceptional_rendezvous_pass";
+
    procedure Report_Exception_Abort_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_exception_abort_pass";
@@ -1234,6 +1253,8 @@ package body Flyology.M3_Demo is
       declare
          type Byte_Array is array (Positive range <>) of Character;
          type Byte_Array_Access is access Byte_Array;
+         procedure Free_Bytes is new Ada.Unchecked_Deallocation
+           (Byte_Array, Byte_Array_Access);
          Huge   : Byte_Array_Access := null;
          Small  : Byte_Array_Access := null;
          Caught : Boolean := False;
@@ -1252,6 +1273,30 @@ package body Flyology.M3_Demo is
          if Small (1) /= 'A' then
             Report_Failure;
          end if;
+         Free_Bytes (Small);
+         if Small /= null then
+            Report_Failure;
+         end if;
+         --  The cumulative request exceeds the complete 64-KiB pool twice.
+         --  Every iteration must therefore reclaim the same bounded storage
+         --  through the compiler-lowered raw-free path.
+         for Iteration in Positive range 1 .. 40 loop
+            declare
+               Reused : Byte_Array_Access := new Byte_Array (1 .. 4_096);
+            begin
+               Reused (1) := Character'Val (Iteration mod 256);
+               Reused (Reused'Last) := 'R';
+               if Reused (1) /= Character'Val (Iteration mod 256)
+                 or else Reused (Reused'Last) /= 'R'
+               then
+                  Report_Failure;
+               end if;
+               Free_Bytes (Reused);
+               if Reused /= null then
+                  Report_Failure;
+               end if;
+            end;
+         end loop;
       end;
       Report_Allocator_Pass;
       Report_Delay_Pass;
@@ -1368,7 +1413,6 @@ package body Flyology.M3_Demo is
       then
          Report_Failure;
       end if;
-
       declare
          Worker : Abort_Timed_Protected_Worker_Type
            (System.Multiprocessors.CPU_Range (CPU_Count));
@@ -1457,6 +1501,7 @@ package body Flyology.M3_Demo is
             Report_Failure;
          end if;
       end;
+      Report_Exceptional_Protected_Immediate_Pass;
       declare
          Worker : Exceptional_Protected_Worker_Type
            (System.Multiprocessors.CPU_Range (CPU_Count));
@@ -1498,6 +1543,7 @@ package body Flyology.M3_Demo is
       then
          Report_Failure;
       end if;
+      Report_Exceptional_Protected_Queued_Pass;
 
       Exception_Abort_Protected_Started := False;
       Exception_Abort_Protected_Caught := False;
@@ -1538,6 +1584,7 @@ package body Flyology.M3_Demo is
       then
          Report_Failure;
       end if;
+      Report_Exception_Abort_Protected_Pass;
 
       declare
          Server : Rendezvous_Server_Type
@@ -1581,6 +1628,7 @@ package body Flyology.M3_Demo is
       then
          Report_Failure;
       end if;
+      Report_Exceptional_Rendezvous_Pass;
       Report_Exceptional_Sync_Pass;
 
       Exception_Abort_Accepted := False;
@@ -1736,42 +1784,45 @@ package body Flyology.M3_Demo is
       end if;
       Report_Abort_Pass;
 
-      Multi_Abort_Started := [others => False];
-      Multi_Abort_Continued := [others => False];
-      Multi_Abort_Ids :=
-        [others => Ada.Task_Identification.Null_Task_Id];
-      declare
-         First : Multi_Abort_Worker_Type (1, 1);
-         Second : Multi_Abort_Worker_Type
-           (System.Multiprocessors.CPU_Range (CPU_Count), 2);
-         First_Id : constant Ada.Task_Identification.Task_Id :=
-           First'Identity;
-         Second_Id : constant Ada.Task_Identification.Task_Id :=
-           Second'Identity;
-      begin
-         for Attempt in 1 .. 1_000 loop
-            exit when Multi_Abort_Started (1)
-              and then Multi_Abort_Started (2);
-            delay 0.001;
-         end loop;
-         if not Multi_Abort_Started (1) or else not Multi_Abort_Started (2)
-           or else Multi_Abort_Ids (1) /= First_Id
-           or else Multi_Abort_Ids (2) /= Second_Id
+      for Iteration in 1 .. 4 loop
+         Multi_Abort_Started := [others => False];
+         Multi_Abort_Continued := [others => False];
+         Multi_Abort_Ids :=
+           [others => Ada.Task_Identification.Null_Task_Id];
+         declare
+            First : Multi_Abort_Worker_Type (1, 1);
+            Second : Multi_Abort_Worker_Type
+              (System.Multiprocessors.CPU_Range (CPU_Count), 2);
+            First_Id : constant Ada.Task_Identification.Task_Id :=
+              First'Identity;
+            Second_Id : constant Ada.Task_Identification.Task_Id :=
+              Second'Identity;
+         begin
+            for Attempt in 1 .. 1_000 loop
+               exit when Multi_Abort_Started (1)
+                 and then Multi_Abort_Started (2);
+               delay 0.001;
+            end loop;
+            if not Multi_Abort_Started (1)
+              or else not Multi_Abort_Started (2)
+              or else Multi_Abort_Ids (1) /= First_Id
+              or else Multi_Abort_Ids (2) /= Second_Id
+            then
+               Report_Failure;
+            end if;
+            abort First, Second;
+         end;
+         if Multi_Abort_Continued (1) or else Multi_Abort_Continued (2)
+           or else not Ada.Task_Identification.Is_Terminated
+             (Multi_Abort_Ids (1))
+           or else not Ada.Task_Identification.Is_Terminated
+             (Multi_Abort_Ids (2))
+           or else Ada.Task_Identification.Is_Callable (Multi_Abort_Ids (1))
+           or else Ada.Task_Identification.Is_Callable (Multi_Abort_Ids (2))
          then
             Report_Failure;
          end if;
-         abort First, Second;
-      end;
-      if Multi_Abort_Continued (1) or else Multi_Abort_Continued (2)
-        or else not Ada.Task_Identification.Is_Terminated
-          (Multi_Abort_Ids (1))
-        or else not Ada.Task_Identification.Is_Terminated
-          (Multi_Abort_Ids (2))
-        or else Ada.Task_Identification.Is_Callable (Multi_Abort_Ids (1))
-        or else Ada.Task_Identification.Is_Callable (Multi_Abort_Ids (2))
-      then
-         Report_Failure;
-      end if;
+      end loop;
       Report_Multi_Abort_Pass;
 
       Dependent_Abort_Parent_Started := False;
