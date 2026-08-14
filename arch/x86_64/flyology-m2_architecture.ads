@@ -2,11 +2,28 @@
 
 with Flyology.Architecture_Context;
 with Flyology.Clock_Model;
+with Flyology.Interrupt_Frames;
 with System;
 
 package Flyology.M2_Architecture is
    subtype Context is Flyology.Architecture_Context.Voluntary_Context;
+   subtype Interrupt_Frame is Flyology.Interrupt_Frames.Interrupt_Frame;
    subtype Tick is Flyology.Clock_Model.Tick;
+
+   type Full_Context is record
+      Frame          : Interrupt_Frame;
+      Extended_State : Flyology.Interrupt_Frames.XSAVE_Area;
+   end record
+     with Convention => C,
+          Alignment  => 64;
+
+   for Full_Context use record
+      Frame          at 0 range 0 .. 256 * 8 - 1;
+      Extended_State at 256 range 0 ..
+        Flyology.Interrupt_Frames.XSAVE_Capacity * 8 - 1;
+   end record;
+   for Full_Context'Size use
+     (256 + Flyology.Interrupt_Frames.XSAVE_Capacity) * 8;
 
    procedure Initialize
      (Item       : out Context;
@@ -21,6 +38,16 @@ package Flyology.M2_Architecture is
    procedure Switch
      (Outgoing : access Context;
       Incoming : access Context);
+
+   procedure Capture_Full_Context
+     (Item   : out Full_Context;
+      Source : Interrupt_Frame);
+
+   procedure Switch_To_Full
+     (Outgoing : access Context;
+      Incoming : access Full_Context)
+   with Import, Convention => C,
+        External_Name => "flyology_context_switch_to_full";
 
    function Read_Clock return Tick
    with Import, Convention => C,

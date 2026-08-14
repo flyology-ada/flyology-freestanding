@@ -99,6 +99,8 @@ compile_ada runtime/core/flyology-wait_queue_model.adb \
     flyology-wait_queue_model.o
 compile_ada "arch/$architecture/flyology-architecture_context.ads" \
     flyology-architecture_context.o
+compile_ada "arch/$architecture/flyology-interrupt_frames.ads" \
+    flyology-interrupt_frames.o
 compile_ada "arch/$architecture/flyology-m2_architecture.adb" \
     flyology-m2_architecture.o
 compile_ada runtime/core/flyology-task_core.adb flyology-task_core.o generated

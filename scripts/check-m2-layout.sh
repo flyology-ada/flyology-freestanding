@@ -23,6 +23,9 @@ check_architecture() {
             frame_size=2048
             frame_alignment=64
             expected_interrupt_layout='256 0 120 128 136 144 152 160 168 176 184 192 200 208 216'
+            full_size=34816
+            full_alignment=64
+            expected_full_layout='4352 0 256 128 144 152 184 192 200'
             ;;
         aarch64)
             target=aarch64-elf
@@ -34,6 +37,9 @@ check_architecture() {
             frame_size=6656
             frame_alignment=16
             expected_interrupt_layout='832 0 248 256 264 272 280 288 296 304 312 320'
+            full_size=6656
+            full_alignment=16
+            expected_full_layout='832 0 248 256 264 288 304 312 320'
             ;;
         *)
             echo "unsupported architecture: $architecture" >&2
@@ -82,6 +88,22 @@ check_architecture() {
 
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
+        -c runtime/core/flyology-clock_model.adb \
+        -o "$output_directory/flyology-clock_model.o" \
+        $common_flags -gnat2022 -gnatwa -gnatwe $architecture_flags
+
+    # The architecture package composes the voluntary and complete frame
+    # records into the task-owned storage consumed by the transfer assembly.
+    # shellcheck disable=SC2086
+    scripts/toolchain.sh exec "$architecture" "$target-gcc" \
+        -c "arch/$architecture/flyology-m2_architecture.adb" \
+        -o "$output_directory/flyology-m2_architecture.o" \
+        $common_flags -gnat2022 -gnatwa -gnatwe -gnatR2 \
+        $architecture_flags \
+        >"$output_directory/full-context.rep" 2>&1
+
+    # shellcheck disable=SC2086
+    scripts/toolchain.sh exec "$architecture" "$target-gcc" \
         -c "arch/$architecture/context.S" \
         -o "$output_directory/context.o" \
         -ffreestanding -fno-stack-protector -fno-pic -fno-pie \
@@ -114,6 +136,17 @@ flyology_task_start'
         exit 1
     }
 
+    scripts/toolchain.sh exec "$architecture" "$target-objcopy" \
+        --dump-section \
+        ".rodata.flyology_full_context_layout=$output_directory/full-layout.bin" \
+        "$output_directory/context.o"
+    # shellcheck disable=SC2046
+    set -- $(od -An -tu2 "$output_directory/full-layout.bin")
+    test "$*" = "$expected_full_layout" || {
+        echo "assembly full-context layout mismatch: $*" >&2
+        exit 1
+    }
+
     # Compile the production interrupt entry and compare the compact table
     # emitted beside the exact offsets used by its save/restore instructions.
     # shellcheck disable=SC2086
@@ -141,6 +174,10 @@ flyology_task_start'
         "$output_directory/interrupt.rep"
     expect_line "for Interrupt_Frame'Alignment use $frame_alignment;" \
         "$output_directory/interrupt.rep"
+    expect_line "for Full_Context'Size use $full_size;" \
+        "$output_directory/full-context.rep"
+    expect_line "for Full_Context'Alignment use $full_alignment;" \
+        "$output_directory/full-context.rep"
 
     case "$architecture" in
         x86_64)
@@ -154,6 +191,10 @@ flyology_task_start'
                 "$output_directory/interrupt.rep"
             expect_line '   Fault_Address  at 208 range  0 .. 63;' \
                 "$output_directory/interrupt.rep"
+            expect_line '   Frame          at   0 range  0 .. 2047;' \
+                "$output_directory/full-context.rep"
+            expect_line '   Extended_State at 256 range  0 .. 32767;' \
+                "$output_directory/full-context.rep"
             ;;
         aarch64)
             expect_line '   Stack_Pointer at  96 range  0 .. 63;' \
@@ -166,6 +207,8 @@ flyology_task_start'
                 "$output_directory/interrupt.rep"
             expect_line '   Simd              at 320 range  0 .. 4095;' \
                 "$output_directory/interrupt.rep"
+            expect_line '   Frame at 0 range  0 .. 6655;' \
+                "$output_directory/full-context.rep"
             ;;
     esac
 

@@ -50,4 +50,12 @@ package body Flyology.M2_Architecture is
    begin
       Contexts.Switch (Outgoing, Incoming);
    end Switch;
+
+   procedure Capture_Full_Context
+     (Item   : out Full_Context;
+      Source : Interrupt_Frame)
+   is
+   begin
+      Item.Frame := Source;
+   end Capture_Full_Context;
 end Flyology.M2_Architecture;

@@ -18,3 +18,22 @@ The deterministic task-state, wait-generation, ready-queue, and epoch transforma
 ## Consequences
 
 Context completeness is explicit and testable, and wake/reschedule publication cannot depend on reliable one-for-one interrupt delivery. M2 may conservatively over-report old reason categories. A generation-qualified clear or equivalent atomic protocol is required before M5 uses reasons for quantum-specific accounting. Enabling AVX, SVE, or other extended state requires a new context contract and tests.
+
+## M5 transfer extension
+
+M5 gives each execution slot task-owned complete-context storage. On x86-64
+this is the normalized 256-byte frame plus its own 4,096-byte XSAVE area; on
+AArch64 it is the complete 832-byte frame. The interrupt path will copy into
+that storage before abandoning the per-core exception stack, then restore the
+already-saved voluntary dispatcher context. The dispatcher remains the only
+component that commits selection and resumes either the task's voluntary
+context or its complete interrupt context. No pointer into an IST or SP_EL1
+exception stack becomes task state.
+
+The complete-frame transfer primitives validate return selectors/status,
+instruction and stack state, extended-state geometry, and alignment before
+`iretq`/`eret`. Their assembly constants are emitted into a layout section and
+checked against independently compiled Ada representation reports for both
+targets. Merely compiling these primitives does not constitute preemption
+support; M5 additionally requires their connection to the checked task-state
+and policy kernels plus interrupt-driven ordinary-Ada QEMU gates.
