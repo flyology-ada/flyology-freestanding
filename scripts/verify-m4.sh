@@ -13,6 +13,8 @@ scripts/build-m3.sh x86_64 >/dev/null
 scripts/build-m3.sh aarch64 >/dev/null
 scripts/inspect-m3.sh x86_64
 scripts/inspect-m3.sh aarch64
+scripts/check-m4-unwind.sh x86_64
+scripts/check-m4-unwind.sh aarch64
 FLYOLOGY_M3_TEST_TAG=m4-gate scripts/run-m3.sh x86_64 1
 FLYOLOGY_M3_TEST_TAG=m4-gate scripts/run-m3.sh x86_64 4
 FLYOLOGY_M3_TEST_TAG=m4-gate scripts/run-m3.sh aarch64 1

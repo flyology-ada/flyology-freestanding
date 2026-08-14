@@ -27,22 +27,36 @@ for x86-64 and
 `0effb03f768225ce901b94e6ab108a3709b83bd2c879a629136b89b9bb0cd992`
 for AArch64; the build script checks them before linking.
 
-Both linkers retain and separately register the original C exception-runtime
-and Ada-probe frame sequences. This is required because individual freestanding
-objects carry terminating frame sequences. The C runtime is compiled with
-`-funwind-tables`; omitting it is a negative condition that prevents AArch64
-from reaching the Ada personality.
+Both linkers retain every C and Ada frame in one contiguous `.eh_frame` table
+with one final terminator. Exception initialization registers that table
+exactly once from `__eh_frame_start`; an interior FDE is not a valid second
+registration root. The C runtime is compiled with `-funwind-tables`; omitting
+it is a negative condition that prevents AArch64 from reaching the Ada
+personality.
 
 `scripts/build-m4-exception.sh` builds a zero-unresolved freestanding image.
 `scripts/run-m4-exception.sh` requires a caught Program_Error pass and unique
 online-core markers under the pinned QEMU/UEFI contract for SMP1 and SMP4.
 
-This checkpoint proves one named caught exception and the generic stack-unwind
-path. The later abort increment below adds task-root containment for a private
-abort occurrence. It does not yet establish exception occurrences/messages,
-nested handler replacement, re-raise, general application-exception
-propagation, or abnormal master semantics. Those require additional ordinary
-Ada probes and QEMU gates before M4 closure.
+Removing only `No_Exception_Propagation` from the product configuration adds
+one exact compiler-required source boundary on both targets:
+`System.Soft_Links.Save_Library_Occurrence
+(Ada.Exceptions.Exception_Occurrence_Access)`. Generated finalizers pass null,
+and the binder later calls `__gnat_reraise_library_exception_if_any` after all
+library finalizers. Flyology snapshots only the first current exception
+identity and reraises it once; messages and tracebacks remain unsupported.
+
+Generated exceptional protected-entry and rendezvous handlers call
+`Begin_Handler`, query `Get_Gnat_Exception`, call the exceptional completion
+hook, and then call `End_Handler`. Flyology therefore keeps a bounded current
+handler stack per exact task slot, not per core, so a blocking handler does not
+expose another task's occurrence. A separate bounded propagation stack per task
+carries unwind identities through phase-two finalizers before `Begin_Handler`
+runs. A nested exception that is raised and handled during outer cleanup pops
+only its own propagation context; the outer context becomes current again.
+The compiler-visible occurrence record is deliberately opaque; product
+semantics currently preserve only the raw current handle returned through
+`Get_Gnat_Exception` and a stable exception identity snapshot.
 
 ## Synchronization surface discovered so far
 
@@ -333,10 +347,13 @@ so deadline cancellation and wakeup cross cores; SMP1 covers the same state
 machine locally. This checkpoint intentionally does not claim asynchronous
 abort of a CPU-bound task, abort-before-activation, multi-task abort
 statements, ATC, or full abnormal master/exception semantics.
-The current minimal personality treats its catch-all identity as matching the
-private abort occurrence so the task root can contain it; application-level
-handlers around an abortible operation are therefore not yet a conforming
-abort boundary and are outside this checkpoint.
+The private abort identity does not match an ordinary `when others`. Compiler
+`all_others` cleanup filters and zero-filter action-chain cleanups continue
+during phase two without terminating phase-one search. One exported,
+LSDA-bearing `flyology_task_root_invoke` boundary is the only ordinary-catch
+region allowed to contain abort. The demonstration places a user
+`when others` around the interrupted delay and fails if it runs, then requires
+the compiler task finalizer and runtime root to terminate the task normally.
 Interrupt-time forced delivery and the decisive no-safe-point behavior remain
 M5 work.
 

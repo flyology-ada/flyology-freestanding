@@ -1,5 +1,7 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
+with Ada.Exceptions;
+
 package System.Soft_Links is
    pragma Elaborate_Body;
 
@@ -12,4 +14,6 @@ package System.Soft_Links is
    Complete_Master : No_Param_Procedure;
    Current_Master  : No_Param_Function;
    function Get_Gnat_Exception return System.Address;
+   procedure Save_Library_Occurrence
+     (Occurrence : Ada.Exceptions.Exception_Occurrence_Access);
 end System.Soft_Links;

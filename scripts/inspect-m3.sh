@@ -80,6 +80,9 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     flyology__dispatcher_model__next_incarnation \
     flyology__placement_model__place __gnat_personality_v0 \
     __gnat_begin_handler_v1 __gnat_end_handler_v1 \
+    system__soft_links__save_library_occurrence \
+    flyology_current_exception flyology_current_exception_is_abort \
+    flyology_task_root_invoke __eh_frame_start __eh_frame_end \
     __gnat_malloc \
     __gnat_all_others_value _Unwind_Resume \
     __gnat_last_chance_handler; do

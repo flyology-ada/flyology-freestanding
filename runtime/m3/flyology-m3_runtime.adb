@@ -1,6 +1,7 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Flyology.Dispatcher_Model;
+with Ada.Exceptions;
 with Flyology.Clock_Model;
 with Flyology.Placement_Model;
 with Flyology.Task_Core;
@@ -142,6 +143,24 @@ package body Flyology.M3_Runtime is
    procedure Raise_Abort
    with Import, Convention => C, External_Name => "flyology_raise_abort",
         No_Return;
+
+   function Exception_Task_Capacity return System.Address
+   with Import, Convention => C,
+        External_Name => "flyology_exception_task_capacity";
+
+   procedure Release_Exception_Task_Slot (Slot : System.Address)
+   with Import, Convention => C,
+        External_Name => "flyology_exception_release_task_slot";
+
+   procedure Task_Root_Invoke
+     (Body_Procedure : System.Tasking.Task_Procedure_Access;
+      Discriminants  : System.Address)
+   with Export, Convention => C,
+        External_Name => "flyology_task_root_invoke";
+
+   function Exception_Task_Slot return System.Address
+   with Export, Convention => C,
+        External_Name => "flyology_exception_task_slot";
 
    procedure Stop is
    begin
@@ -455,6 +474,30 @@ package body Flyology.M3_Runtime is
       Tasks (Slot).Completion_Requested := True;
       Leave_Kernel;
    end Complete_Task;
+
+   procedure Observe_Abort_Cleanup is
+      Dense : constant Core_Number := Core_Of_Current;
+      Slot  : Task_Slot;
+      Aborting : Boolean;
+   begin
+      Enter_Kernel;
+      Slot := Record_Of (To_Identity (Core.Current_Locked (Dense)));
+      Aborting := Tasks (Slot).Abort_In_Progress;
+      Leave_Kernel;
+      if Aborting then
+         --  A nested handled exception must not erase the outer abort that
+         --  is still driving this compiler-generated cleanup.
+         begin
+            raise Program_Error;
+         exception
+            when Program_Error =>
+               null;
+         end;
+         if not Ada.Exceptions.Triggered_By_Abort then
+            Stop;
+         end if;
+      end if;
+   end Observe_Abort_Cleanup;
 
    procedure Abort_Defer is
       Dense : constant Core_Number := Core_Of_Current;
@@ -774,6 +817,7 @@ package body Flyology.M3_Runtime is
                   Leave_Kernel;
                   Stop;
                end if;
+               Release_Exception_Task_Slot (System.Address (Candidate));
                Core.Release_Terminated_Locked (Reference);
                Tasks (Candidate) := (others => <>);
                Next_Incarnation (Candidate) :=
@@ -1393,10 +1437,37 @@ package body Flyology.M3_Runtime is
       Stop;
    end Unsupported_Exceptional_Rendezvous;
 
+   procedure Task_Root_Invoke
+     (Body_Procedure : System.Tasking.Task_Procedure_Access;
+      Discriminants  : System.Address)
+   is
+   begin
+      if Body_Procedure = null then
+         Stop;
+      end if;
+      Body_Procedure (Discriminants);
+   exception
+      when others =>
+         null;
+   end Task_Root_Invoke;
+
+   function Exception_Task_Slot return System.Address is
+      Reference : constant Dispatcher.Task_Ref :=
+        Core.Current (Core_Of_Current);
+   begin
+      if Reference = Core.No_Task or else Reference.Slot > Task_Slot'Last then
+         Stop;
+      end if;
+      return System.Address (Reference.Slot);
+   end Exception_Task_Slot;
+
    procedure Core_Initialize (CPU_Count : System.Address) is
       Environment : Task_Id;
    begin
       if CPU_Count = 0 or else CPU_Count > Max_Cores then
+         Stop;
+      end if;
+      if Exception_Task_Capacity /= System.Address (Task_Slot'Last + 1) then
          Stop;
       end if;
       Core.Initialize (Positive (CPU_Count));
@@ -1424,13 +1495,6 @@ package body Flyology.M3_Runtime is
       Master    : Master_Number;
       Status    : Waits.Resolve_Status;
 
-      procedure Invoke_Body is
-      begin
-         Tasks (Slot).Body_Procedure (Tasks (Slot).Discriminants);
-      exception
-         when others =>
-            null;
-      end Invoke_Body;
    begin
       if Task_Address > System.Address (Task_Slot'Last) then
          Stop;
@@ -1447,7 +1511,8 @@ package body Flyology.M3_Runtime is
          Stop;
       end if;
       Leave_Kernel;
-      Invoke_Body;
+      Task_Root_Invoke
+        (Tasks (Slot).Body_Procedure, Tasks (Slot).Discriminants);
       if not Tasks (Slot).Completion_Requested then
          Stop;
       end if;

@@ -20,6 +20,7 @@ package Flyology.M3_Runtime is
    procedure Activate_Tasks (Members : Task_List);
    procedure Complete_Activation;
    procedure Complete_Task;
+   procedure Observe_Abort_Cleanup;
 
    procedure Abort_Defer;
    procedure Abort_Undefer;

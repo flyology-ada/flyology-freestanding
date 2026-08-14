@@ -13,7 +13,13 @@ typedef __INT64_TYPE__ i64;
 typedef __UINTPTR_TYPE__ uptr;
 typedef __SIZE_TYPE__ usize;
 
-enum { EXCEPTION_CAPACITY = 32, ALLOCATION_CAPACITY = 65536 };
+enum {
+    EXCEPTION_CAPACITY = 32,
+    ALLOCATION_CAPACITY = 65536,
+    TASK_CAPACITY = 16,
+    HANDLER_DEPTH = 8,
+    PROPAGATION_DEPTH = 8
+};
 
 struct flyology_exception {
     struct _Unwind_Exception unwind;
@@ -34,10 +40,98 @@ static struct flyology_exception exceptions[EXCEPTION_CAPACITY]
 static u8 allocation_pool[ALLOCATION_CAPACITY] __attribute__((aligned(16)));
 static usize allocation_used;
 static const char *last_personality = "personality not called";
+static struct _Unwind_Exception *handler_stacks[TASK_CAPACITY][HANDLER_DEPTH];
+static u8 handler_depths[TASK_CAPACITY];
+static struct _Unwind_Exception
+    *propagation_stacks[TASK_CAPACITY][PROPAGATION_DEPTH];
+static u8 propagation_depths[TASK_CAPACITY];
+static u64 abort_cleanup_queries;
+static void *library_exception_identity;
 
 extern const u8 __eh_frame_start[];
 extern void __register_frame(const void *);
+extern void flyology_task_root_invoke(void *, void *);
+extern uptr flyology_exception_task_slot(void) __attribute__((weak));
 extern void __gnat_last_chance_handler(void *, int) __attribute__((noreturn));
+
+static unsigned current_task_slot(void)
+{
+    uptr slot = 0;
+    if (flyology_exception_task_slot != 0)
+        slot = flyology_exception_task_slot();
+    if (slot >= TASK_CAPACITY)
+        __gnat_last_chance_handler((void *)"invalid exception task slot", 0);
+    return (unsigned)slot;
+}
+
+void *flyology_current_exception(void)
+{
+    unsigned slot = current_task_slot();
+    u8 depth = handler_depths[slot];
+    if (depth == 0)
+        return 0;
+    return handler_stacks[slot][depth - 1];
+}
+
+u8 flyology_current_exception_is_abort(void)
+{
+    unsigned slot = current_task_slot();
+    u8 handler_depth = handler_depths[slot];
+    u8 propagation_depth = propagation_depths[slot];
+    struct _Unwind_Exception *object;
+    int cleanup;
+    if (handler_depth != 0) {
+        object = handler_stacks[slot][handler_depth - 1];
+        cleanup = 0;
+    } else if (propagation_depth != 0) {
+        object = propagation_stacks[slot][propagation_depth - 1];
+        cleanup = 1;
+    } else {
+        object = 0;
+        cleanup = 0;
+    }
+    if (object == 0)
+        return 0;
+    if (((struct flyology_exception *)object)->identity != &abort_signal)
+        return 0;
+    if (cleanup)
+        __atomic_fetch_add(&abort_cleanup_queries, 1, __ATOMIC_RELAXED);
+    return 1;
+}
+
+u64 flyology_abort_cleanup_query_count(void)
+{
+    return __atomic_load_n(&abort_cleanup_queries, __ATOMIC_ACQUIRE);
+}
+
+uptr flyology_exception_task_capacity(void)
+{
+    return TASK_CAPACITY;
+}
+
+void flyology_exception_release_task_slot(uptr raw_slot)
+{
+    unsigned slot;
+    if (raw_slot >= TASK_CAPACITY)
+        __gnat_last_chance_handler((void *)"invalid released task slot", 0);
+    slot = (unsigned)raw_slot;
+    if (handler_depths[slot] != 0)
+        __gnat_last_chance_handler((void *)"live handler at task release", 0);
+    if (propagation_depths[slot] != 0)
+        __gnat_last_chance_handler((void *)"live exception at task release", 0);
+}
+
+static void push_propagation(unsigned slot,
+                             struct _Unwind_Exception *exception)
+{
+    u8 depth = propagation_depths[slot];
+    if (depth != 0 && propagation_stacks[slot][depth - 1] == exception)
+        return;
+    if (depth >= PROPAGATION_DEPTH)
+        __gnat_last_chance_handler((void *)"exception propagation depth", 0);
+    propagation_stacks[slot][depth] = exception;
+    propagation_depths[slot] = depth + 1;
+}
 
 static u64 read_uleb(const u8 **cursor)
 {
@@ -192,12 +286,24 @@ void flyology_exception_initialize(void)
     __register_frame(__eh_frame_start);
 }
 
-/* No_Exception_Propagation prevents a library finalizer from recording an
-   occurrence for later propagation.  GNAT's binder still emits this query
-   when a library-level controlled object exists, so the empty state has a
-   narrow, explicit implementation. */
+void flyology_save_library_exception(void)
+{
+    struct _Unwind_Exception *object = flyology_current_exception();
+    void *identity;
+    if (object == 0)
+        __gnat_last_chance_handler((void *)"missing library exception", 0);
+    identity = ((struct flyology_exception *)object)->identity;
+    (void)__atomic_compare_exchange_n(&library_exception_identity,
+                                      &(void *){0}, identity, 0,
+                                      __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+}
+
 void __gnat_reraise_library_exception_if_any(void)
 {
+    void *identity = __atomic_exchange_n(&library_exception_identity, 0,
+                                         __ATOMIC_ACQ_REL);
+    if (identity != 0)
+        raise_identity(identity);
 }
 
 void __gnat_rcheck_PE_Explicit_Raise(void *location, int line)
@@ -205,6 +311,11 @@ void __gnat_rcheck_PE_Explicit_Raise(void *location, int line)
     (void)location;
     (void)line;
     raise_identity(&program_error);
+}
+
+void __gnat_rcheck_PE_Finalize_Raised_Exception(void *location, int line)
+{
+    __gnat_rcheck_PE_Explicit_Raise(location, line);
 }
 
 void __gnat_rcheck_CE_Explicit_Raise(void *location, int line)
@@ -324,11 +435,15 @@ _Unwind_Reason_Code __gnat_personality_v0
     if (selector != 0) {
         const u8 *action = action_base + selector - 1;
         int matched = 0;
+        int cleanup_match = 0;
+        int has_cleanup = 0;
         for (;;) {
             i64 filter = read_sleb(&action);
             const u8 *next_field = action;
             i64 next = read_sleb(&action);
-            if (filter > 0 && type_base != 0) {
+            if (filter == 0) {
+                has_cleanup = 1;
+            } else if (filter > 0 && type_base != 0) {
                 unsigned size = encoded_size(type_encoding);
                 const u8 *type_cursor;
                 void *identity;
@@ -337,10 +452,17 @@ _Unwind_Reason_Code __gnat_personality_v0
                 type_cursor = type_base - (usize)filter * size;
                 identity = (void *)read_encoded(&type_cursor, type_encoding,
                                                 region_start);
-                if (identity == exception->identity ||
-                    identity == &__gnat_others_value ||
-                    identity == &__gnat_all_others_value) {
+                if (identity == &__gnat_all_others_value) {
                     matched = 1;
+                    cleanup_match = 1;
+                } else if (exception->identity == &abort_signal) {
+                    matched = identity == &__gnat_others_value &&
+                        region_start == (uptr)flyology_task_root_invoke;
+                } else {
+                    matched = identity == exception->identity ||
+                        identity == &__gnat_others_value;
+                }
+                if (matched) {
                     selector = filter;
                     break;
                 }
@@ -349,12 +471,21 @@ _Unwind_Reason_Code __gnat_personality_v0
                 break;
             action = next_field + next;
         }
-        if (!matched)
-            return _URC_CONTINUE_UNWIND;
-        last_personality = "personality matched handler";
-        if ((actions & _UA_SEARCH_PHASE) != 0)
+        if (!matched) {
+            if (!has_cleanup || (actions & _UA_SEARCH_PHASE) != 0)
+                return _URC_CONTINUE_UNWIND;
+            matched = 1;
+            cleanup_match = 1;
+            selector = 0;
+        }
+        last_personality = cleanup_match ?
+            "personality matched cleanup" : "personality matched handler";
+        if ((actions & _UA_SEARCH_PHASE) != 0) {
+            if (cleanup_match)
+                return _URC_CONTINUE_UNWIND;
             return _URC_HANDLER_FOUND;
-        if ((actions & _UA_HANDLER_FRAME) == 0)
+        }
+        if (!cleanup_match && (actions & _UA_HANDLER_FRAME) == 0)
             return _URC_CONTINUE_UNWIND;
     } else if ((actions & _UA_SEARCH_PHASE) != 0) {
         return _URC_CONTINUE_UNWIND;
@@ -362,6 +493,7 @@ _Unwind_Reason_Code __gnat_personality_v0
 
     if ((actions & _UA_CLEANUP_PHASE) == 0)
         return _URC_CONTINUE_UNWIND;
+    push_propagation(current_task_slot(), exception_object);
     _Unwind_SetGR(context, __builtin_eh_return_data_regno(0),
                   (uptr)exception_object);
     _Unwind_SetGR(context, __builtin_eh_return_data_regno(1), (uptr)selector);
@@ -371,14 +503,39 @@ _Unwind_Reason_Code __gnat_personality_v0
 
 void *__gnat_begin_handler_v1(struct _Unwind_Exception *exception)
 {
-    return exception;
+    unsigned slot = current_task_slot();
+    u8 depth = handler_depths[slot];
+    u8 propagation_depth = propagation_depths[slot];
+    struct _Unwind_Exception *previous;
+    if (depth >= HANDLER_DEPTH)
+        __gnat_last_chance_handler((void *)"exception handler depth", 0);
+    previous = depth == 0 ? 0 : handler_stacks[slot][depth - 1];
+    handler_stacks[slot][depth] = exception;
+    handler_depths[slot] = depth + 1;
+    if (propagation_depth == 0 ||
+        propagation_stacks[slot][propagation_depth - 1] != exception)
+        __gnat_last_chance_handler((void *)"missing propagating exception", 0);
+    propagation_stacks[slot][propagation_depth - 1] = 0;
+    propagation_depths[slot] = propagation_depth - 1;
+    return previous;
 }
 
 void __gnat_end_handler_v1(struct _Unwind_Exception *exception,
                            void *cookie,
                            struct _Unwind_Exception *propagating)
 {
-    (void)cookie;
+    unsigned slot = current_task_slot();
+    u8 depth = handler_depths[slot];
+    struct _Unwind_Exception *previous;
+    if (depth == 0 || handler_stacks[slot][depth - 1] != exception)
+        __gnat_last_chance_handler((void *)"exception handler mismatch", 0);
+    previous = depth == 1 ? 0 : handler_stacks[slot][depth - 2];
+    if (cookie != previous)
+        __gnat_last_chance_handler((void *)"exception handler cookie", 0);
+    handler_stacks[slot][depth - 1] = 0;
+    handler_depths[slot] = depth - 1;
+    if (propagating != 0)
+        push_propagation(slot, propagating);
     if (propagating != exception)
         _Unwind_DeleteException(exception);
 }

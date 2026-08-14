@@ -10,6 +10,12 @@ package body Flyology.M3_Demo is
    use type Ada.Task_Identification.Task_Id;
    use type System.Any_Priority;
 
+   type Abort_Query_Count is mod 2 ** 64 with Convention => C;
+
+   function Abort_Cleanup_Query_Count return Abort_Query_Count
+   with Import, Convention => C,
+        External_Name => "flyology_abort_cleanup_query_count";
+
    type Done_Array is array (Positive range 1 .. 4) of Boolean
      with Atomic_Components;
    type Identity_Array is array (Positive range 1 .. 4) of
@@ -98,6 +104,7 @@ package body Flyology.M3_Demo is
    Selective_Done : Boolean := False with Atomic;
    Abort_Started : Boolean := False with Atomic;
    Abort_Continued : Boolean := False with Atomic;
+   Abort_User_Handler_Ran : Boolean := False with Atomic;
    Abort_Id : Ada.Task_Identification.Task_Id :=
      Ada.Task_Identification.Null_Task_Id with Atomic;
    Abort_Call_Started : Boolean := False with Atomic;
@@ -328,7 +335,12 @@ package body Flyology.M3_Demo is
    begin
       Abort_Id := Ada.Task_Identification.Current_Task;
       Abort_Started := True;
-      delay 1.0;
+      begin
+         delay 1.0;
+      exception
+         when others =>
+            Abort_User_Handler_Ran := True;
+      end;
       Abort_Continued := True;
    end Abort_Worker_Type;
 
@@ -514,6 +526,7 @@ package body Flyology.M3_Demo is
         [others => Ada.Task_Identification.Null_Task_Id];
       Parent_Object_Id : Ada.Task_Identification.Task_Id :=
         Ada.Task_Identification.Null_Task_Id;
+      Cleanup_Queries_Before : Abort_Query_Count;
    begin
       if CPU_Count not in 1 | 4
         or else Environment = Ada.Task_Identification.Null_Task_Id
@@ -829,6 +842,7 @@ package body Flyology.M3_Demo is
       end if;
       Report_Selective_Wait_Pass;
 
+      Cleanup_Queries_Before := Abort_Cleanup_Query_Count;
       declare
          Worker : Abort_Worker_Type
            (System.Multiprocessors.CPU_Range (CPU_Count));
@@ -841,7 +855,10 @@ package body Flyology.M3_Demo is
          end if;
          abort Worker;
       end;
-      if Abort_Continued
+      if Abort_Cleanup_Query_Count <= Cleanup_Queries_Before then
+         Report_Failure;
+      end if;
+      if Abort_Continued or else Abort_User_Handler_Ran
         or else Abort_Id = Ada.Task_Identification.Null_Task_Id
         or else not Ada.Task_Identification.Is_Terminated (Abort_Id)
         or else Ada.Task_Identification.Is_Callable (Abort_Id)

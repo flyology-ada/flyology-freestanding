@@ -59,6 +59,7 @@ package body System.Tasking.Stages is
 
    procedure Complete_Task is
    begin
+      Flyology.M3_Runtime.Observe_Abort_Cleanup;
       Flyology.M3_Runtime.Complete_Task;
    end Complete_Task;
 
