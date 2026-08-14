@@ -1,8 +1,9 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
-with Flyology.Dispatcher_Model;
 with Ada.Exceptions;
+with Flyology.Abort_Closure_Model;
 with Flyology.Clock_Model;
+with Flyology.Dispatcher_Model;
 with Flyology.Exceptional_Completion_Model;
 with Flyology.Placement_Model;
 with Flyology.Task_Core;
@@ -10,6 +11,7 @@ with Flyology.Termination_Model;
 with Flyology.Wait_Arbitration_Model;
 
 package body Flyology.M3_Runtime is
+   package Abort_Closure renames Flyology.Abort_Closure_Model;
    package Dispatcher renames Flyology.Dispatcher_Model;
    package Clock renames Flyology.Clock_Model;
    package Completions renames Flyology.Exceptional_Completion_Model;
@@ -20,6 +22,9 @@ package body Flyology.M3_Runtime is
    pragma Compile_Time_Error
      (Termination.Task_Capacity /= Core.Max_Tasks,
       "termination snapshot and task-core capacities differ");
+   pragma Compile_Time_Error
+     (Abort_Closure.Task_Capacity /= Core.Max_Tasks,
+      "abort closure and task-core capacities differ");
    use type Dispatcher.Task_Ref;
    use type Dispatcher.Task_Slot;
    use type Dispatcher.Task_Incarnation;
@@ -987,8 +992,10 @@ package body Flyology.M3_Runtime is
    end Deliver_Pending_Abort_Locked;
 
    procedure Abort_Tasks (Members : Task_List) is
-      type Abort_Plan is array (Task_Slot) of Boolean;
-      Plan          : Abort_Plan := [others => False];
+      Named         : Abort_Closure.Selection := [others => False];
+      Plan          : Abort_Closure.Selection := [others => False];
+      Owners        : Abort_Closure.Owner_Map :=
+        [others => Abort_Closure.No_Owner];
       Kicks         : Boolean_Core_Array := [others => False];
       Reference     : Dispatcher.Task_Ref;
       Slot          : Task_Slot;
@@ -1002,6 +1009,9 @@ package body Flyology.M3_Runtime is
       type Abort_Wait_Action is
         (Resolve_Only, Resolve_And_Remove_Call, Retain_Natural_Wake);
       Wait_Action : Abort_Wait_Action;
+      Direct_Master : Master_Number;
+      Owner          : Dispatcher.Task_Ref;
+      Owner_Slot     : Task_Slot;
    begin
       Enter_Kernel;
       for Index in Members'Range loop
@@ -1018,12 +1028,56 @@ package body Flyology.M3_Runtime is
                Leave_Kernel;
                Stop;
             end if;
-            Plan (Slot) := True;
+            Named (Abort_Closure.Task_Slot (Slot)) := True;
          end if;
       end loop;
 
       for Candidate in Task_Slot range 1 .. Task_Slot'Last loop
-         if Plan (Candidate) then
+         if Tasks (Candidate).Identity /= null then
+            if Tasks (Candidate).Master not in
+              Integer (Master_Number'First) .. Integer (Master_Number'Last)
+            then
+               Leave_Kernel;
+               Stop;
+            end if;
+            Direct_Master := Master_Number (Tasks (Candidate).Master);
+            if not Masters (Direct_Master).Used then
+               Leave_Kernel;
+               Stop;
+            end if;
+            Owner := Masters (Direct_Master).Owner;
+            if Owner = Core.No_Task then
+               Leave_Kernel;
+               Stop;
+            end if;
+            Owner_Slot := Record_Of (To_Identity (Owner));
+            if Owner_Slot = Candidate then
+               Leave_Kernel;
+               Stop;
+            end if;
+            Owners (Abort_Closure.Task_Slot (Candidate)) :=
+              Abort_Closure.Owner_Slot (Owner_Slot);
+         end if;
+      end loop;
+      Plan := Abort_Closure.Close (Owners, Named);
+
+      for Candidate in Task_Slot range 1 .. Task_Slot'Last loop
+         if Plan (Abort_Closure.Task_Slot (Candidate)) then
+            if Tasks (Candidate).Identity = null then
+               Leave_Kernel;
+               Stop;
+            end if;
+            Reference := To_Reference (Tasks (Candidate).Identity);
+            State := Core.State_Locked (Reference);
+            if State = Dispatcher.Dormant then
+               Leave_Kernel;
+               Stop;
+            end if;
+         end if;
+      end loop;
+
+      for Candidate in Task_Slot range 1 .. Task_Slot'Last loop
+         if Plan (Abort_Closure.Task_Slot (Candidate)) then
             Slot := Candidate;
             Reference := To_Reference (Tasks (Slot).Identity);
             State := Core.State_Locked (Reference);
@@ -1342,6 +1396,19 @@ package body Flyology.M3_Runtime is
          Parallel_Barrier (System.Address (Phase));
       end if;
    end Demo_Parallel_Barrier;
+
+   function Demo_Queued_Call_Count return Natural is
+      Result : Natural range 0 .. Max_Calls := 0;
+   begin
+      Enter_Kernel;
+      for Call in Call_Number loop
+         if Calls (Call).Phase = Queued then
+            Result := Result + 1;
+         end if;
+      end loop;
+      Leave_Kernel;
+      return Result;
+   end Demo_Queued_Call_Count;
 
    procedure Delay_Until_Tick (Deadline : Clock.Tick) is
       Dense      : constant Core_Number := Core_Of_Current;

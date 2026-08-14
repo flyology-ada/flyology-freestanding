@@ -1119,6 +1119,12 @@ flyology_m4_report_multi_abort_pass:
     address x0, m4_multi_abort_pass
     b serial_puts_locked
 
+.global flyology_m4_report_dependent_abort_pass
+.type flyology_m4_report_dependent_abort_pass, %function
+flyology_m4_report_dependent_abort_pass:
+    address x0, m4_dependent_abort_pass
+    b serial_puts_locked
+
 .global flyology_m4_report_abort_rendezvous_pass
 .type flyology_m4_report_abort_rendezvous_pass, %function
 flyology_m4_report_abort_rendezvous_pass:
@@ -1852,6 +1858,7 @@ m4_selective_wait_pass: .asciz "FLYOLOGY:M4:SELECTIVE_WAIT:PASS\n"
 m4_terminate_alternative_pass: .asciz "FLYOLOGY:M4:TERMINATE_ALTERNATIVE:PASS\n"
 m4_abort_pass: .asciz "FLYOLOGY:M4:ABORT:PASS\n"
 m4_multi_abort_pass: .asciz "FLYOLOGY:M4:MULTI_ABORT:PASS\n"
+m4_dependent_abort_pass: .asciz "FLYOLOGY:M4:DEPENDENT_ABORT:PASS\n"
 m4_abort_rendezvous_pass: .asciz "FLYOLOGY:M4:ABORT_RENDEZVOUS:PASS\n"
 m4_abort_timeout_pass: .asciz "FLYOLOGY:M4:ABORT_TIMEOUT:PASS\n"
 m4_abort_accepted_pass: .asciz "FLYOLOGY:M4:ABORT_ACCEPTED:PASS\n"

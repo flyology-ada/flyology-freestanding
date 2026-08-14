@@ -54,6 +54,11 @@ expose another task's occurrence. A separate bounded propagation stack per task
 carries unwind identities through phase-two finalizers before `Begin_Handler`
 runs. A nested exception that is raised and handled during outer cleanup pops
 only its own propagation context; the outer context becomes current again.
+Handler and propagation depths are published with release stores and observed
+with acquire loads before cross-core task-slot reclamation; stack entries are
+written before their corresponding depth publication. The RTS lock still owns
+the Ada lifecycle transition, while this narrow atomic boundary makes the C
+unwind state visible to the master that releases an execution slot.
 The compiler-visible occurrence record is deliberately opaque; product
 semantics currently preserve only the raw current handle returned through
 `Get_Gnat_Exception` and a stable exception identity snapshot.
@@ -365,7 +370,10 @@ CPU, observes that it has started, and invokes ordinary
 `Ada.Unchecked_Deallocation` without a preceding abort statement. `Free_Task`
 issues the task abort itself and blocks the environment task on an
 exact termination token if the target has not yet completed dispatcher-side
-retirement. Only the dispatcher, after switching off the victim stack, marks
+retirement. The target is held inside an accepted, abort-deferred rendezvous
+until the test releases its independent server; this causally exercises the
+termination-wait path rather than relying on elapsed time. Only the dispatcher,
+after switching off the victim stack, marks
 the identity terminated and wakes that exact waiter. The deallocator then
 validates the terminated incarnation, releases its execution slot and stack,
 advances the incarnation, calls raw free, and nulls the access value. Sixteen
@@ -497,10 +505,25 @@ publication, and serializes both requests under one RTS-lock acquisition;
 both identities must be terminated and not callable, with neither continuation
 executed, before `FLYOLOGY:M4:MULTI_ABORT:PASS`. SMP4 therefore covers a
 single atomic request plan spanning two cores, while SMP1 covers the same
-state machine locally. This checkpoint intentionally does not claim recursive
-abortion of tasks dependent on a named task, asynchronous abort of a CPU-bound
-task, abort-before-activation, ATC, or full abnormal master/exception
-semantics.
+state machine locally.
+
+Before publishing that plan, the runtime also snapshots the direct lexical
+master owner of every live task under the RTS lock. The SPARK
+`Abort_Closure_Model` computes the exact transitive closure of the named tasks
+over those owner links. Production rejects a dormant selected task or a
+malformed owner before changing any abort state, then applies the existing
+single-winner abort path to every selected exact task reference while still
+holding the same lock. The ordinary-Ada gate creates a child task inside a
+parent task body, pins the parent to the last configured CPU and the child to
+CPU 1, and names only the parent in the abort statement. Both language
+identities must become terminated and not callable, and neither body may run
+past its interrupted delay, before
+`FLYOLOGY:M4:DEPENDENT_ABORT:PASS`. SMP4 therefore exercises a remote
+dependent wake while SMP1 covers the same ownership closure locally.
+
+This checkpoint intentionally does not claim asynchronous abort of a
+CPU-bound task, abort-before-activation or dormant dependent cancellation,
+ATC, or full abnormal master/exception semantics.
 The private abort identity does not match an ordinary `when others`. Compiler
 zero-filter action-chain cleanups continue during phase two without terminating
 phase-one search. Compiler `all_others` is a real internal handler used by the
@@ -531,7 +554,10 @@ is woken normally only after the server completes, then delivers the retained
 abort before returning to user code. `FLYOLOGY:M4:ABORT_RENDEZVOUS:PASS`,
 `FLYOLOGY:M4:ABORT_TIMEOUT:PASS`, and `FLYOLOGY:M4:ABORT_ACCEPTED:PASS` are
 required in every QEMU cell and every SMP4 stress repeat. The timing is
-deliberately separated rather than a near-simultaneous boundary collision;
+driven by a passive exact queued-call count read under the RTS lock, so abort is
+requested only after the compiler-created caller record is actually published.
+The observer does not schedule, wake, or create tasks. The winner ordering is
+still deliberately separated rather than a near-simultaneous boundary collision;
 adversarial accept/timeout/abort ordering stress remains an M4 closure gate.
 
 The protected-entry abort composition uses distinct protected wait kinds, so
@@ -558,21 +584,22 @@ required before M4 closure.
 
 ## Model and stress closure gates
 
-The authoritative M4 host model enumerates 50,853 deterministic operations
+The authoritative M4 host model enumerates 220,853 deterministic operations
 over the production wait-arbitration, exact FIFO token, deadline, priority,
 ceiling, clock, allocator-arithmetic, exceptional-completion, and collective-
-termination kernels. It
-covers
-winner-before-block and winner-after-
-commit for normal wake, timeout, and abort; every second resolution is required
-to be a state-preserving duplicate. Stale task incarnations, stale/future wait
+termination kernels, plus the fixed-capacity abort-owner closure. It
+enumerates winner-before-block and winner-after-commit for normal wake,
+timeout, and abort; every second resolution is required to be a
+state-preserving duplicate. Stale task incarnations, stale/future wait
 generations, invalid phases, full/duplicate queues, exact queue removal,
-deadline cancellation and order, priority
-reordering, ceiling overflow/violation, and checked conversion boundaries are
-also enumerated. Every completion phase is checked for legal normal/exceptional
+deadline cancellation and order, priority reordering, ceiling
+overflow/violation, and checked conversion boundaries are also enumerated.
+Every four-task owner-map shape and named-task subset is closed over the same
+16-slot model used by production, with every output bit serialized into the
+pinned hash. Every completion phase is checked for legal normal/exceptional
 completion, consumption, and identity-presence invariants. The gate pins both
 the edge count and serialized-state hash so an accidental search reduction
-fails. GNATprove 16.1 reports all 358 generated checks proved across the
+fails. GNATprove 16.1 reports all 372 generated checks proved across the
 SPARK-analyzed deterministic core units. The concurrent Task_Core facade, the
 imported `Task_Primitives_Contract` declarations, compiler-facing GNARL
 facades, architecture assembly, C unwinder, and allocator CAS facade remain

@@ -65,7 +65,7 @@ static unsigned current_task_slot(void)
 void *flyology_current_exception(void)
 {
     unsigned slot = current_task_slot();
-    u8 depth = handler_depths[slot];
+    u8 depth = __atomic_load_n(&handler_depths[slot], __ATOMIC_ACQUIRE);
     if (depth == 0)
         return 0;
     return handler_stacks[slot][depth - 1];
@@ -74,8 +74,10 @@ void *flyology_current_exception(void)
 u8 flyology_current_exception_is_abort(void)
 {
     unsigned slot = current_task_slot();
-    u8 handler_depth = handler_depths[slot];
-    u8 propagation_depth = propagation_depths[slot];
+    u8 handler_depth =
+        __atomic_load_n(&handler_depths[slot], __ATOMIC_ACQUIRE);
+    u8 propagation_depth =
+        __atomic_load_n(&propagation_depths[slot], __ATOMIC_ACQUIRE);
     struct _Unwind_Exception *object;
     int cleanup;
     if (handler_depth != 0) {
@@ -110,25 +112,37 @@ uptr flyology_exception_task_capacity(void)
 void flyology_exception_release_task_slot(uptr raw_slot)
 {
     unsigned slot;
+    u8 propagation_depth;
+    struct flyology_exception *exception;
     if (raw_slot >= TASK_CAPACITY)
         __gnat_last_chance_handler((void *)"invalid released task slot", 0);
     slot = (unsigned)raw_slot;
-    if (handler_depths[slot] != 0)
+    if (__atomic_load_n(&handler_depths[slot], __ATOMIC_ACQUIRE) != 0)
         __gnat_last_chance_handler((void *)"live handler at task release", 0);
-    if (propagation_depths[slot] != 0)
+    propagation_depth =
+        __atomic_load_n(&propagation_depths[slot], __ATOMIC_ACQUIRE);
+    if (propagation_depth != 0) {
+        exception = (struct flyology_exception *)
+            propagation_stacks[slot][propagation_depth - 1];
+        if (propagation_depth == 1 &&
+            exception != 0 && exception->identity == &abort_signal)
+            __gnat_last_chance_handler(
+                (void *)"live abort propagation at task release", 0);
         __gnat_last_chance_handler((void *)"live exception at task release", 0);
+    }
 }
 
 static void push_propagation(unsigned slot,
                              struct _Unwind_Exception *exception)
 {
-    u8 depth = propagation_depths[slot];
+    u8 depth =
+        __atomic_load_n(&propagation_depths[slot], __ATOMIC_ACQUIRE);
     if (depth != 0 && propagation_stacks[slot][depth - 1] == exception)
         return;
     if (depth >= PROPAGATION_DEPTH)
         __gnat_last_chance_handler((void *)"exception propagation depth", 0);
     propagation_stacks[slot][depth] = exception;
-    propagation_depths[slot] = depth + 1;
+    __atomic_store_n(&propagation_depths[slot], depth + 1, __ATOMIC_RELEASE);
 }
 
 static u64 read_uleb(const u8 **cursor)
@@ -538,19 +552,21 @@ _Unwind_Reason_Code __gnat_personality_v0
 void *__gnat_begin_handler_v1(struct _Unwind_Exception *exception)
 {
     unsigned slot = current_task_slot();
-    u8 depth = handler_depths[slot];
-    u8 propagation_depth = propagation_depths[slot];
+    u8 depth = __atomic_load_n(&handler_depths[slot], __ATOMIC_ACQUIRE);
+    u8 propagation_depth =
+        __atomic_load_n(&propagation_depths[slot], __ATOMIC_ACQUIRE);
     struct _Unwind_Exception *previous;
     if (depth >= HANDLER_DEPTH)
         __gnat_last_chance_handler((void *)"exception handler depth", 0);
     previous = depth == 0 ? 0 : handler_stacks[slot][depth - 1];
     handler_stacks[slot][depth] = exception;
-    handler_depths[slot] = depth + 1;
+    __atomic_store_n(&handler_depths[slot], depth + 1, __ATOMIC_RELEASE);
     if (propagation_depth == 0 ||
         propagation_stacks[slot][propagation_depth - 1] != exception)
         __gnat_last_chance_handler((void *)"missing propagating exception", 0);
     propagation_stacks[slot][propagation_depth - 1] = 0;
-    propagation_depths[slot] = propagation_depth - 1;
+    __atomic_store_n(&propagation_depths[slot], propagation_depth - 1,
+                     __ATOMIC_RELEASE);
     return previous;
 }
 
@@ -559,7 +575,7 @@ void __gnat_end_handler_v1(struct _Unwind_Exception *exception,
                            struct _Unwind_Exception *propagating)
 {
     unsigned slot = current_task_slot();
-    u8 depth = handler_depths[slot];
+    u8 depth = __atomic_load_n(&handler_depths[slot], __ATOMIC_ACQUIRE);
     struct _Unwind_Exception *previous;
     if (depth == 0 || handler_stacks[slot][depth - 1] != exception)
         __gnat_last_chance_handler((void *)"exception handler mismatch", 0);
@@ -567,7 +583,7 @@ void __gnat_end_handler_v1(struct _Unwind_Exception *exception,
     if (cookie != previous)
         __gnat_last_chance_handler((void *)"exception handler cookie", 0);
     handler_stacks[slot][depth - 1] = 0;
-    handler_depths[slot] = depth - 1;
+    __atomic_store_n(&handler_depths[slot], depth - 1, __ATOMIC_RELEASE);
     if (propagating != 0)
         push_propagation(slot, propagating);
     if (propagating != exception)

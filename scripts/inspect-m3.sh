@@ -91,6 +91,7 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     flyology__dispatcher_model__try_transition \
     flyology__dispatcher_model__next_incarnation \
     flyology__placement_model__place \
+    flyology__abort_closure_model__close \
     flyology__termination_model__can_select \
     flyology__termination_model__select_termination \
     __gnat_personality_v0 \
@@ -136,6 +137,7 @@ for marker in 'FLYOLOGY:ADA:ELABORATION:PASS' \
     'FLYOLOGY:M4:TERMINATE_ALTERNATIVE:PASS' \
     'FLYOLOGY:M4:ABORT:PASS' \
     'FLYOLOGY:M4:MULTI_ABORT:PASS' \
+    'FLYOLOGY:M4:DEPENDENT_ABORT:PASS' \
     'FLYOLOGY:M4:ABORT_RENDEZVOUS:PASS' \
     'FLYOLOGY:M4:ABORT_TIMEOUT:PASS' \
     'FLYOLOGY:M4:ABORT_ACCEPTED:PASS' \

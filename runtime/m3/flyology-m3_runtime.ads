@@ -44,6 +44,7 @@ package Flyology.M3_Runtime is
    function Current_Core_Number return Natural;
    function Validate_Current_Stack (Probe : System.Address) return Boolean;
    procedure Demo_Parallel_Barrier (Phase : Positive);
+   function Demo_Queued_Call_Count return Natural;
    procedure Delay_For (Interval : Duration);
    procedure Delay_Until (Deadline : Long_Long_Integer);
    procedure Protected_Enter (Ceiling : Integer);

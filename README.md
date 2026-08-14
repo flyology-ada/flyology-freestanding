@@ -46,8 +46,9 @@ The first release is not complete. Work proceeds through the independently gated
   protected-entry, rendezvous, priority, abort, termination, and reclamation
   paths at SMP4 on both architectures.
 - `scripts/test-m4-models.sh` enumerates wait/wake/timeout/abort orders and
-  checks exact queues, timer cancellation, priorities, ceilings, and clock
-  arithmetic with a pinned edge count and state hash.
+  dependent-task abort closure, and checks exact queues, timer cancellation,
+  priorities, ceilings, and clock arithmetic with a pinned edge count and
+  state hash.
 - `scripts/prove.sh` proves the deterministic SPARK validation kernel.
 - `scripts/check.sh` performs shell/static and repository hygiene checks.
 

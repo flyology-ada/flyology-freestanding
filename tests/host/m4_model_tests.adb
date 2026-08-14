@@ -1,6 +1,7 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Ada.Text_IO;
+with Flyology.Abort_Closure_Model;
 with Flyology.Allocator_Model;
 with Flyology.Ceiling_Model;
 with Flyology.Clock_Model;
@@ -14,6 +15,7 @@ with Flyology.Wait_Arbitration_Model;
 with Flyology.Wait_Queue_Model;
 
 procedure M4_Model_Tests is
+   package Abort_Closure renames Flyology.Abort_Closure_Model;
    package Allocator renames Flyology.Allocator_Model;
    package Ceiling renames Flyology.Ceiling_Model;
    package Clock renames Flyology.Clock_Model;
@@ -564,6 +566,57 @@ procedure M4_Model_Tests is
       end loop;
    end Check_Collective_Termination;
 
+   procedure Check_Abort_Closure is
+      subtype Small_Slot is Abort_Closure.Task_Slot range 0 .. 3;
+   begin
+      for First_Owner in Abort_Closure.Owner_Slot range 0 .. 4 loop
+         for Second_Owner in Abort_Closure.Owner_Slot range 0 .. 4 loop
+            for Third_Owner in Abort_Closure.Owner_Slot range 0 .. 4 loop
+               for Fourth_Owner in Abort_Closure.Owner_Slot range 0 .. 4 loop
+                  declare
+                     Owners : Abort_Closure.Owner_Map :=
+                       [others => Abort_Closure.No_Owner];
+                  begin
+                     Owners (0) :=
+                       (if First_Owner = 4 then Abort_Closure.No_Owner
+                        else First_Owner);
+                     Owners (1) :=
+                       (if Second_Owner = 4 then Abort_Closure.No_Owner
+                        else Second_Owner);
+                     Owners (2) :=
+                       (if Third_Owner = 4 then Abort_Closure.No_Owner
+                        else Third_Owner);
+                     Owners (3) :=
+                       (if Fourth_Owner = 4 then Abort_Closure.No_Owner
+                        else Fourth_Owner);
+                     for Named_Bits in Natural range 0 .. 15 loop
+                        declare
+                           Named  : Abort_Closure.Selection :=
+                             [others => False];
+                           Result : Abort_Closure.Selection;
+                        begin
+                           for Slot in Small_Slot loop
+                              Named (Slot) :=
+                                (Named_Bits / (2 ** Slot)) mod 2 = 1;
+                           end loop;
+                           Result := Abort_Closure.Close (Owners, Named);
+                           for Slot in Abort_Closure.Task_Slot loop
+                              pragma Assert
+                                (Result (Slot) =
+                                   Abort_Closure.Should_Abort
+                                     (Owners, Named, Slot));
+                              Count (Boolean'Pos (Result (Slot)));
+                           end loop;
+                           Count (Named_Bits);
+                        end;
+                     end loop;
+                  end;
+               end loop;
+            end loop;
+         end loop;
+      end loop;
+   end Check_Abort_Closure;
+
 begin
    Check_Allocator;
    Check_Wait_Enumeration;
@@ -573,6 +626,7 @@ begin
    Check_Clock;
    Check_Exceptional_Completions;
    Check_Collective_Termination;
+   Check_Abort_Closure;
    Ada.Text_IO.Put_Line
      ("FLYOLOGY:M4:MODEL:PASS:EDGES" & Natural'Image (Edges) &
         ":HASH" & Hash_Word'Image (Hash));

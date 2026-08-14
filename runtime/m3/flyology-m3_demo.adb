@@ -208,6 +208,14 @@ package body Flyology.M3_Demo is
    Multi_Abort_Continued : Done_Array := [others => False];
    Multi_Abort_Ids : Identity_Array :=
      [others => Ada.Task_Identification.Null_Task_Id];
+   Dependent_Abort_Parent_Started : Boolean := False with Atomic;
+   Dependent_Abort_Child_Started : Boolean := False with Atomic;
+   Dependent_Abort_Parent_Continued : Boolean := False with Atomic;
+   Dependent_Abort_Child_Continued : Boolean := False with Atomic;
+   Dependent_Abort_Parent_Id : Ada.Task_Identification.Task_Id :=
+     Ada.Task_Identification.Null_Task_Id with Atomic;
+   Dependent_Abort_Child_Id : Ada.Task_Identification.Task_Id :=
+     Ada.Task_Identification.Null_Task_Id with Atomic;
    Abort_Call_Started : Boolean := False with Atomic;
    Abort_Call_Continued : Boolean := False with Atomic;
    Abort_Call_Id : Ada.Task_Identification.Task_Id :=
@@ -270,15 +278,19 @@ package body Flyology.M3_Demo is
    task type Dynamic_Worker_Type;
    type Dynamic_Worker_Access is access Dynamic_Worker_Type;
 
+   task type Free_Hold_Server_Type is
+      entry Hold;
+   end Free_Hold_Server_Type;
+
    task type Free_Worker_Type
-     (CPU_Number : System.Multiprocessors.CPU_Range)
+     (CPU_Number : System.Multiprocessors.CPU_Range;
+      Server     : not null access Free_Hold_Server_Type)
      with CPU => CPU_Number;
    type Free_Worker_Access is access Free_Worker_Type;
    procedure Free_Worker is new Ada.Unchecked_Deallocation
      (Free_Worker_Type, Free_Worker_Access);
    Race_Target : Free_Worker_Access := null;
 
-   task type Free_Child_Type;
    task type Free_Release_Type;
    task type Free_Race_Client_Type
      (CPU_Number : System.Multiprocessors.CPU_Range)
@@ -304,6 +316,14 @@ package body Flyology.M3_Demo is
    task type Multi_Abort_Worker_Type
      (CPU_Number : System.Multiprocessors.CPU_Range;
       Index      : Positive)
+     with CPU => CPU_Number;
+
+   task type Dependent_Abort_Parent_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range)
+     with CPU => CPU_Number;
+
+   task type Dependent_Abort_Child_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range)
      with CPU => CPU_Number;
 
    task type Abort_Rendezvous_Server_Type
@@ -485,23 +505,24 @@ package body Flyology.M3_Demo is
       end if;
    end Run_Dynamic_Worker;
 
-   task body Free_Child_Type is
+   task body Free_Hold_Server_Type is
    begin
-      while not Free_Release loop
-         delay 0.001;
+      --  One accepted call for the abort-vs-free race, followed by one for
+      --  each systematic execution-slot reclamation iteration.
+      for Iteration in 1 .. 17 loop
+         accept Hold do
+            while not Free_Release loop
+               delay 0.001;
+            end loop;
+         end Hold;
       end loop;
-   end Free_Child_Type;
+   end Free_Hold_Server_Type;
 
    task body Free_Worker_Type is
    begin
       Free_Id := Ada.Task_Identification.Current_Task;
       Free_Started := True;
-      declare
-         Child : Free_Child_Type;
-         pragma Unreferenced (Child);
-      begin
-         null;
-      end;
+      Server.Hold;
       Free_Target_Continued := True;
    end Free_Worker_Type;
 
@@ -524,9 +545,10 @@ package body Flyology.M3_Demo is
       use type Ada.Real_Time.Time;
       Previous : Ada.Task_Identification.Task_Id :=
         Ada.Task_Identification.Null_Task_Id;
+      Server : aliased Free_Hold_Server_Type;
    begin
       --  Abort the task performing deallocation while it is waiting for a
-      --  target held in abort-deferred master completion.  The target's
+      --  target held in an accepted abort-deferred rendezvous.  The target's
       --  natural retirement wake must finish raw free and access nulling
       --  before the client's pending abort is delivered at its next delay.
       Free_Started := False;
@@ -536,7 +558,7 @@ package body Flyology.M3_Demo is
       Free_Race_Continued := False;
       Free_Race_Id := Ada.Task_Identification.Null_Task_Id;
       Race_Target := new Free_Worker_Type
-        (System.Multiprocessors.Number_Of_CPUs);
+        (System.Multiprocessors.Number_Of_CPUs, Server'Unchecked_Access);
       declare
          Target_Id : constant Ada.Task_Identification.Task_Id :=
            Race_Target.all'Identity;
@@ -595,7 +617,8 @@ package body Flyology.M3_Demo is
             Free_Target_Continued := False;
             Free_Id := Ada.Task_Identification.Null_Task_Id;
             Worker := new Free_Worker_Type
-              (System.Multiprocessors.Number_Of_CPUs);
+              (System.Multiprocessors.Number_Of_CPUs,
+               Server'Unchecked_Access);
             Saved := Worker.all'Identity;
             while not Free_Started loop
                if not (Ada.Real_Time.Clock < Start_Deadline) then
@@ -716,6 +739,34 @@ package body Flyology.M3_Demo is
       Multi_Abort_Continued (Index) := True;
    end Multi_Abort_Worker_Type;
 
+   task body Dependent_Abort_Child_Type is
+   begin
+      Dependent_Abort_Child_Id := Ada.Task_Identification.Current_Task;
+      Dependent_Abort_Child_Started := True;
+      delay 10.0;
+      Dependent_Abort_Child_Continued := True;
+   end Dependent_Abort_Child_Type;
+
+   task body Dependent_Abort_Parent_Type is
+   begin
+      Dependent_Abort_Parent_Id := Ada.Task_Identification.Current_Task;
+      declare
+         Child : Dependent_Abort_Child_Type (1);
+         pragma Unreferenced (Child);
+      begin
+         for Attempt in 1 .. 1_000 loop
+            exit when Dependent_Abort_Child_Started;
+            delay 0.001;
+         end loop;
+         if not Dependent_Abort_Child_Started then
+            Report_Failure;
+         end if;
+         Dependent_Abort_Parent_Started := True;
+         delay 10.0;
+         Dependent_Abort_Parent_Continued := True;
+      end;
+   end Dependent_Abort_Parent_Type;
+
    task body Abort_Rendezvous_Server_Type is
    begin
       if Delay_Before_Accept then
@@ -755,6 +806,17 @@ package body Flyology.M3_Demo is
    begin
       Priority_Worker_Id (Index) :=
         Ada.Task_Identification.Current_Task;
+      if Index = 2 then
+         --  Make the FIFO arrival order causal rather than relying on the
+         --  relative first dispatch of two simultaneously activated tasks.
+         for Attempt in 1 .. 1_000 loop
+            exit when Protected_Gate.Waiting = 1;
+            delay 0.001;
+         end loop;
+         if Protected_Gate.Waiting /= 1 then
+            Report_Failure;
+         end if;
+      end if;
       Protected_Gate.Wait (Index);
       Priority_Run_Log.Note (Index);
       Protected_Entry_Done (Index) := True;
@@ -906,6 +968,10 @@ package body Flyology.M3_Demo is
    procedure Report_Multi_Abort_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_multi_abort_pass";
+
+   procedure Report_Dependent_Abort_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_dependent_abort_pass";
 
    procedure Report_Abort_Rendezvous_Pass
    with Import, Convention => C,
@@ -1198,7 +1264,12 @@ package body Flyology.M3_Demo is
          Worker_Id : constant Ada.Task_Identification.Task_Id :=
            Worker'Identity;
       begin
-         delay 0.001;
+         for Attempt in 1 .. 1_000 loop
+            exit when Abort_Protected_Started
+              and then Abort_Protected_Id = Worker_Id
+              and then Protected_Gate.Waiting = 1;
+            delay 0.001;
+         end loop;
          if not Abort_Protected_Started
            or else Abort_Protected_Id /= Worker_Id
            or else Protected_Gate.Waiting /= 1
@@ -1225,7 +1296,12 @@ package body Flyology.M3_Demo is
          Worker_Id : constant Ada.Task_Identification.Task_Id :=
            Worker'Identity;
       begin
-         delay 0.001;
+         for Attempt in 1 .. 1_000 loop
+            exit when Abort_Timed_Protected_Started
+              and then Abort_Timed_Protected_Id = Worker_Id
+              and then Protected_Gate.Waiting = 1;
+            delay 0.001;
+         end loop;
          if not Abort_Timed_Protected_Started
            or else Abort_Timed_Protected_Id /= Worker_Id
            or else Protected_Gate.Waiting /= 1
@@ -1306,7 +1382,11 @@ package body Flyology.M3_Demo is
          Worker : Exceptional_Protected_Worker_Type
            (System.Multiprocessors.CPU_Range (CPU_Count));
       begin
-         delay 0.001;
+         for Attempt in 1 .. 1_000 loop
+            exit when Protected_Gate.Failing = 1
+              or else Exceptional_Protected_Caught;
+            delay 0.001;
+         end loop;
          if Exceptional_Protected_Caught or else Protected_Gate.Failing /= 1
          then
             Report_Failure;
@@ -1322,7 +1402,11 @@ package body Flyology.M3_Demo is
          Worker : Protected_Entry_Worker_Type
            (System.Multiprocessors.CPU_Range (CPU_Count), 3);
       begin
-         delay 0.001;
+         for Attempt in 1 .. 1_000 loop
+            exit when Protected_Gate.Waiting = 1
+              or else Protected_Entry_Done (3);
+            delay 0.001;
+         end loop;
          if Protected_Entry_Done (3) or else Protected_Gate.Waiting /= 1 then
             Report_Failure;
          end if;
@@ -1469,7 +1553,10 @@ package body Flyology.M3_Demo is
          Worker_Id : constant Ada.Task_Identification.Task_Id :=
            Worker'Identity;
       begin
-         delay 0.001;
+         for Attempt in 1 .. 1_000 loop
+            exit when Abort_Started and then Abort_Id = Worker_Id;
+            delay 0.001;
+         end loop;
          if not Abort_Started or else Abort_Id /= Worker_Id then
             Report_Failure;
          end if;
@@ -1525,6 +1612,49 @@ package body Flyology.M3_Demo is
       end if;
       Report_Multi_Abort_Pass;
 
+      Dependent_Abort_Parent_Started := False;
+      Dependent_Abort_Child_Started := False;
+      Dependent_Abort_Parent_Continued := False;
+      Dependent_Abort_Child_Continued := False;
+      Dependent_Abort_Parent_Id := Ada.Task_Identification.Null_Task_Id;
+      Dependent_Abort_Child_Id := Ada.Task_Identification.Null_Task_Id;
+      declare
+         Parent : Dependent_Abort_Parent_Type
+           (System.Multiprocessors.CPU_Range (CPU_Count));
+         Parent_Id : constant Ada.Task_Identification.Task_Id :=
+           Parent'Identity;
+      begin
+         for Attempt in 1 .. 1_000 loop
+            exit when Dependent_Abort_Parent_Started
+              and then Dependent_Abort_Child_Started;
+            delay 0.001;
+         end loop;
+         if not Dependent_Abort_Parent_Started
+           or else not Dependent_Abort_Child_Started
+           or else Dependent_Abort_Parent_Id /= Parent_Id
+           or else Dependent_Abort_Child_Id =
+             Ada.Task_Identification.Null_Task_Id
+           or else Dependent_Abort_Child_Id = Parent_Id
+         then
+            Report_Failure;
+         end if;
+         abort Parent;
+      end;
+      if Dependent_Abort_Parent_Continued
+        or else Dependent_Abort_Child_Continued
+        or else not Ada.Task_Identification.Is_Terminated
+          (Dependent_Abort_Parent_Id)
+        or else not Ada.Task_Identification.Is_Terminated
+          (Dependent_Abort_Child_Id)
+        or else Ada.Task_Identification.Is_Callable
+          (Dependent_Abort_Parent_Id)
+        or else Ada.Task_Identification.Is_Callable
+          (Dependent_Abort_Child_Id)
+      then
+         Report_Failure;
+      end if;
+      Report_Dependent_Abort_Pass;
+
       declare
          Server : aliased Abort_Rendezvous_Server_Type
            (System.Multiprocessors.CPU_Range (CPU_Count), True);
@@ -1533,8 +1663,15 @@ package body Flyology.M3_Demo is
          Client_Id : constant Ada.Task_Identification.Task_Id :=
            Client'Identity;
       begin
-         delay 0.001;
-         if not Abort_Call_Started or else Abort_Call_Id /= Client_Id then
+         for Attempt in 1 .. 1_000 loop
+            exit when Abort_Call_Started
+              and then Abort_Call_Id = Client_Id
+              and then Flyology.M3_Runtime.Demo_Queued_Call_Count = 1;
+            delay 0.001;
+         end loop;
+         if not Abort_Call_Started or else Abort_Call_Id /= Client_Id
+           or else Flyology.M3_Runtime.Demo_Queued_Call_Count /= 1
+         then
             Report_Failure;
          end if;
          abort Client;
@@ -1561,7 +1698,12 @@ package body Flyology.M3_Demo is
          Client_Id : constant Ada.Task_Identification.Task_Id :=
            Client'Identity;
       begin
-         delay 0.001;
+         for Attempt in 1 .. 1_000 loop
+            exit when Abort_Call_Started
+              and then Abort_Accept_Entered
+              and then Abort_Call_Id = Client_Id;
+            delay 0.001;
+         end loop;
          if not Abort_Call_Started or else not Abort_Accept_Entered
            or else Abort_Call_Id /= Client_Id
          then
@@ -1586,8 +1728,15 @@ package body Flyology.M3_Demo is
          Client_Id : constant Ada.Task_Identification.Task_Id :=
            Client'Identity;
       begin
-         delay 0.001;
-         if not Abort_Timed_Started or else Abort_Timed_Id /= Client_Id then
+         for Attempt in 1 .. 1_000 loop
+            exit when Abort_Timed_Started
+              and then Abort_Timed_Id = Client_Id
+              and then Flyology.M3_Runtime.Demo_Queued_Call_Count = 1;
+            delay 0.001;
+         end loop;
+         if not Abort_Timed_Started or else Abort_Timed_Id /= Client_Id
+           or else Flyology.M3_Runtime.Demo_Queued_Call_Count /= 1
+         then
             Report_Failure;
          end if;
          abort Client;
