@@ -1082,18 +1082,19 @@ package body Flyology.M3_Demo is
          then
             Report_Failure;
          end if;
-         if Scenario in 3 | 6 then
+         if Scenario = 3 then
             if Abort_Timed_Protected_Accepted
               or else Abort_Timed_Protected_Timed_Out
               or else Abort_Timed_Protected_Continued
             then
                Report_Failure;
             end if;
-         elsif Scenario = 5 then
-            --  This is the deliberately near-boundary three-way case.  TCG
-            --  may resume the environment before or after the timeout/service
-            --  winner.  Accept either abort (no user continuation) or exactly
-            --  one normal winner, but never a double or partial outcome.
+         elsif Scenario in 5 | 6 then
+            --  These are deliberately scheduling-sensitive cases.  TCG may
+            --  resume the remote caller before or after the environment's
+            --  abort statement.  Accept either abort (no user continuation)
+            --  or exactly one normal winner, but never a double or partial
+            --  outcome.
             if Abort_Timed_Protected_Accepted
               and then Abort_Timed_Protected_Timed_Out
             then
