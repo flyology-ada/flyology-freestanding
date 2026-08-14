@@ -51,6 +51,7 @@ package Flyology.M3_Runtime is
 
    procedure Set_Priority (Priority : Integer; Item : Task_Id);
    function Get_Priority (Item : Task_Id) return Integer;
+   function Current_Active_Priority return Integer;
 
    procedure Call_Simple
      (Target      : Task_Id;

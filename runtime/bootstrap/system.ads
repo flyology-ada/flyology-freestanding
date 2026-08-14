@@ -12,7 +12,7 @@ package System is
 
    Null_Address : constant Address := 0;
 
-   type Any_Priority is range 0 .. 255;
+   subtype Any_Priority is Integer range 0 .. 255;
    subtype Priority is Any_Priority range 0 .. 239;
    subtype Interrupt_Priority is Any_Priority range 240 .. 255;
    Default_Priority : constant Priority := Priority'First;

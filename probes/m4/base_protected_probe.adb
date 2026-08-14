@@ -3,7 +3,7 @@
 procedure Base_Protected_Probe is
    type Pair is array (Positive range 1 .. 2) of Natural;
 
-   protected Counter is
+   protected Counter with Priority => 8 is
       procedure Increment;
       function Value return Natural;
    private

@@ -1480,6 +1480,17 @@ package body Flyology.M3_Runtime is
       return Integer (Result);
    end Get_Priority;
 
+   function Current_Active_Priority return Integer is
+      Reference : Dispatcher.Task_Ref;
+      Result    : Dispatcher.Priority;
+   begin
+      Enter_Kernel;
+      Reference := Core.Current_Locked (Core_Of_Current);
+      Result := Core.Active_Priority_Locked (Reference);
+      Leave_Kernel;
+      return Integer (Result);
+   end Current_Active_Priority;
+
    function Allocate_Call_Locked return Call_Number is
    begin
       for Call in Call_Number loop

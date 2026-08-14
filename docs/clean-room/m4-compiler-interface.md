@@ -98,8 +98,13 @@ claimed; no test exercises an overflow condition as conforming `Time_Error`
 propagation.
 
 The owned `base_protected_probe.adb` forces aggregate protected state so GNAT
-cannot lower the object to scalar lock-free atomics. Both cross compilers then
-emit the same base lifecycle: `Protection` default initialization,
+cannot lower the object to scalar lock-free atomics. It declares an explicit
+`Priority => 8`; both cross compilers retain that aspect as an
+`Any_Priority` value and pass it directly to `Initialize_Protection`. This
+probe also corrects the clean-room `System.Any_Priority` declaration to the
+ARM-shaped subtype of `Integer`, rather than a distinct integer type. Both
+cross compilers then emit the same base lifecycle: `Protection` default
+initialization,
 `Initialize_Protection`, abort deferral, `Lock` or `Lock_Read_Only`, `Unlock`,
 and `Finalize_Protection`, plus attachment through the compiler-required
 finalization node. AArch64 additionally references `__clear_cache` for its
@@ -232,12 +237,23 @@ target receives a reschedule request. The proved ceiling model defers the
 active effect of a base-priority change while a protected action is in
 progress, then restores the new base at the outer leave.
 
-The QEMU demonstration changes the blocked rendezvous server's base priority
-from the environment task, verifies the target query, and has the server verify
-the same value through the default-current-task call before completing the
-cross-core rendezvous. `FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS` is emitted only
-after both observations. Interrupt-time priority preemption remains an M5
-gate; this M4 checkpoint requests rescheduling at cooperative safe boundaries.
+The QEMU demonstration changes two callers while both are blocked on one
+protected entry, then releases them together. Entry service remains FIFO, but
+the proved ready policy dispatches the higher-priority caller first; the test
+records both independent orders. It separately changes a blocked rendezvous
+server's base priority from the environment task, verifies the target query,
+and has the server verify the same value through the default-current-task call
+before completing the cross-core rendezvous.
+`FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS` is emitted only after all observations.
+
+Two configured protected objects exercise ceilings 8 and 10. A caller at
+priority 9 is rejected before the ceiling-8 body runs. An admitted caller
+changes its base from 2 to 3 inside the ceiling-8 action; the test-only passive
+observer sees active priority remain 8, rise to 10 for a nested protected
+action, return to 8, and finally restore to the new base 3 at outer unlock.
+Only then is `FLYOLOGY:M4:CEILING:PASS` emitted. Interrupt-time priority
+preemption remains an M5 gate; this M4 checkpoint requests rescheduling at
+cooperative safe boundaries.
 
 The owned `conditional_rendezvous_probe.adb` confirms that both target
 compilers lower a conditional task entry call to `Task_Entry_Call` with

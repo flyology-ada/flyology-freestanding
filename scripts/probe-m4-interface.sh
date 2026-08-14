@@ -122,6 +122,10 @@ for architecture in x86_64 aarch64; do
         "$output/base_protected_probe.expanded" >/dev/null
     grep -F 'system__tasking__protected_objects__lock_read_only (' \
         "$output/base_protected_probe.expanded" >/dev/null
+    grep -F 'with priority => 8;' \
+        "$output/base_protected_probe.expanded" >/dev/null
+    grep -F 'system__any_priority := 8;' \
+        "$output/base_protected_probe.expanded" >/dev/null
 
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-gcc" -c "$repository/probes/m4/protected_probe.adb" \

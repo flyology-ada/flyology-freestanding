@@ -9,7 +9,6 @@ with System.Multiprocessors;
 
 package body Flyology.M3_Demo is
    use type Ada.Task_Identification.Task_Id;
-   use type System.Any_Priority;
 
    type Abort_Query_Count is mod 2 ** 64 with Convention => C;
 
@@ -39,6 +38,65 @@ package body Flyology.M3_Demo is
    type Counter_Pair is array (Positive range 1 .. 2) of Natural;
    type Service_Log_Array is array (Positive range 1 .. 4) of Natural;
 
+   Ceiling_Body_Ran : Boolean := False with Atomic;
+   Ceiling_Check_Failed : Boolean := False with Atomic;
+
+   protected Nested_Ceiling_Probe with Priority => 10 is
+      procedure Observe;
+   end Nested_Ceiling_Probe;
+
+   protected body Nested_Ceiling_Probe is
+      procedure Observe is
+      begin
+         if Flyology.M3_Runtime.Current_Active_Priority /= 10 then
+            Ceiling_Check_Failed := True;
+         end if;
+      end Observe;
+   end Nested_Ceiling_Probe;
+
+   protected Ceiling_Probe with Priority => 8 is
+      procedure Change_Base;
+   end Ceiling_Probe;
+
+   protected body Ceiling_Probe is
+      procedure Change_Base is
+      begin
+         Ceiling_Body_Ran := True;
+         if Flyology.M3_Runtime.Current_Active_Priority /= 8 then
+            Ceiling_Check_Failed := True;
+         end if;
+         Ada.Dynamic_Priorities.Set_Priority (3);
+         if Ada.Dynamic_Priorities.Get_Priority /= 3
+           or else Flyology.M3_Runtime.Current_Active_Priority /= 8
+         then
+            Ceiling_Check_Failed := True;
+         end if;
+         Nested_Ceiling_Probe.Observe;
+         if Flyology.M3_Runtime.Current_Active_Priority /= 8 then
+            Ceiling_Check_Failed := True;
+         end if;
+      end Change_Base;
+   end Ceiling_Probe;
+
+   protected Priority_Run_Log is
+      procedure Note (Index : Positive);
+      function Order (Position : Positive) return Natural;
+   private
+      Count : Natural := 0;
+      Log   : Service_Log_Array := [others => 0];
+   end Priority_Run_Log;
+
+   protected body Priority_Run_Log is
+      procedure Note (Index : Positive) is
+      begin
+         Count := Count + 1;
+         Log (Count) := Index;
+      end Note;
+
+      function Order (Position : Positive) return Natural is
+        (Log (Position));
+   end Priority_Run_Log;
+
    protected Shared_Counter is
       procedure Increment;
       function Value return Natural;
@@ -57,6 +115,8 @@ package body Flyology.M3_Demo is
    end Shared_Counter;
 
    Protected_Entry_Done : Done_Array := [others => False];
+   Priority_Worker_Id : Identity_Array :=
+     [others => Ada.Task_Identification.Null_Task_Id];
 
    protected Protected_Gate is
       procedure Open;
@@ -676,7 +736,10 @@ package body Flyology.M3_Demo is
 
    task body Protected_Entry_Worker_Type is
    begin
+      Priority_Worker_Id (Index) :=
+        Ada.Task_Identification.Current_Task;
       Protected_Gate.Wait (Index);
+      Priority_Run_Log.Note (Index);
       Protected_Entry_Done (Index) := True;
    end Protected_Entry_Worker_Type;
 
@@ -790,6 +853,10 @@ package body Flyology.M3_Demo is
    procedure Report_Priority_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_priority_pass";
+
+   procedure Report_Ceiling_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_ceiling_pass";
 
    procedure Report_Conditional_Pass
    with Import, Convention => C,
@@ -1040,6 +1107,39 @@ package body Flyology.M3_Demo is
       Report_Protected_Pass;
 
       declare
+         Original_Priority : constant System.Any_Priority :=
+           Ada.Dynamic_Priorities.Get_Priority;
+         Violation_Caught : Boolean := False;
+      begin
+         Ceiling_Body_Ran := False;
+         Ceiling_Check_Failed := False;
+         Ada.Dynamic_Priorities.Set_Priority (9);
+         begin
+            Ceiling_Probe.Change_Base;
+         exception
+            when Program_Error =>
+               Violation_Caught := True;
+         end;
+         if not Violation_Caught or else Ceiling_Body_Ran
+           or else Ada.Dynamic_Priorities.Get_Priority /= 9
+           or else Flyology.M3_Runtime.Current_Active_Priority /= 9
+         then
+            Report_Failure;
+         end if;
+         Ada.Dynamic_Priorities.Set_Priority (2);
+         Ceiling_Body_Ran := False;
+         Ceiling_Probe.Change_Base;
+         if not Ceiling_Body_Ran or else Ceiling_Check_Failed
+           or else Ada.Dynamic_Priorities.Get_Priority /= 3
+           or else Flyology.M3_Runtime.Current_Active_Priority /= 3
+         then
+            Report_Failure;
+         end if;
+         Ada.Dynamic_Priorities.Set_Priority (Original_Priority);
+      end;
+      Report_Ceiling_Pass;
+
+      declare
          Rejected : Boolean := False;
       begin
          select
@@ -1134,15 +1234,34 @@ package body Flyology.M3_Demo is
          Worker_2 : Protected_Entry_Worker_Type
            (System.Multiprocessors.CPU_Range (CPU_Count), 2);
       begin
-         delay 0.001;
-         if Protected_Entry_Done (1) or else Protected_Entry_Done (2) then
+         for Attempt in 1 .. 1_000 loop
+            exit when Protected_Gate.Waiting = 2
+              and then Priority_Worker_Id (1) /=
+                Ada.Task_Identification.Null_Task_Id
+              and then Priority_Worker_Id (2) /=
+                Ada.Task_Identification.Null_Task_Id;
+            delay 0.001;
+         end loop;
+         if Protected_Entry_Done (1) or else Protected_Entry_Done (2)
+           or else Protected_Gate.Waiting /= 2
+           or else Priority_Worker_Id (1) =
+             Ada.Task_Identification.Null_Task_Id
+           or else Priority_Worker_Id (2) =
+             Ada.Task_Identification.Null_Task_Id
+         then
             Report_Failure;
          end if;
+         Ada.Dynamic_Priorities.Set_Priority
+           (3, Priority_Worker_Id (1));
+         Ada.Dynamic_Priorities.Set_Priority
+           (9, Priority_Worker_Id (2));
          Protected_Gate.Open;
       end;
       if not Protected_Entry_Done (1) or else not Protected_Entry_Done (2)
         or else Protected_Gate.Service_Order (1) /= 1
         or else Protected_Gate.Service_Order (2) /= 2
+        or else Priority_Run_Log.Order (1) /= 2
+        or else Priority_Run_Log.Order (2) /= 1
       then
          Report_Failure;
       end if;
