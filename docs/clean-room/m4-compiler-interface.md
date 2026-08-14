@@ -332,8 +332,47 @@ an earlier lifecycle omission: the registered environment task now owns an
 open root master before application package elaboration can query
 `Current_Master`.
 
-This allocation checkpoint deliberately does not claim `Unchecked_Deallocation`,
-`Free_Task`, allocation-pool reuse, or dynamic heap-object reclamation.
+The owned `abort_dynamic_probe.adb` is also compiled against the pinned hosted
+GNAT 15.3 runtime as black-box lowering evidence. Its generated relocation
+order is `Abort_Tasks`, `System.Tasking.Stages.Free_Task`, then raw
+`__gnat_free`; only after those calls does the generated instance null the
+access value. The exact `Free_Task (Item : Task_Id)` profile and ordering are
+therefore observed rather than guessed. Flyology supplies the ARM-prescribed
+generic declaration, including `Preelaborate` and intrinsic convention, but no
+generic body. Both cross compilers then perform the same intrinsic lowering
+directly to the clean-room `System.Tasking.Stages.Free_Task`, raw free, and
+access nulling. This avoids a second object-address lifecycle API and lets the
+compiler pass the exact stable `Task_Id` it created.
+
+The product gate repeatedly creates a task pinned to the last configured Ada
+CPU, observes that it has started, and invokes ordinary
+`Ada.Unchecked_Deallocation` without a preceding abort statement. `Free_Task`
+issues the task abort itself and blocks the environment task on an
+exact termination token if the target has not yet completed dispatcher-side
+retirement. Only the dispatcher, after switching off the victim stack, marks
+the identity terminated and wakes that exact waiter. The deallocator then
+validates the terminated incarnation, releases its execution slot and stack,
+advances the incarnation, calls raw free, and nulls the access value. Sixteen
+iterations exceed the fifteen non-environment execution slots, so
+`FLYOLOGY:M4:FREE_TASK:PASS` cannot be reached if any execution slot leaks.
+Every retained old `Task_Id` remains terminated and not callable. GNAT's
+expansion captures the master at the access-type declaration, so a legal
+deallocator is itself within the master relation that must finish before
+lexical master cleanup can reclaim the dependent. The product relies on that
+compiler-observed accessibility/master invariant rather than adding a second
+reclamation-reservation state machine.
+
+The gate also aborts a second task while it is itself blocked inside
+`Free_Task`. A termination wait deliberately retains that pending abort until
+the target's natural retirement wake lets the compiler's indivisible
+`Free_Task`/raw-free/null sequence finish; the freer then reaches a delay safe
+point and terminates by abort. The test requires the shared access value to be
+null first, rejects continuation past that safe point, and subsequently reuses
+the released execution slot. The current raw allocator free remains a no-op,
+so this checkpoint claims task execution-slot/stack reclamation and access
+nulling, not allocation-pool reuse or dynamic heap-object reclamation. General
+non-task object finalization/deallocation is compiler-lowered but remains
+outside the exercised product semantics until a reclaiming heap exists.
 
 The owned `selective_wait_probe.adb` confirms that both compilers construct an
 `Accept_List`, mark a null accept body in its `Accept_Alternative`, and call
@@ -377,10 +416,9 @@ pairwise distinct, terminated, and not callable before
 is deliberately not reused yet. The compiler activation chain remains bounded
 at 32 tasks, separately from the lifetime identity pool, so terminated
 identities do not consume the live execution-slot capacity. Identity exhaustion
-follows the checked `Storage_Error` path. This does not claim
-`Unchecked_Deallocation`, `Free_Task`, allocation-pool reuse, or freeing an
-identity retained by user code; those require the explicit compiler
-deallocation hook and lifetime rules.
+follows the checked `Storage_Error` path. The explicit `Free_Task` hook now
+reclaims the execution slot while retaining the standard identity tombstone;
+the bounded identity and monotonic heap pools remain deliberately unreclaimed.
 
 ## Abort checkpoint
 
@@ -479,7 +517,7 @@ required before M4 closure.
 
 ## Model and stress closure gates
 
-The authoritative M4 host model enumerates 32,790 deterministic operations
+The authoritative M4 host model enumerates 37,728 deterministic operations
 over the production wait-arbitration, exact FIFO token, deadline, priority,
 ceiling, clock, allocator-arithmetic, and exceptional-completion kernels. It
 covers

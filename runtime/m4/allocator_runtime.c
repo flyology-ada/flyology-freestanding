@@ -127,4 +127,9 @@ void free(void *object)
 {
     (void)object;
 }
+
+void __gnat_free(void *object)
+{
+    free(object);
+}
 #endif

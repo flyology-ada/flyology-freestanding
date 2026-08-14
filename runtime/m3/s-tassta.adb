@@ -88,6 +88,12 @@ package body System.Tasking.Stages is
       end if;
    end Expunge_Unactivated_Tasks;
 
+   procedure Free_Task (Item : System.Tasking.Task_Id) is
+      pragma No_Inline (Free_Task);
+   begin
+      Flyology.M3_Runtime.Free_Task (Item);
+   end Free_Task;
+
    procedure Abort_Tasks (Tasks : System.Tasking.Task_List) is
       Members : Flyology.M3_Runtime.Task_List (Tasks'Range);
    begin

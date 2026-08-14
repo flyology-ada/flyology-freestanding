@@ -70,6 +70,7 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     system__tasking__stages__complete_activation \
     system__tasking__stages__complete_task \
     system__tasking__stages__expunge_unactivated_tasks \
+    system__tasking__stages__free_task \
     system__tasking__stages__abort_tasks flyology_raise_abort \
     ada__task_identification__current_task \
     ada__task_identification__is_callable \
@@ -93,7 +94,7 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     flyology_current_exception flyology_current_exception_is_abort \
     flyology_exception_identity flyology_raise_exception_identity \
     flyology_task_root_invoke __eh_frame_start __eh_frame_end \
-    __gnat_malloc \
+    __gnat_malloc __gnat_free \
     __gnat_all_others_value _Unwind_Resume \
     __gnat_last_chance_handler; do
     printf '%s\n' "$nm_output" | grep -E "[[:space:]]$symbol$" >/dev/null
@@ -122,6 +123,9 @@ for marker in 'FLYOLOGY:ADA:ELABORATION:PASS' \
     'FLYOLOGY:M4:CONDITIONAL_ENTRY:PASS' \
     'FLYOLOGY:M4:TIMED_ENTRY:PASS' \
     'FLYOLOGY:M4:DYNAMIC_TASK:PASS' \
+    'FLYOLOGY:M4:FREE_TASK:PASS' \
+    'FLYOLOGY:M4:FREE_TASK_WAIT:PASS' \
+    'FLYOLOGY:M4:FREE_TASK_ABORT_RACE:PASS' \
     'FLYOLOGY:M4:SELECTIVE_WAIT:PASS' \
     'FLYOLOGY:M4:ABORT:PASS' \
     'FLYOLOGY:M4:ABORT_RENDEZVOUS:PASS' \

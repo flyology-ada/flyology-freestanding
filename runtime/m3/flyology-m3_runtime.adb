@@ -73,6 +73,8 @@ package body Flyology.M3_Runtime is
       Accept_Entry         : System.Tasking.Task_Entry_Index := 1;
       Accept_Wait          : Core.Wait_Token;
       Active_Call          : Natural range 0 .. Max_Calls := 0;
+      Free_Wait_Active     : Boolean := False;
+      Free_Wait            : Core.Wait_Token;
    end record;
    type Task_Record_Array is array (Task_Slot) of Task_Record;
 
@@ -333,7 +335,10 @@ package body Flyology.M3_Runtime is
          Accept_Entry         => 1,
          Accept_Wait          =>
            (Task_Reference => Core.No_Task, Generation => 0),
-         Active_Call          => 0);
+         Active_Call          => 0,
+         Free_Wait_Active     => False,
+         Free_Wait            =>
+           (Task_Reference => Core.No_Task, Generation => 0));
       Core.Register_Dormant_Locked (To_Reference (Created_Task));
       Masters (Master_Number (Master)).Dependents :=
         Masters (Master_Number (Master)).Dependents + 1;
@@ -458,6 +463,100 @@ package body Flyology.M3_Runtime is
       end loop;
       Leave_Kernel;
    end Expunge_Unactivated_Tasks;
+
+   procedure Free_Task (Item : Task_Id) is
+      Dense      : constant Core_Number := Core_Of_Current;
+      Owner      : Dispatcher.Task_Ref;
+      Slot_Value : Natural;
+      Slot       : Task_Slot;
+      Reference  : Dispatcher.Task_Ref;
+      Outcome    : Waits.Resolution;
+      State      : Dispatcher.Task_State;
+   begin
+      Enter_Kernel;
+      Owner := Core.Current_Locked (Dense);
+      if Core.State_Locked (Owner) /= Dispatcher.Running
+        or else Item = null
+      then
+         Leave_Kernel;
+         Stop;
+      end if;
+      Slot_Value := System.Tasking.Execution_Slot_Of (Item);
+      if Slot_Value = 0 or else Slot_Value > Natural (Task_Slot'Last) then
+         Leave_Kernel;
+         Stop;
+      end if;
+      Slot := Task_Slot (Slot_Value);
+      if Tasks (Slot).Identity /= Item then
+         Leave_Kernel;
+         Stop;
+      end if;
+      Reference := To_Reference (Item);
+      if Reference = Owner
+        or else Core.State_Locked (Reference) = Dispatcher.Dormant
+        or else Tasks (Slot).Free_Wait_Active
+        or else not Dispatcher.Can_Advance_Incarnation
+          (Next_Incarnation (Slot))
+      then
+         Leave_Kernel;
+         Stop;
+      end if;
+      State := Core.State_Locked (Reference);
+      if State /= Dispatcher.Terminated then
+         Leave_Kernel;
+         Abort_Tasks ([1 => Item]);
+         Enter_Kernel;
+         if Tasks (Slot).Identity /= Item then
+            Leave_Kernel;
+            Stop;
+         end if;
+         State := Core.State_Locked (Reference);
+      end if;
+      if State /= Dispatcher.Terminated then
+         Core.Arm_Wait_Locked
+           (Owner, Waits.Termination_Wait, Tasks (Slot).Free_Wait);
+         Tasks (Slot).Free_Wait_Active := True;
+         Core.Block_Current_And_Release
+           (Dense, Tasks (Slot).Free_Wait, Outcome);
+         if Outcome /= Waits.Object_Wake then
+            Stop;
+         end if;
+         Enter_Kernel;
+      end if;
+      if Tasks (Slot).Identity /= Item
+        or else Tasks (Slot).Free_Wait_Active
+        or else not System.Tasking.Identity_Is_Terminated (Item)
+        or else Core.State_Locked (Reference) /= Dispatcher.Terminated
+        or else not Dispatcher.Can_Advance_Incarnation
+          (Next_Incarnation (Slot))
+      then
+         Leave_Kernel;
+         Stop;
+      end if;
+      Release_Exception_Task_Slot (System.Address (Slot));
+      Core.Release_Terminated_Locked (Reference);
+      Tasks (Slot) := (others => <>);
+      Next_Incarnation (Slot) :=
+        Dispatcher.Next_Incarnation (Next_Incarnation (Slot));
+      Leave_Kernel;
+   end Free_Task;
+
+   function Any_Free_Wait_Is_Active return Boolean is
+      Result : Boolean := False;
+   begin
+      Enter_Kernel;
+      for Slot in Task_Slot range 1 .. Task_Slot'Last loop
+         if Tasks (Slot).Free_Wait_Active then
+            if Result then
+               Leave_Kernel;
+               Stop;
+            end if;
+            Result := True;
+         end if;
+      end loop;
+      Leave_Kernel;
+      return Result;
+   end Any_Free_Wait_Is_Active;
 
    procedure Activate_Tasks
      (Members : Task_List;
@@ -905,6 +1004,12 @@ package body Flyology.M3_Runtime is
                   --  depth zero violates that contract.
                   Leave_Kernel;
                   Stop;
+               elsif Kind = Waits.Termination_Wait then
+                  --  Intrinsic Unchecked_Deallocation calls Free_Task before
+                  --  raw free and access nulling.  Retain an abort request
+                  --  until the target's natural retirement wake lets that
+                  --  indivisible compiler sequence finish.
+                  Wait_Action := Retain_Natural_Wake;
                else
                   Leave_Kernel;
                   Stop;
@@ -1890,6 +1995,8 @@ package body Flyology.M3_Runtime is
       Wake      : Boolean := False;
       Activation_Wake_Core : Core_Number := 0;
       Activation_Wake      : Boolean := False;
+      Free_Wake_Core       : Core_Number := 0;
+      Free_Wake            : Boolean := False;
       Master    : Master_Number;
       Group     : Group_Number;
       Status    : Waits.Resolve_Status;
@@ -1962,12 +2069,26 @@ package body Flyology.M3_Runtime is
          end if;
          Wake := True;
       end if;
+      if Tasks (Task_Slot_Number).Free_Wait_Active then
+         Core.Resolve_Exact_Locked
+           (Tasks (Task_Slot_Number).Free_Wait, Waits.Object_Wake, Status,
+            Free_Wake_Core);
+         if Status /= Waits.Made_Ready then
+            Leave_Kernel;
+            Stop;
+         end if;
+         Tasks (Task_Slot_Number).Free_Wait_Active := False;
+         Free_Wake := True;
+      end if;
       Leave_Kernel;
       if Wake then
          Kick_Core (System.Address (Wake_Core));
       end if;
       if Activation_Wake then
          Kick_Core (System.Address (Activation_Wake_Core));
+      end if;
+      if Free_Wake then
+         Kick_Core (System.Address (Free_Wake_Core));
       end if;
    end Finish_Task_Retirement;
 begin

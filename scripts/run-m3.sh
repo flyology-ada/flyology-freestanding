@@ -125,6 +125,9 @@ test "$(count_marker 'FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:CONDITIONAL_ENTRY:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:TIMED_ENTRY:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:DYNAMIC_TASK:PASS')" -eq 1
+test "$(count_marker 'FLYOLOGY:M4:FREE_TASK:PASS')" -eq 1
+test "$(count_marker 'FLYOLOGY:M4:FREE_TASK_WAIT:PASS')" -eq 1
+test "$(count_marker 'FLYOLOGY:M4:FREE_TASK_ABORT_RACE:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:SELECTIVE_WAIT:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:ABORT:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:ABORT_RENDEZVOUS:PASS')" -eq 1

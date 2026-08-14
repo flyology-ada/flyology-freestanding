@@ -66,6 +66,11 @@ for architecture in x86_64 aarch64; do
           "$output/selective_wait_probe.undefined"
     rm -f "$output/abort_probe.ali" "$output/abort_probe.o" \
           "$output/abort_probe.expanded" "$output/abort_probe.undefined" \
+          "$output/abort_dynamic_probe.ali" \
+          "$output/abort_dynamic_probe.o" \
+          "$output/abort_dynamic_probe.expanded" \
+          "$output/abort_dynamic_probe.undefined" \
+          "$output/a-uncdea.ali" "$output/a-uncdea.o" \
           "$output/task_root_probe.ali" "$output/task_root_probe.o" \
           "$output/task_root_probe.expanded" \
           "$output/task_root_probe.undefined"
@@ -379,6 +384,40 @@ for architecture in x86_64 aarch64; do
         "$output/abort_probe.expanded" >/dev/null
 
     scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-gcc" -c \
+        "$repository/probes/m4/abort_dynamic_probe.adb" \
+        -o abort_dynamic_probe.o -nostdinc \
+        -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
+        -I"$repository/runtime/m3" -gnat2022 -gnatG -gnatf \
+        -gnatec="$repository/runtime/m4/product.adc" \
+        >"$output/abort_dynamic_probe.expanded" 2>&1
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-nm" -u abort_dynamic_probe.o \
+        >"$output/abort_dynamic_probe.undefined"
+    for symbol in __gnat_free system__tasking__stages__free_task \
+        system__tasking__stages__abort_tasks; do
+        grep -F " $symbol" "$output/abort_dynamic_probe.undefined" \
+            >/dev/null
+    done
+    abort_line=$(grep -nF 'system__tasking__stages__abort_tasks (' \
+        "$output/abort_dynamic_probe.expanded" | tail -n 1 | cut -d: -f1)
+    free_line=$(grep -nF 'system__tasking__stages__free_task (' \
+        "$output/abort_dynamic_probe.expanded" | tail -n 1 | cut -d: -f1)
+    raw_free_line=$(grep -nF 'free item;' \
+        "$output/abort_dynamic_probe.expanded" | tail -n 1 | cut -d: -f1)
+    null_line=$(grep -nF 'item := null;' \
+        "$output/abort_dynamic_probe.expanded" | tail -n 1 | cut -d: -f1)
+    test -n "$abort_line" && test -n "$free_line" && \
+        test -n "$raw_free_line" && test -n "$null_line"
+    test "$abort_line" -lt "$free_line"
+    test "$free_line" -lt "$raw_free_line"
+    test "$raw_free_line" -lt "$null_line"
+    grep -F 'abort_dynamic_probe__workerV!(item.all)._task_id' \
+        "$output/abort_dynamic_probe.expanded" >/dev/null
+    grep -E 'worker_accessM[0-9]+b : integer renames _master;' \
+        "$output/abort_dynamic_probe.expanded" >/dev/null
+
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-gcc" -c "$repository/probes/m4/task_root_probe.adb" \
         -o task_root_probe.o -nostdinc \
         -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
@@ -396,6 +435,79 @@ for architecture in x86_64 aarch64; do
     test "$(wc -l <"$output/task_root_probe.undefined" | tr -d ' ')" -eq 5
     echo "FLYOLOGY:M4:PROBE:PASS:$architecture"
 done
+
+# The hosted GNAT 15.3 runtime is used only as black-box lowering evidence for
+# the language-defined generic. The product supplies the ARM-shaped intrinsic
+# declaration and its clean-room Stages facade, not a replacement generic body.
+native_prefix=${FLYOLOGY_NATIVE_GNAT_PREFIX:-"$HOME/.local/share/alire/toolchains/gnat_native_15.3.1_36dc7314"}
+native_compiler="$native_prefix/bin/gcc"
+native_digest=fa728e60b2dc7e3dff407ab847725d8145f3301615bad70c39ef422c8e8b741d
+llvm_root=${FLYOLOGY_LLVM_ROOT:-/opt/homebrew/opt/llvm/bin}
+llvm_nm="$llvm_root/llvm-nm"
+llvm_objdump="$llvm_root/llvm-objdump"
+llvm_nm_digest=98877e5da3a0591c4abeaf1819ca81976e886ec17550b10f81b0f5569890d5b5
+llvm_objdump_digest=8d34812bfab8a85918ad8502890ef1c4dca02273687e0b5e4a18cd6864ce5e78
+native_output="$output_root/native"
+mkdir -p "$native_output"
+rm -f "$native_output/abort_dynamic_probe.ali" \
+      "$native_output/abort_dynamic_probe.o" \
+      "$native_output/abort_dynamic_probe.expanded" \
+      "$native_output/abort_dynamic_probe.undefined" \
+      "$native_output/abort_dynamic_probe.relocations"
+test -x "$native_compiler"
+printf '%s  %s\n' "$native_digest" "$native_compiler" | \
+    shasum -a 256 -c - >/dev/null
+test "$("$native_compiler" --version | sed -n '1p')" = \
+    'gcc (GNAT-FSF-builds) 15.3.0'
+for tool_and_digest in "$llvm_nm:$llvm_nm_digest" \
+    "$llvm_objdump:$llvm_objdump_digest"; do
+    tool=${tool_and_digest%:*}
+    digest=${tool_and_digest#*:}
+    test -x "$tool"
+    printf '%s  %s\n' "$digest" "$tool" | shasum -a 256 -c - >/dev/null
+done
+test "$("$llvm_objdump" --version | sed -n '1p')" = \
+    'Homebrew LLVM version 22.1.8'
+(
+    cd "$native_output"
+    "$native_compiler" -c -O0 -gnat2022 -gnatG -gnatf \
+        "$repository/probes/m4/abort_dynamic_probe.adb" \
+        -o abort_dynamic_probe.o >abort_dynamic_probe.expanded 2>&1
+    "$llvm_nm" -u abort_dynamic_probe.o >abort_dynamic_probe.undefined
+    "$llvm_objdump" -dr abort_dynamic_probe.o \
+        >abort_dynamic_probe.relocations
+)
+for symbol in ___gnat_free _system__tasking__stages__abort_tasks \
+    _system__tasking__stages__free_task; do
+    grep -Fx "$symbol" "$native_output/abort_dynamic_probe.undefined" \
+        >/dev/null
+done
+native_abort_offset=$(grep '_system__tasking__stages__abort_tasks$' \
+    "$native_output/abort_dynamic_probe.relocations" | \
+    sed -n 's/^[[:space:]]*\([0-9a-f][0-9a-f]*\):.*/\1/p')
+native_free_offset=$(grep '_system__tasking__stages__free_task$' \
+    "$native_output/abort_dynamic_probe.relocations" | \
+    sed -n 's/^[[:space:]]*\([0-9a-f][0-9a-f]*\):.*/\1/p')
+native_raw_free_offset=$(grep '___gnat_free$' \
+    "$native_output/abort_dynamic_probe.relocations" | \
+    sed -n 's/^[[:space:]]*\([0-9a-f][0-9a-f]*\):.*/\1/p')
+test -n "$native_abort_offset" && test -n "$native_free_offset" && \
+    test -n "$native_raw_free_offset"
+test "$((0x$native_abort_offset))" -lt "$((0x$native_free_offset))"
+test "$((0x$native_free_offset))" -lt "$((0x$native_raw_free_offset))"
+grep -F 'system__tasking__stages__free_task (' \
+    "$native_output/abort_dynamic_probe.expanded" >/dev/null
+grep -F 'abort_dynamic_probe__workerV!(item.all)._task_id' \
+    "$native_output/abort_dynamic_probe.expanded" >/dev/null
+grep -E 'worker_accessM[0-9]+b : integer renames _master;' \
+    "$native_output/abort_dynamic_probe.expanded" >/dev/null
+native_source_free=$(grep -nF 'free item;' \
+    "$native_output/abort_dynamic_probe.expanded" | tail -n 1 | cut -d: -f1)
+native_source_null=$(grep -nF 'item := null;' \
+    "$native_output/abort_dynamic_probe.expanded" | tail -n 1 | cut -d: -f1)
+test -n "$native_source_free" && test -n "$native_source_null"
+test "$native_source_free" -lt "$native_source_null"
+echo 'FLYOLOGY:M4:PROBE:PASS:native-free-task'
 
 diff -u "$output_root/x86_64/exception_probe.undefined" \
     "$output_root/aarch64/exception_probe.undefined" >/dev/null

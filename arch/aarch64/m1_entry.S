@@ -1071,6 +1071,24 @@ flyology_m4_report_dynamic_task_pass:
     address x0, m4_dynamic_task_pass
     b serial_puts_locked
 
+.global flyology_m4_report_free_task_pass
+.type flyology_m4_report_free_task_pass, %function
+flyology_m4_report_free_task_pass:
+    address x0, m4_free_task_pass
+    b serial_puts_locked
+
+.global flyology_m4_report_free_wait_pass
+.type flyology_m4_report_free_wait_pass, %function
+flyology_m4_report_free_wait_pass:
+    address x0, m4_free_wait_pass
+    b serial_puts_locked
+
+.global flyology_m4_report_free_abort_race_pass
+.type flyology_m4_report_free_abort_race_pass, %function
+flyology_m4_report_free_abort_race_pass:
+    address x0, m4_free_abort_race_pass
+    b serial_puts_locked
+
 .global flyology_m4_report_selective_wait_pass
 .type flyology_m4_report_selective_wait_pass, %function
 flyology_m4_report_selective_wait_pass:
@@ -1808,6 +1826,9 @@ m4_priority_pass: .asciz "FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS\n"
 m4_conditional_pass: .asciz "FLYOLOGY:M4:CONDITIONAL_ENTRY:PASS\n"
 m4_timed_entry_pass: .asciz "FLYOLOGY:M4:TIMED_ENTRY:PASS\n"
 m4_dynamic_task_pass: .asciz "FLYOLOGY:M4:DYNAMIC_TASK:PASS\n"
+m4_free_task_pass: .asciz "FLYOLOGY:M4:FREE_TASK:PASS\n"
+m4_free_wait_pass: .asciz "FLYOLOGY:M4:FREE_TASK_WAIT:PASS\n"
+m4_free_abort_race_pass: .asciz "FLYOLOGY:M4:FREE_TASK_ABORT_RACE:PASS\n"
 m4_selective_wait_pass: .asciz "FLYOLOGY:M4:SELECTIVE_WAIT:PASS\n"
 m4_abort_pass: .asciz "FLYOLOGY:M4:ABORT:PASS\n"
 m4_abort_rendezvous_pass: .asciz "FLYOLOGY:M4:ABORT_RENDEZVOUS:PASS\n"

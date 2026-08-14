@@ -27,5 +27,6 @@ package System.Tasking.Stages is
    procedure Complete_Task;
    procedure Expunge_Unactivated_Tasks
      (Chain : in out System.Tasking.Activation_Chain);
+   procedure Free_Task (Item : System.Tasking.Task_Id);
    procedure Abort_Tasks (Tasks : System.Tasking.Task_List);
 end System.Tasking.Stages;

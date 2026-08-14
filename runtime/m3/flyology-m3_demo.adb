@@ -3,6 +3,7 @@
 with Ada.Dynamic_Priorities;
 with Ada.Real_Time;
 with Ada.Task_Identification;
+with Ada.Unchecked_Deallocation;
 with Flyology.M3_Runtime;
 with System.Multiprocessors;
 
@@ -15,6 +16,18 @@ package body Flyology.M3_Demo is
    function Abort_Cleanup_Query_Count return Abort_Query_Count
    with Import, Convention => C,
         External_Name => "flyology_abort_cleanup_query_count";
+
+   procedure Report_Failure
+   with Import, Convention => C,
+        External_Name => "flyology_m2_report_failure";
+
+   procedure Report_Free_Wait_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_free_wait_pass";
+
+   procedure Report_Free_Abort_Race_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_free_abort_race_pass";
 
    type Done_Array is array (Positive range 1 .. 4) of Boolean
      with Atomic_Components;
@@ -110,6 +123,15 @@ package body Flyology.M3_Demo is
    Dynamic_Done : Boolean := False with Atomic;
    Dynamic_Id : Ada.Task_Identification.Task_Id :=
      Ada.Task_Identification.Null_Task_Id with Atomic;
+   Free_Started : Boolean := False with Atomic;
+   Free_Release : Boolean := False with Atomic;
+   Free_Target_Continued : Boolean := False with Atomic;
+   Free_Race_Nulled : Boolean := False with Atomic;
+   Free_Race_Continued : Boolean := False with Atomic;
+   Free_Id : Ada.Task_Identification.Task_Id :=
+     Ada.Task_Identification.Null_Task_Id with Atomic;
+   Free_Race_Id : Ada.Task_Identification.Task_Id :=
+     Ada.Task_Identification.Null_Task_Id with Atomic;
    Selective_Done : Boolean := False with Atomic;
    Abort_Started : Boolean := False with Atomic;
    Abort_Continued : Boolean := False with Atomic;
@@ -177,6 +199,20 @@ package body Flyology.M3_Demo is
 
    task type Dynamic_Worker_Type;
    type Dynamic_Worker_Access is access Dynamic_Worker_Type;
+
+   task type Free_Worker_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range)
+     with CPU => CPU_Number;
+   type Free_Worker_Access is access Free_Worker_Type;
+   procedure Free_Worker is new Ada.Unchecked_Deallocation
+     (Free_Worker_Type, Free_Worker_Access);
+   Race_Target : Free_Worker_Access := null;
+
+   task type Free_Child_Type;
+   task type Free_Release_Type;
+   task type Free_Race_Client_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range)
+     with CPU => CPU_Number;
 
    task type Selective_Server_Type is
       entry Ping;
@@ -365,6 +401,148 @@ package body Flyology.M3_Demo is
       end if;
    end Run_Dynamic_Worker;
 
+   task body Free_Child_Type is
+   begin
+      while not Free_Release loop
+         delay 0.001;
+      end loop;
+   end Free_Child_Type;
+
+   task body Free_Worker_Type is
+   begin
+      Free_Id := Ada.Task_Identification.Current_Task;
+      Free_Started := True;
+      declare
+         Child : Free_Child_Type;
+         pragma Unreferenced (Child);
+      begin
+         null;
+      end;
+      Free_Target_Continued := True;
+   end Free_Worker_Type;
+
+   task body Free_Release_Type is
+   begin
+      delay 0.002;
+      Free_Release := True;
+   end Free_Release_Type;
+
+   task body Free_Race_Client_Type is
+   begin
+      Free_Race_Id := Ada.Task_Identification.Current_Task;
+      Free_Worker (Race_Target);
+      Free_Race_Nulled := Race_Target = null;
+      delay 0.001;
+      Free_Race_Continued := True;
+   end Free_Race_Client_Type;
+
+   procedure Run_Free_Worker is
+      use type Ada.Real_Time.Time;
+      Previous : Ada.Task_Identification.Task_Id :=
+        Ada.Task_Identification.Null_Task_Id;
+   begin
+      --  Abort the task performing deallocation while it is waiting for a
+      --  target held in abort-deferred master completion.  The target's
+      --  natural retirement wake must finish raw free and access nulling
+      --  before the client's pending abort is delivered at its next delay.
+      Free_Started := False;
+      Free_Release := False;
+      Free_Target_Continued := False;
+      Free_Race_Nulled := False;
+      Free_Race_Continued := False;
+      Free_Race_Id := Ada.Task_Identification.Null_Task_Id;
+      Race_Target := new Free_Worker_Type
+        (System.Multiprocessors.Number_Of_CPUs);
+      declare
+         Target_Id : constant Ada.Task_Identification.Task_Id :=
+           Race_Target.all'Identity;
+         Start_Deadline : constant Ada.Real_Time.Time :=
+           Ada.Real_Time.Clock + Ada.Real_Time.Milliseconds (100);
+      begin
+         while not Free_Started loop
+            if not (Ada.Real_Time.Clock < Start_Deadline) then
+               Report_Failure;
+            end if;
+            delay 0.001;
+         end loop;
+         declare
+            Client : Free_Race_Client_Type
+              (System.Multiprocessors.Number_Of_CPUs);
+            Wait_Deadline : constant Ada.Real_Time.Time :=
+              Ada.Real_Time.Clock + Ada.Real_Time.Milliseconds (100);
+         begin
+            while not Flyology.M3_Runtime.Any_Free_Wait_Is_Active
+            loop
+               if not (Ada.Real_Time.Clock < Wait_Deadline) then
+                  Report_Failure;
+               end if;
+               delay 0.001;
+            end loop;
+            Report_Free_Wait_Pass;
+            abort Client;
+            Free_Release := True;
+         end;
+         if Race_Target /= null
+           or else not Free_Race_Nulled
+           or else Free_Race_Continued
+           or else Free_Target_Continued
+           or else Free_Race_Id = Ada.Task_Identification.Null_Task_Id
+           or else not Ada.Task_Identification.Is_Terminated (Free_Race_Id)
+           or else Ada.Task_Identification.Is_Callable (Free_Race_Id)
+           or else not Ada.Task_Identification.Is_Terminated (Target_Id)
+           or else Ada.Task_Identification.Is_Callable (Target_Id)
+         then
+            Report_Failure;
+         end if;
+         Report_Free_Abort_Race_Pass;
+      end;
+
+      --  More iterations than the bounded execution-slot pool prove that
+      --  Free_Task waits for off-stack retirement and releases each slot.
+      for Iteration in 1 .. 16 loop
+         declare
+            Worker : Free_Worker_Access := null;
+            Saved  : Ada.Task_Identification.Task_Id;
+            Start_Deadline : constant Ada.Real_Time.Time :=
+              Ada.Real_Time.Clock + Ada.Real_Time.Milliseconds (100);
+         begin
+            Free_Started := False;
+            Free_Release := False;
+            Free_Target_Continued := False;
+            Free_Id := Ada.Task_Identification.Null_Task_Id;
+            Worker := new Free_Worker_Type
+              (System.Multiprocessors.Number_Of_CPUs);
+            Saved := Worker.all'Identity;
+            while not Free_Started loop
+               if not (Ada.Real_Time.Clock < Start_Deadline) then
+                  Report_Failure;
+               end if;
+               delay 0.001;
+            end loop;
+            if Saved = Ada.Task_Identification.Null_Task_Id
+              or else Free_Id /= Saved
+              or else Saved = Previous
+            then
+               Report_Failure;
+            end if;
+            declare
+               Releaser : Free_Release_Type;
+               pragma Unreferenced (Releaser);
+            begin
+               Free_Worker (Worker);
+            end;
+            if Worker /= null
+              or else Free_Target_Continued
+              or else not Ada.Task_Identification.Is_Terminated (Saved)
+              or else Ada.Task_Identification.Is_Callable (Saved)
+            then
+               Report_Failure;
+            end if;
+            Previous := Saved;
+         end;
+      end loop;
+   end Run_Free_Worker;
+
    task body Selective_Server_Type is
    begin
       select
@@ -552,6 +730,10 @@ package body Flyology.M3_Demo is
    with Import, Convention => C,
         External_Name => "flyology_m4_report_dynamic_task_pass";
 
+   procedure Report_Free_Task_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_free_task_pass";
+
    procedure Report_Selective_Wait_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_selective_wait_pass";
@@ -583,10 +765,6 @@ package body Flyology.M3_Demo is
    procedure Report_Stack_Pass
    with Import, Convention => C,
         External_Name => "flyology_m3_report_stack_pass";
-
-   procedure Report_Failure
-   with Import, Convention => C,
-        External_Name => "flyology_m2_report_failure";
 
    procedure Check_Identity
      (Observed : Ada.Task_Identification.Task_Id;
@@ -1050,6 +1228,9 @@ package body Flyology.M3_Demo is
          Report_Failure;
       end if;
       Report_Dynamic_Task_Pass;
+
+      Run_Free_Worker;
+      Report_Free_Task_Pass;
 
       declare
          Server : Selective_Server_Type;

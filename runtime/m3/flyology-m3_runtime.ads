@@ -22,6 +22,8 @@ package Flyology.M3_Runtime is
       Failed  : out Boolean);
    procedure Raise_Activation_Failure with No_Return;
    procedure Expunge_Unactivated_Tasks (Members : Task_List);
+   procedure Free_Task (Item : Task_Id);
+   function Any_Free_Wait_Is_Active return Boolean;
    procedure Complete_Activation;
    procedure Complete_Task;
    procedure Observe_Abort_Cleanup;
