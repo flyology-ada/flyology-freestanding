@@ -433,7 +433,8 @@ procedure M4_Model_Tests is
                 (Queue,
                  (Reference => Reference (Index),
                   Priority => Dispatcher.Priority (Index mod 4),
-                  Sequence => Priority.Arrival_Sequence (Index)));
+                  Sequence => Priority.Arrival_Sequence (Index),
+                  Position => Priority.At_Tail));
          begin
             pragma Assert (Put.Status = Priority.Enqueued);
             Queue := Put.Queue;

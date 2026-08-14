@@ -4,16 +4,20 @@ with Ada.Text_IO;
 with Flyology.Clock_Model;
 with Flyology.Dispatcher_Model;
 with Flyology.Preemption_Model;
+with Flyology.Priority_Queue_Model;
 
 procedure M5_Policy_Tests is
    package Clock renames Flyology.Clock_Model;
    package Dispatcher renames Flyology.Dispatcher_Model;
    package Preemption renames Flyology.Preemption_Model;
+   package Ready_Queues renames Flyology.Priority_Queue_Model;
 
    use type Clock.Tick;
    use type Dispatcher.Priority;
+   use type Dispatcher.Task_Slot;
    use type Preemption.Policy_Kind;
    use type Preemption.Preemption_Cause;
+   use type Ready_Queues.Enqueue_Status;
 
    type Hash_Word is mod 2 ** 64;
    Hash  : Hash_Word := 16#CBF29CE484222325#;
@@ -155,10 +159,58 @@ procedure M5_Policy_Tests is
       end loop;
    end Check_Decisions;
 
+   procedure Check_Ready_Queue_Positions is
+      Queue : Ready_Queues.Ready_Queue;
+      Expected_Order : constant array (Positive range <>) of
+        Dispatcher.Task_Slot := [5, 4, 3, 1, 2];
+
+      procedure Put
+        (Slot     : Positive;
+         Priority : Dispatcher.Priority;
+         Position : Ready_Queues.Queue_Position)
+      is
+         Result : constant Ready_Queues.Enqueue_Result :=
+           Ready_Queues.Enqueue
+             (Queue,
+              (Reference =>
+                 (Slot        => Dispatcher.Task_Slot (Slot),
+                  Incarnation => 1),
+               Priority  => Priority,
+               Sequence  => Ready_Queues.Arrival_Sequence (Slot),
+               Position  => Position));
+      begin
+         pragma Assert (Result.Status = Ready_Queues.Enqueued);
+         Queue := Result.Queue;
+         Count
+           (40_000 + 100 * Slot + 10 * Integer (Priority)
+            + Ready_Queues.Queue_Position'Pos (Position));
+      end Put;
+   begin
+      Put (1, 4, Ready_Queues.At_Tail);
+      Put (2, 4, Ready_Queues.At_Tail);
+      Put (3, 4, Ready_Queues.At_Head);
+      Put (4, 4, Ready_Queues.At_Head);
+      Put (5, 5, Ready_Queues.At_Tail);
+
+      for Expected of Expected_Order loop
+         declare
+            Choice : constant Ready_Queues.Selection :=
+              Ready_Queues.Select_Next (Queue);
+         begin
+            pragma Assert (Choice.Found);
+            pragma Assert (Choice.Item.Reference.Slot = Expected);
+            Queue := Choice.Remainder;
+            Count (41_000 + Integer (Expected));
+         end;
+      end loop;
+      pragma Assert (Queue.Length = 0);
+   end Check_Ready_Queue_Positions;
+
 begin
    Check_Configuration;
    Check_Budgets;
    Check_Decisions;
+   Check_Ready_Queue_Positions;
    Ada.Text_IO.Put_Line
      ("FLYOLOGY:M5:POLICY_MODEL:PASS:EDGES" & Natural'Image (Edges) &
         ":HASH" & Hash_Word'Image (Hash));

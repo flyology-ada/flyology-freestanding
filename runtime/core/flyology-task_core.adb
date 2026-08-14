@@ -180,7 +180,8 @@ package body Flyology.Task_Core is
 
    procedure Enqueue_Locked
      (Reference : Task_Ref;
-      Core      : Core_Number)
+      Core      : Core_Number;
+      Position  : Scheduler.Queue_Position := Scheduler.At_Tail)
    is
       Slot    : constant Task_Slot := Slot_Of (Reference);
       Attempt : Scheduler.Enqueue_Result;
@@ -192,7 +193,8 @@ package body Flyology.Task_Core is
         (Ready_Queues (Core),
          (Reference => Reference,
           Priority  => Tasks (Slot).Priority.Active,
-          Sequence  => Next_Sequence));
+          Sequence  => Next_Sequence,
+          Position  => Position));
       if Attempt.Status /= Scheduler.Enqueued then
          Stop;
       end if;

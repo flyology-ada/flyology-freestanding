@@ -13,17 +13,21 @@ is
    type Arrival_Sequence is range 0 .. 2 ** 63 - 1;
    No_Sequence : constant Arrival_Sequence := Arrival_Sequence'First;
 
+   type Queue_Position is (At_Head, At_Tail);
+
    type Ready_Entry is record
       Reference : Task_Ref := No_Task;
       Priority  : Dispatcher_Model.Priority :=
         Dispatcher_Model.Priority'First;
       Sequence  : Arrival_Sequence := No_Sequence;
+      Position  : Queue_Position := At_Tail;
    end record;
 
    Empty_Entry : constant Ready_Entry :=
      (Reference => No_Task,
       Priority  => Dispatcher_Model.Priority'First,
-      Sequence  => No_Sequence);
+      Sequence  => No_Sequence,
+      Position  => At_Tail);
 
    type Queue_Storage is array (Queue_Index) of Ready_Entry;
 
@@ -36,7 +40,14 @@ is
    is (Left.Priority > Right.Priority
        or else
          (Left.Priority = Right.Priority
-          and then Left.Sequence < Right.Sequence));
+          and then
+            ((Left.Position = At_Head and then Right.Position = At_Tail)
+             or else
+               (Left.Position = Right.Position
+                and then
+                  (if Left.Position = At_Head
+                   then Left.Sequence > Right.Sequence
+                   else Left.Sequence < Right.Sequence)))));
 
    function Contains
      (Queue     : Ready_Queue;
