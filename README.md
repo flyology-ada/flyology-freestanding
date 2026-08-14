@@ -61,6 +61,11 @@ The first release is not complete. Work proceeds through the independently gated
   round-robin progress at SMP4.
 - `scripts/test-m5-policy.sh` checks the deterministic policy, budget, and
   ready-position kernel against its pinned edge count and hash.
+- `scripts/test-tla-models.sh` runs bounded TLC exploration of scheduler/
+  preemption ingress and exact wake/timeout/abort arbitration, with pinned
+  state counts; see [docs/formal-models.md](docs/formal-models.md).
+- `scripts/verify-formal-models.sh` runs repository hygiene, GNATprove, every
+  bounded Ada host model, and the TLA+ models as one fail-closed formal gate.
 - `scripts/verify-m5-reproducible.sh` rebuilds all four M5 ELF/FAT pairs in
   two independent output roots and compares their SHA-256 output.
 - `scripts/prove.sh` proves the deterministic SPARK validation kernel.

@@ -32,6 +32,23 @@ license and GCC Runtime Library Exception; no archive or GCC source is tracked.
 
 GNATprove 16.1.0 is a native host proof tool, not a target runtime input. The proof gate checks both its first version line and the locally tested executable digest before analysis.
 
+## TLA+ model checker
+
+The bounded concurrency-design models use the external TLA+ 1.8.0 command-line
+tools pre-release and OpenJDK 21.0.11. Neither artifact is tracked or linked
+into the runtime. The official pre-release publishes SHA-1
+`5288dcb2c48ece915768f61eaa1f117fd71044c6` for `tla2tools.jar`; the local gate
+additionally pins its SHA-256.
+
+| Artifact | Version/origin | SHA-256 |
+| --- | --- | --- |
+| `tla2tools.jar` | [TLA+ 1.8.0 official GitHub pre-release](https://github.com/tlaplus/tlaplus/releases/tag/v1.8.0) | `ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f` |
+| Java executable | Homebrew OpenJDK 21.0.11, Darwin/AArch64 | `04005388bac0c272ea914210ca519ce94b2f873ea3962b9874a6859f74d7f279` |
+
+TLA+ tools are external MIT-licensed development inputs. The gate checks both
+digests and the Java version before TLC runs. The models are design-level safety
+evidence, not target-runtime dependencies or source-refinement proofs.
+
 The GCC archive identifies the compiler source release and satisfies toolchain provenance. ADR-0004 forbids using its GNAT runtime sources as Flyology implementation inputs.
 
 ## Limine and protocol
