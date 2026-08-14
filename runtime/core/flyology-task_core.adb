@@ -2,6 +2,7 @@
 
 with Flyology.M2_Architecture;
 with Flyology.Ceiling_Model;
+with Flyology.Preemption_Model;
 with Flyology.Priority_Queue_Model;
 with Flyology.Timer_Model;
 with Flyology.Wait_Arbitration_Model;
@@ -9,6 +10,7 @@ with Flyology.Wait_Arbitration_Model;
 package body Flyology.Task_Core is
    package Architecture renames Flyology.M2_Architecture;
    package Ceilings renames Flyology.Ceiling_Model;
+   package Preemption renames Flyology.Preemption_Model;
    package Scheduler renames Flyology.Priority_Queue_Model;
    package Timers renames Flyology.Timer_Model;
    package Waits renames Flyology.Wait_Arbitration_Model;
@@ -18,8 +20,9 @@ package body Flyology.Task_Core is
    use type Dispatcher.Generation;
    use type Dispatcher.Priority;
    use type Scheduler.Enqueue_Status;
-   use type Scheduler.Change_Status;
+   use type Scheduler.Requeue_Status;
    use type Scheduler.Arrival_Sequence;
+   use type Scheduler.Queue_Position;
    use type Timers.Register_Status;
    use type Timers.Cancel_Status;
    use type Timers.Tick;
@@ -31,6 +34,9 @@ package body Flyology.Task_Core is
    use type Waits.Resume_Status;
    use type Ceilings.Enter_Status;
    use type Ceilings.Leave_Status;
+   use type Preemption.Policy_Kind;
+   use type Preemption.Preemption_Cause;
+   use type Preemption.Clock.Tick;
    use type System.Address;
 
    Dispatcher_Stack_Size : constant := 16 * 1_024;
@@ -49,6 +55,8 @@ package body Flyology.Task_Core is
      array (Core_Number) of aliased Dispatcher_Stack;
    type Task_Stack_Array is array (Task_Slot) of aliased Task_Stack;
    type Context_Array is array (Task_Slot) of aliased Architecture.Context;
+   type Full_Context_Array is
+     array (Task_Slot) of aliased Architecture.Full_Context;
    type Dispatcher_Context_Array is
      array (Core_Number) of aliased Architecture.Context;
 
@@ -59,6 +67,8 @@ package body Flyology.Task_Core is
       Assigned_Core : Core_Number := 0;
       Priority      : Ceilings.Ceiling_State;
       Wait          : Waits.Wait_State;
+      Budget        : Preemption.Budget_State := Preemption.Empty_Budget;
+      Resume_Full   : Boolean := False;
    end record;
    type Kernel_Task_Array is array (Task_Slot) of Kernel_Task;
    type Current_Array is array (Core_Number) of Task_Ref;
@@ -69,6 +79,7 @@ package body Flyology.Task_Core is
    Dispatcher_Stacks   : Dispatcher_Stack_Array;
    Task_Stacks         : Task_Stack_Array;
    Task_Contexts       : Context_Array;
+   Full_Contexts       : Full_Context_Array;
    Dispatcher_Contexts : Dispatcher_Context_Array;
    Bootstrap_Contexts  : Dispatcher_Context_Array;
    Dispatcher_Ready    : Boolean_Core_Array := [others => False];
@@ -80,9 +91,17 @@ package body Flyology.Task_Core is
      Scheduler.Arrival_Sequence'First + 1;
    Configured          : Positive range 1 .. Max_Cores := 1;
    On_Retirement       : Retirement_Hook := null;
+   Policy              : Preemption.Policy_Kind :=
+     Preemption.FIFO_Within_Priorities;
+   Quantum             : Preemption.Clock.Tick := 0;
+   Policy_Configured   : Boolean := False;
 
    procedure Enter_Kernel
    with Import, Convention => C, External_Name => "flyology_rts_lock_acquire";
+
+   function Try_Enter_Kernel return Boolean
+   with Import, Convention => C,
+        External_Name => "flyology_rts_lock_try_acquire";
 
    procedure Leave_Kernel
    with Import, Convention => C, External_Name => "flyology_rts_lock_release";
@@ -95,6 +114,10 @@ package body Flyology.Task_Core is
    with Import, Convention => C,
         External_Name => "flyology_m2_enable_dispatch";
 
+   procedure Disable_Dispatch
+   with Import, Convention => C,
+        External_Name => "flyology_m2_disable_dispatch";
+
    procedure Prepare_Idle
    with Import, Convention => C,
         External_Name => "flyology_m3_prepare_idle";
@@ -104,6 +127,12 @@ package body Flyology.Task_Core is
 
    procedure Report_Failure
    with Import, Convention => C, External_Name => "flyology_m2_report_failure";
+
+   function Interrupt_Dispatch
+     (Frame_Address : System.Address;
+      Core_Address  : System.Address) return System.Address
+   with Export, Convention => C,
+        External_Name => "flyology_m5_interrupt_dispatch";
 
    procedure Stop is
    begin
@@ -166,7 +195,44 @@ package body Flyology.Task_Core is
       Next_Sequence := Scheduler.Arrival_Sequence'First + 1;
       Dispatcher_Ready := [others => False];
       Tasks := [others => (others => <>)];
+      Policy := Preemption.FIFO_Within_Priorities;
+      Quantum := 0;
+      Policy_Configured := False;
    end Initialize;
+
+   procedure Configure_Dispatching
+     (Policy : Dispatching_Policy;
+      Slice  : Binder_Time_Slice)
+   is
+      Rate : constant Frequency := Clock_Frequency;
+   begin
+      if Policy_Configured
+        or else not Preemption.Configuration_Is_Valid (Policy, Slice, Rate)
+      then
+         Stop;
+      end if;
+      Task_Core.Policy := Policy;
+      if Policy = Preemption.Round_Robin_Within_Priorities then
+         Quantum := Preemption.Quantum_Ticks (Slice, Rate);
+      else
+         Quantum := 0;
+      end if;
+      if Current_Tasks (0) /= No_Task then
+         declare
+            Slot : constant Task_Slot := Slot_Of (Current_Tasks (0));
+            Now  : constant Preemption.Clock.Tick :=
+              Preemption.Clock.Tick (Read_Clock);
+         begin
+            if Policy = Preemption.Round_Robin_Within_Priorities then
+               Tasks (Slot).Budget :=
+                 Preemption.Start_Budget (Policy, Now, Quantum);
+            else
+               Tasks (Slot).Budget := Preemption.Empty_Budget;
+            end if;
+         end;
+      end if;
+      Policy_Configured := True;
+   end Configure_Dispatching;
 
    function CPU_Count return Positive is (Configured);
 
@@ -199,6 +265,9 @@ package body Flyology.Task_Core is
          Stop;
       end if;
       Ready_Queues (Core) := Attempt.Queue;
+      if Position = Scheduler.At_Tail then
+         Tasks (Slot).Budget := Preemption.Empty_Budget;
+      end if;
       Next_Sequence := Next_Sequence + 1;
    end Enqueue_Locked;
 
@@ -227,7 +296,9 @@ package body Flyology.Task_Core is
          Wait =>
            (Reference => Reference, Kind => Waits.No_Wait,
             Phase => Waits.Idle, Generation => 0,
-            Outcome => Waits.Pending));
+            Outcome => Waits.Pending),
+         Budget => Preemption.Empty_Budget,
+         Resume_Full => False);
       Current_Tasks (0) := Reference;
    end Register_Environment_Locked;
 
@@ -244,7 +315,9 @@ package body Flyology.Task_Core is
          Wait =>
            (Reference => Reference, Kind => Waits.No_Wait,
             Phase => Waits.Idle, Generation => 0,
-            Outcome => Waits.Pending));
+            Outcome => Waits.Pending),
+         Budget => Preemption.Empty_Budget,
+         Resume_Full => False);
       Initialize_Canary (Slot);
    end Register_Dormant_Locked;
 
@@ -441,6 +514,7 @@ package body Flyology.Task_Core is
       end if;
       Tasks (Slot).Wait := Commit.State;
       Tasks (Slot).State := Commit.Task_State;
+      Tasks (Slot).Resume_Full := False;
       Current_Tasks (Core) := No_Task;
       Leave_Kernel;
       Architecture.Switch
@@ -468,7 +542,7 @@ package body Flyology.Task_Core is
    is
       Slot    : constant Task_Slot := Slot_Of (Reference);
       Core    : Core_Number;
-      Attempt : Scheduler.Change_Result;
+      Attempt : Scheduler.Requeue_Result;
    begin
       if not Known_Locked (Reference) then
          Stop;
@@ -476,13 +550,19 @@ package body Flyology.Task_Core is
       Tasks (Slot).Priority :=
         Ceilings.Change_Base (Tasks (Slot).Priority, Priority);
       if Tasks (Slot).State = Dispatcher.Ready then
+         if Next_Sequence = Scheduler.Arrival_Sequence'Last then
+            Stop;
+         end if;
          Core := Tasks (Slot).Assigned_Core;
-         Attempt := Scheduler.Change_Priority
-           (Ready_Queues (Core), Reference, Tasks (Slot).Priority.Active);
-         if Attempt.Status /= Scheduler.Changed then
+         Attempt := Scheduler.Requeue_Priority
+           (Ready_Queues (Core), Reference, Tasks (Slot).Priority.Active,
+            Next_Sequence);
+         if Attempt.Status /= Scheduler.Requeued then
             Stop;
          end if;
          Ready_Queues (Core) := Attempt.Queue;
+         Tasks (Slot).Budget := Preemption.Empty_Budget;
+         Next_Sequence := Next_Sequence + 1;
       end if;
    end Change_Base_Priority_Locked;
 
@@ -620,11 +700,46 @@ package body Flyology.Task_Core is
    end Drain_Timers_Locked;
 
    procedure Program_Next_Timer_Locked (Core : Core_Number) is
-      Next : constant Timers.Deadline_Result :=
+      Next      : constant Timers.Deadline_Result :=
         Timers.Earliest (Timer_Tables (Core));
+      Found     : Boolean := Next.Found;
+      Deadline  : Tick := Next.Deadline;
+      Reference : Task_Ref;
+      Slot      : Task_Slot;
    begin
-      if Next.Found then
-         Architecture.Program_Timer (Architecture.Tick (Next.Deadline));
+      Reference := Current_Tasks (Core);
+      if Reference /= No_Task then
+         Slot := Slot_Of (Reference);
+         if not Known_Locked (Reference)
+           or else Tasks (Slot).State /= Dispatcher.Running
+         then
+            Stop;
+         end if;
+         if Policy = Preemption.Round_Robin_Within_Priorities
+           and then Tasks (Slot).Budget.Armed
+           and then Tasks (Slot).Budget.Remaining > 0
+         then
+            if not Preemption.Clock.Deadline_Fits
+              (Tasks (Slot).Budget.Last_Accounted,
+               Tasks (Slot).Budget.Remaining)
+            then
+               Stop;
+            end if;
+            declare
+               Budget_Deadline : constant Tick := Tick
+                 (Preemption.Clock.Add_Delay
+                    (Tasks (Slot).Budget.Last_Accounted,
+                     Tasks (Slot).Budget.Remaining));
+            begin
+               if not Found or else Budget_Deadline < Deadline then
+                  Deadline := Budget_Deadline;
+                  Found := True;
+               end if;
+            end;
+         end if;
+      end if;
+      if Found then
+         Architecture.Program_Timer (Architecture.Tick (Deadline));
       else
          Architecture.Cancel_Timer;
       end if;
@@ -642,6 +757,7 @@ package body Flyology.Task_Core is
       end if;
       Tasks (Slot).State :=
         Apply (Tasks (Slot).State, Dispatcher.Terminate_Task);
+      Tasks (Slot).Resume_Full := False;
       Current_Tasks (Core) := No_Task;
    end Terminate_Current_Locked;
 
@@ -660,6 +776,7 @@ package body Flyology.Task_Core is
       end if;
       Tasks (Slot).State :=
         Apply (Tasks (Slot).State, Dispatcher.Begin_Retirement);
+      Tasks (Slot).Resume_Full := False;
       Current_Tasks (Core) := No_Task;
    end Begin_Retirement_Locked;
 
@@ -735,33 +852,138 @@ package body Flyology.Task_Core is
       return Result;
    end Is_Terminated;
 
+   function Stack_Is_Valid_Locked
+     (Core      : Core_Number;
+      Reference : Task_Ref;
+      Probe     : System.Address) return Boolean
+   is
+      Slot : constant Task_Slot := Slot_Of (Reference);
+      Base : System.Address;
+   begin
+      if not Known_Locked (Reference)
+        or else Tasks (Slot).Assigned_Core /= Core
+      then
+         return False;
+      elsif Slot = 0 then
+         return Core = 0
+           and then Architecture.Validate_Environment_Stack
+             (System.Address (Core), Probe) /= 0;
+      end if;
+      Base := Task_Stacks (Slot) (Task_Stack'First)'Address;
+      return Base <= System.Address'Last - System.Address (Task_Stack_Size)
+        and then Probe >= Base + System.Address (Stack_Canary_Length)
+        and then Probe < Base + System.Address (Task_Stack_Size)
+        and then Canary_Is_Valid (Slot);
+   end Stack_Is_Valid_Locked;
+
    function Validate_Current_Stack
      (Core  : Core_Number;
       Probe : System.Address) return Boolean
    is
       Reference : Task_Ref;
-      Slot      : Task_Slot;
-      Base      : System.Address;
    begin
       Enter_Kernel;
       Reference := Current_Tasks (Core);
-      if not Known_Locked (Reference) or else Reference.Slot = 0 then
+      if Reference = No_Task then
          Leave_Kernel;
          return False;
       end if;
-      Slot := Task_Slot (Reference.Slot);
-      Base := Task_Stacks (Slot) (Task_Stack'First)'Address;
       declare
          Result : constant Boolean :=
-           Base <= System.Address'Last - System.Address (Task_Stack_Size)
-           and then Probe >= Base + System.Address (Stack_Canary_Length)
-           and then Probe < Base + System.Address (Task_Stack_Size)
-           and then Canary_Is_Valid (Slot);
+           Stack_Is_Valid_Locked (Core, Reference, Probe);
       begin
          Leave_Kernel;
          return Result;
       end;
    end Validate_Current_Stack;
+
+   function Interrupt_Dispatch
+     (Frame_Address : System.Address;
+      Core_Address  : System.Address) return System.Address
+   is
+      Frame     : Architecture.Interrupt_Frame
+        with Import, Address => Frame_Address;
+      Dense     : Core_Number;
+      Reference : Task_Ref;
+      Slot      : Task_Slot;
+      Choice    : Scheduler.Selection;
+      Cause     : Preemption.Preemption_Cause;
+      Now       : Preemption.Clock.Tick;
+      Result    : System.Address := System.Null_Address;
+   begin
+      if Frame_Address = System.Null_Address
+        or else Core_Address >= System.Address (Configured)
+        or else not Policy_Configured
+      then
+         Stop;
+      end if;
+      Dense := Core_Number (Core_Address);
+      if not Try_Enter_Kernel then
+         --  Interrupt ingress must never wait behind a remote runtime or
+         --  diagnostic critical section.  The request epoch remains pending;
+         --  a short local one-shot guarantees another drain opportunity even
+         --  when the original timer interrupt disabled its comparator.
+         Architecture.Retry_Interrupt;
+         return Result;
+      end if;
+      --  Acknowledge only the epoch this interrupt path is about to process.
+      --  A concurrent later request remains visible to the atomic-idle gate.
+      Prepare_Idle;
+      Drain_Timers_Locked (Dense);
+      Reference := Current_Tasks (Dense);
+      if Reference = No_Task then
+         Program_Next_Timer_Locked (Dense);
+         Leave_Kernel;
+         return Result;
+      end if;
+      Slot := Slot_Of (Reference);
+      if not Known_Locked (Reference)
+        or else Tasks (Slot).State /= Dispatcher.Running
+        or else not Stack_Is_Valid_Locked
+          (Dense, Reference, Architecture.Interrupted_Stack (Frame))
+      then
+         Leave_Kernel;
+         Stop;
+      end if;
+
+      Now := Preemption.Clock.Tick (Read_Clock);
+      if Tasks (Slot).Budget.Armed then
+         if Now < Tasks (Slot).Budget.Last_Accounted then
+            Leave_Kernel;
+            Stop;
+         end if;
+         Tasks (Slot).Budget := Preemption.Account (Tasks (Slot).Budget, Now);
+      end if;
+      Choice := Scheduler.Select_Next (Ready_Queues (Dense));
+      Cause := Preemption.Decide
+        (Policy,
+         Tasks (Slot).Priority.Active,
+         Choice.Found,
+         (if Choice.Found
+          then Choice.Item.Priority
+          else Dispatcher.Priority'First),
+         Tasks (Slot).Budget,
+         Tasks (Slot).Priority.Active > Tasks (Slot).Priority.Base,
+         Tasks (Slot).Priority.Depth > 0);
+
+      if Cause /= Preemption.Continue_Running then
+         Architecture.Capture_Full_Context
+           (Full_Contexts (Slot), Frame);
+         Tasks (Slot).State :=
+           Apply (Tasks (Slot).State, Dispatcher.Yield);
+         Current_Tasks (Dense) := No_Task;
+         Enqueue_Locked
+           (Reference, Dense,
+            (if Cause = Preemption.Higher_Priority_Ready
+             then Scheduler.At_Head
+             else Scheduler.At_Tail));
+         Tasks (Slot).Resume_Full := True;
+         Result := Dispatcher_Contexts (Dense)'Address;
+      end if;
+      Program_Next_Timer_Locked (Dense);
+      Leave_Kernel;
+      return Result;
+   end Interrupt_Dispatch;
 
    function Validate_Dispatcher_Stack
      (Core  : Core_Number;
@@ -816,6 +1038,8 @@ package body Flyology.Task_Core is
       Reference : Task_Ref;
       Slot      : Task_Slot;
       Retiring  : Boolean;
+      Use_Full  : Boolean;
+      Now       : Preemption.Clock.Tick;
    begin
       if Core >= System.Address (Configured) then
          Stop;
@@ -839,9 +1063,9 @@ package body Flyology.Task_Core is
          --  Requested /= Observed, so Idle must not sleep.
          Prepare_Idle;
          Drain_Timers_Locked (Dense);
-         Program_Next_Timer_Locked (Dense);
          Choice := Scheduler.Select_Next (Ready_Queues (Dense));
          if not Choice.Found then
+            Program_Next_Timer_Locked (Dense);
             Leave_Kernel;
             Idle;
          else
@@ -855,13 +1079,47 @@ package body Flyology.Task_Core is
                Leave_Kernel;
                Stop;
             end if;
+            --  Keep the dispatcher-to-task ownership handoff indivisible to
+            --  interrupt-time scheduling.  Switch_To_Task unmasks only after
+            --  the incoming task stack and preserved context are installed;
+            --  a full restore obtains its interrupt state from the frame.
+            Disable_Dispatch;
             Tasks (Slot).State :=
               Apply (Tasks (Slot).State, Dispatcher.Dispatch);
             Current_Tasks (Dense) := Reference;
+            Now := Preemption.Clock.Tick (Read_Clock);
+            if Policy = Preemption.Round_Robin_Within_Priorities then
+               if Tasks (Slot).Budget.Armed
+                 and then Tasks (Slot).Budget.Remaining > 0
+               then
+                  Tasks (Slot).Budget :=
+                    Preemption.Resume_Retained (Tasks (Slot).Budget, Now);
+               else
+                  Tasks (Slot).Budget :=
+                    Preemption.Start_Budget (Policy, Now, Quantum);
+               end if;
+            else
+               Tasks (Slot).Budget := Preemption.Empty_Budget;
+            end if;
+            Use_Full := Tasks (Slot).Resume_Full;
+            --  A saved interrupt frame is a one-shot continuation.  Consume
+            --  the ownership bit while interrupts are still masked; a later
+            --  interrupt-time preemption will publish a fresh full frame and
+            --  set it again.
+            if Use_Full then
+               Tasks (Slot).Resume_Full := False;
+            end if;
+            Program_Next_Timer_Locked (Dense);
             Leave_Kernel;
-            Architecture.Switch
-              (Dispatcher_Contexts (Dense)'Access,
-               Task_Contexts (Slot)'Access);
+            if Use_Full then
+               Architecture.Switch_To_Full
+                 (Dispatcher_Contexts (Dense)'Access,
+                  Full_Contexts (Slot)'Access);
+            else
+               Architecture.Switch_To_Task
+                 (Dispatcher_Contexts (Dense)'Access,
+                  Task_Contexts (Slot)'Access);
+            end if;
             if Slot /= 0 and then not Canary_Is_Valid (Slot) then
                Stop;
             end if;

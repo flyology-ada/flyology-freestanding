@@ -24,6 +24,13 @@ esac
 
 output_root=${FLYOLOGY_M3_OUTPUT_ROOT:-build/m3}
 output_directory="$output_root/$architecture"
+product_config=${FLYOLOGY_PRODUCT_CONFIG:-runtime/m4/product.adc}
+binder_flags=${FLYOLOGY_BINDER_FLAGS:-}
+assembly_defines='-DFLYOLOGY_M2 -DFLYOLOGY_M3 -DFLYOLOGY_EXCEPTION'
+m5_config_dir=${FLYOLOGY_M5_CONFIG_DIR:-runtime/m5/off}
+if test "${FLYOLOGY_M5:-0}" = 1; then
+    assembly_defines="$assembly_defines -DFLYOLOGY_M5"
+fi
 mkdir -p "$output_directory"
 rm -f "$output_directory"/*.ali "$output_directory"/*.o \
       "$output_directory"/b~flyology_m3.ad? \
@@ -46,9 +53,10 @@ compile_ada() {
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
         -c "$source" -o "$output_directory/$object" \
         -nostdinc -Iruntime/bootstrap -Iruntime/core -Iruntime/m3 \
+        -I"$m5_config_dir" -Iruntime/m5 \
         -I"arch/$architecture" -I"$output_directory" \
         $style_flags -gnatw.X -gnatw.i -gnato \
-        -gnatec=runtime/m4/product.adc \
+        -gnatec="$product_config" \
         -ffunction-sections -fdata-sections \
         -fno-stack-protector -fno-pic -fno-pie $architecture_flags
 }
@@ -75,6 +83,8 @@ compile_ada runtime/m3/s-tpoben.adb s-tpoben.o yes
 compile_ada runtime/m3/s-tpobop.adb s-tpobop.o yes
 compile_ada runtime/m3/s-tasren.adb s-tasren.o yes
 compile_ada runtime/core/flyology.ads flyology.o
+compile_ada "$m5_config_dir/flyology-m5_configuration.ads" \
+    flyology-m5_configuration.o
 compile_ada runtime/core/flyology-validation.adb flyology-validation.o
 compile_ada runtime/core/flyology-boot_validation.adb flyology-boot_validation.o
 compile_ada runtime/core/flyology-dispatcher_model.adb \
@@ -93,6 +103,8 @@ compile_ada runtime/core/flyology-timer_model.adb flyology-timer_model.o
 compile_ada runtime/core/flyology-ceiling_model.adb flyology-ceiling_model.o
 compile_ada runtime/core/flyology-priority_queue_model.adb \
     flyology-priority_queue_model.o
+compile_ada runtime/core/flyology-preemption_model.adb \
+    flyology-preemption_model.o
 compile_ada runtime/core/flyology-wait_arbitration_model.adb \
     flyology-wait_arbitration_model.o
 compile_ada runtime/core/flyology-wait_queue_model.adb \
@@ -112,6 +124,7 @@ compile_ada runtime/m3/a-taside.adb a-taside.o yes
 compile_ada runtime/m3/a-taidco.adb a-taidco.o yes
 compile_ada runtime/m3/a-dynpri.adb a-dynpri.o yes
 compile_ada runtime/m3/flyology-m3_demo.adb flyology-m3_demo.o
+compile_ada runtime/m5/flyology-m5_demo.adb flyology-m5_demo.o
 compile_ada runtime/bootstrap/flyology-binder_support.adb \
     flyology-binder_support.o
 compile_ada runtime/m3/flyology_m3.adb flyology_m3.o
@@ -119,15 +132,17 @@ compile_ada runtime/m3/flyology_m3.adb flyology_m3.o
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" -nostdinc -nostdlib -n -minimal \
     -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
-    -I"$repository/runtime/m3" -I"$repository/arch/$architecture" \
-    -I. flyology_m3.ali
+    -I"$repository/runtime/m3" -I"$repository/$m5_config_dir" \
+    -I"$repository/runtime/m5" \
+    -I"$repository/arch/$architecture" \
+    -I. $binder_flags flyology_m3.ali
 
 compile_ada "$output_directory/b~flyology_m3.adb" b~flyology_m3.o generated
 
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
     -c "arch/$architecture/m1_entry.S" -o "$output_directory/m3_entry.o" \
-    -DFLYOLOGY_M2 -DFLYOLOGY_M3 -DFLYOLOGY_EXCEPTION -ffreestanding \
+    $assembly_defines -ffreestanding \
     -fno-stack-protector -fno-pic -fno-pie $architecture_flags
 
 for source in context memory limine_requests; do
@@ -173,7 +188,9 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/allocator_runtime.o" \
     "$output_directory/b~flyology_m3.o" \
     "$output_directory/flyology_m3.o" \
+    "$output_directory/flyology-m5_configuration.o" \
     "$output_directory/flyology-m3_demo.o" \
+    "$output_directory/flyology-m5_demo.o" \
     "$output_directory/a-taside.o" \
     "$output_directory/a-taidco.o" \
     "$output_directory/a-dynpri.o" \
@@ -191,6 +208,7 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/flyology-timer_model.o" \
     "$output_directory/flyology-ceiling_model.o" \
     "$output_directory/flyology-priority_queue_model.o" \
+    "$output_directory/flyology-preemption_model.o" \
     "$output_directory/flyology-wait_arbitration_model.o" \
     "$output_directory/flyology-wait_queue_model.o" \
     "$output_directory/flyology-dispatcher_model.o" \

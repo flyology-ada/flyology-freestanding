@@ -35,9 +35,23 @@ package Flyology.M2_Architecture is
      (Outgoing : access Context;
       Incoming : access Context);
 
+   procedure Switch_To_Task
+     (Outgoing : access Context;
+      Incoming : access Context)
+   with Import, Convention => C,
+        External_Name => "flyology_context_switch_to_task";
+
    procedure Capture_Full_Context
      (Item   : out Full_Context;
       Source : Interrupt_Frame);
+
+   function Interrupted_Stack (Source : Interrupt_Frame) return System.Address;
+
+   function Validate_Environment_Stack
+     (Core  : System.Address;
+      Probe : System.Address) return System.Address
+   with Import, Convention => C,
+        External_Name => "flyology_m5_validate_environment_stack";
 
    procedure Switch_To_Full
      (Outgoing : access Context;
@@ -62,4 +76,8 @@ package Flyology.M2_Architecture is
    procedure Cancel_Timer
    with Import, Convention => C,
         External_Name => "flyology_m4_cancel_timer";
+
+   procedure Retry_Interrupt
+   with Import, Convention => C,
+        External_Name => "flyology_m5_retry_interrupt";
 end Flyology.M2_Architecture;

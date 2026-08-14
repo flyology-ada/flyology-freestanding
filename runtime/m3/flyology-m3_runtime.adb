@@ -5,6 +5,8 @@ with Flyology.Abort_Closure_Model;
 with Flyology.Clock_Model;
 with Flyology.Dispatcher_Model;
 with Flyology.Exceptional_Completion_Model;
+with Flyology.Binder_Support;
+with Flyology.M5_Configuration;
 with Flyology.Placement_Model;
 with Flyology.Task_Core;
 with Flyology.Termination_Model;
@@ -920,17 +922,21 @@ package body Flyology.M3_Runtime is
       end if;
    end Observe_Abort_Cleanup;
 
+   procedure Defer_Abort_Locked (Slot : Task_Slot) is
+   begin
+      if Tasks (Slot).Abort_Depth = 255 then
+         Stop;
+      end if;
+      Tasks (Slot).Abort_Depth := Tasks (Slot).Abort_Depth + 1;
+   end Defer_Abort_Locked;
+
    procedure Abort_Defer is
       Dense : constant Core_Number := Core_Of_Current;
       Slot  : Task_Slot;
    begin
       Enter_Kernel;
       Slot := Record_Of (To_Identity (Core.Current_Locked (Dense)));
-      if Tasks (Slot).Abort_Depth = 255 then
-         Leave_Kernel;
-         Stop;
-      end if;
-      Tasks (Slot).Abort_Depth := Tasks (Slot).Abort_Depth + 1;
+      Defer_Abort_Locked (Slot);
       Leave_Kernel;
    end Abort_Defer;
 
@@ -2050,6 +2056,10 @@ package body Flyology.M3_Runtime is
          Leave_Kernel;
          Stop;
       end if;
+      --  The compiler-generated accept-action wrapper begins by calling
+      --  Abort_Undefer.  Return the accepted rendezvous with the matching
+      --  deferral already established, for both queued and blocking paths.
+      Defer_Abort_Locked (Server_Slot);
       Leave_Kernel;
    end Accept_Call;
 
@@ -2181,6 +2191,7 @@ package body Flyology.M3_Runtime is
          Accept_Queued_Call_Locked
            (Server_Slot, Call_Number (Call), Parameters);
          Selected := System.Tasking.Select_Index (Alternatives'First);
+         Defer_Abort_Locked (Server_Slot);
          Leave_Kernel;
       else
          Tasks (Server_Slot).Accepting := True;
@@ -2241,6 +2252,7 @@ package body Flyology.M3_Runtime is
          Tasks (Server_Slot).Terminate_Open := False;
          Parameters := Calls (Call_Number (Call)).Parameters;
          Selected := System.Tasking.Select_Index (Alternatives'First);
+         Defer_Abort_Locked (Server_Slot);
          Leave_Kernel;
       end if;
       if Alternative.Null_Body then
@@ -2295,6 +2307,36 @@ package body Flyology.M3_Runtime is
       Enter_Kernel;
       Core.Register_Environment_Locked (To_Reference (Environment));
       Leave_Kernel;
+      case Flyology.M5_Configuration.Policy_Code is
+         when ' ' =>
+            if Flyology.M5_Configuration.Enabled then
+               Stop;
+            end if;
+            Core.Configure_Dispatching
+              (Core.FIFO_Within_Priorities, 0);
+         when 'F' =>
+            if not Flyology.M5_Configuration.Enabled
+              or else Flyology.Binder_Support.Task_Dispatching_Policy /= 'F'
+              or else Flyology.Binder_Support.Time_Slice_Value /= 0
+            then
+               Stop;
+            end if;
+            Core.Configure_Dispatching
+              (Core.FIFO_Within_Priorities, 0);
+         when 'R' =>
+            if not Flyology.M5_Configuration.Enabled
+              or else Flyology.Binder_Support.Task_Dispatching_Policy /= 'R'
+              or else Flyology.Binder_Support.Time_Slice_Value /= 10_000
+            then
+               Stop;
+            end if;
+            Core.Configure_Dispatching
+              (Core.Round_Robin_Within_Priorities,
+               Core.Binder_Time_Slice
+                 (Flyology.Binder_Support.Time_Slice_Value));
+         when others =>
+            Stop;
+      end case;
       Enter_Master;
    end Core_Initialize;
 

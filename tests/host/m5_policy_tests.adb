@@ -18,6 +18,7 @@ procedure M5_Policy_Tests is
    use type Preemption.Policy_Kind;
    use type Preemption.Preemption_Cause;
    use type Ready_Queues.Enqueue_Status;
+   use type Ready_Queues.Requeue_Status;
 
    type Hash_Word is mod 2 ** 64;
    Hash  : Hash_Word := 16#CBF29CE484222325#;
@@ -204,6 +205,29 @@ procedure M5_Policy_Tests is
          end;
       end loop;
       pragma Assert (Queue.Length = 0);
+
+      Put (1, 4, Ready_Queues.At_Tail);
+      Put (2, 4, Ready_Queues.At_Tail);
+      declare
+         Requeued : constant Ready_Queues.Requeue_Result :=
+           Ready_Queues.Requeue_Priority
+             (Queue,
+              (Slot => 1, Incarnation => 1),
+              New_Priority => 4,
+              New_Sequence => 6);
+         First : Ready_Queues.Selection;
+         Second : Ready_Queues.Selection;
+      begin
+         pragma Assert (Requeued.Status = Ready_Queues.Requeued);
+         Queue := Requeued.Queue;
+         First := Ready_Queues.Select_Next (Queue);
+         pragma Assert (First.Found and then First.Item.Reference.Slot = 2);
+         Second := Ready_Queues.Select_Next (First.Remainder);
+         pragma Assert (Second.Found and then Second.Item.Reference.Slot = 1);
+         pragma Assert (Second.Remainder.Length = 0);
+         Count (42_002);
+         Count (42_001);
+      end;
    end Check_Ready_Queue_Positions;
 
 begin

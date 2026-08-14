@@ -64,7 +64,7 @@
     str x2, [\base, #CTX_FPSR]
 .endm
 
-.macro restore_voluntary base
+.macro restore_voluntary base, enable_dispatch=0
     ldp x19, x20, [\base, #CTX_X19_X20]
     ldp x21, x22, [\base, #CTX_X21_X22]
     ldp x23, x24, [\base, #CTX_X23_X24]
@@ -81,6 +81,10 @@
     msr fpcr, x2
     ldr x2, [\base, #CTX_FPSR]
     msr fpsr, x2
+    .if \enable_dispatch
+    msr daifclr, #2
+    isb
+    .endif
     ret
 .endm
 
@@ -92,6 +96,12 @@ flyology_context_switch:
        same task stack and is valid in this state. */
     save_voluntary x0
     restore_voluntary x1
+
+.global flyology_context_switch_to_task
+.type flyology_context_switch_to_task, %function
+flyology_context_switch_to_task:
+    save_voluntary x0
+    restore_voluntary x1, 1
 
 .global flyology_context_restore_from_interrupt
 .type flyology_context_restore_from_interrupt, %function

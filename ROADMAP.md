@@ -9,7 +9,7 @@ Status vocabulary is deliberately strict: `not started`, `in progress`, `blocked
 | M2 | complete ([review](docs/reviews/m2.md)) | Policy-neutral per-core dispatch, checked task transitions, voluntary contexts, interrupt frames, and remote reschedule substrate. |
 | M3 | complete ([review](docs/reviews/m3.md)) | Ordinary Ada task activation, identity, stacks, masters, termination, pinned placement, and automatic placement across cores. |
 | M4 | complete ([review](docs/reviews/m4.md)) | Cross-core protected objects, rendezvous, delays, priority/ceiling behavior, exact wakeups, termination, abort races, and reclamation. |
-| M5 | not started | Non-preemptive and preemptive standard-Ada-aligned policies, timer/IPI preemption, complete contexts, and no-yield progress test. |
+| M5 | complete ([review](docs/reviews/m5.md)) | Non-preemptive and preemptive standard-Ada-aligned policies, timer/IPI preemption, complete contexts, and no-yield progress test. |
 | M6 | not started | Immutable scheduling-domain admission and heterogeneous policies demonstrated on four cores on both architectures. |
 
 Each milestone closes only after:

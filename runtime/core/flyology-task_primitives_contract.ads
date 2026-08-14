@@ -37,7 +37,9 @@ package Flyology.Task_Primitives_Contract is
       Stop_Request);
 
    --  Enter/Leave are nestable per core.  Only the outer level owns the
-   --  global RTS lock; interrupt ingress never attempts to acquire it.
+   --  global RTS lock.  Interrupt ingress may acquire it only through a
+   --  nonblocking try operation; failure retains the request and arranges a
+   --  later local prompt instead of waiting in interrupt context.
    procedure Enter_Runtime_Critical
    with Import, Convention => Ada,
         External_Name => "flyology_enter_runtime_critical";

@@ -39,7 +39,14 @@ is
         Post => Valid (Queue)
           and then Queue.Length = Queue'Old.Length - 1
           and then not Contains
-            (Queue, Queue'Old.Storage (Index).Reference);
+            (Queue, Queue'Old.Storage (Index).Reference)
+          and then
+            (for all Cursor in Queue_Index =>
+               (if Cursor <= Queue.Length then
+                  (for some Previous in Queue_Index =>
+                     Previous <= Queue'Old.Length
+                       and then Queue.Storage (Cursor) =
+                         Queue'Old.Storage (Previous))));
 
    procedure Remove_At
      (Queue : in out Ready_Queue;
@@ -62,6 +69,28 @@ is
       Queue.Storage (Queue_Index (Previous.Length)) := Empty_Entry;
       Queue.Length := Previous.Length - 1;
    end Remove_At;
+
+   procedure Append_Tail
+     (Queue : in out Ready_Queue;
+      Item  : Ready_Entry)
+   with Pre => Valid (Queue)
+          and then Queue.Length < Capacity
+          and then Is_Valid_Task (Item.Reference)
+          and then Item.Sequence /= No_Sequence
+          and then not Contains (Queue, Item.Reference)
+          and then not Contains_Sequence (Queue, Item.Sequence),
+        Post => Valid (Queue)
+          and then Queue.Length = Queue'Old.Length + 1
+          and then Queue.Storage (Queue_Index (Queue.Length)) = Item;
+
+   procedure Append_Tail
+     (Queue : in out Ready_Queue;
+      Item  : Ready_Entry)
+   is
+   begin
+      Queue.Length := Queue.Length + 1;
+      Queue.Storage (Queue_Index (Queue.Length)) := Item;
+   end Append_Tail;
 
    function Enqueue
      (Before : Ready_Queue;
@@ -88,23 +117,34 @@ is
       return Result;
    end Enqueue;
 
-   function Change_Priority
+   function Requeue_Priority
      (Before       : Ready_Queue;
       Reference    : Task_Ref;
-      New_Priority : Dispatcher_Model.Priority) return Change_Result
+      New_Priority : Dispatcher_Model.Priority;
+      New_Sequence : Arrival_Sequence) return Requeue_Result
    is
-      Result : Change_Result := (Queue => Before, Status => Missing);
+      Result : Requeue_Result := (Queue => Before, Status => Missing);
    begin
       for Index in Queue_Index loop
          exit when Index > Before.Length;
          if Before.Storage (Index).Reference = Reference then
-            Result.Queue.Storage (Index).Priority := New_Priority;
-            Result.Status := Changed;
+            Remove_At (Result.Queue, Index);
+            pragma Assert (Is_Valid_Task (Reference));
+            pragma Assert (not Contains (Result.Queue, Reference));
+            pragma Assert
+              (not Contains_Sequence (Result.Queue, New_Sequence));
+            Append_Tail
+              (Result.Queue,
+              (Reference => Reference,
+               Priority  => New_Priority,
+               Sequence  => New_Sequence,
+               Position  => At_Tail));
+            Result.Status := Requeued;
             return Result;
          end if;
       end loop;
       return Result;
-   end Change_Priority;
+   end Requeue_Priority;
 
    function Select_Next (Before : Ready_Queue) return Selection is
       Result : Selection := (Remainder => Before, others => <>);

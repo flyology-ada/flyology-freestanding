@@ -1,0 +1,31 @@
+#!/bin/sh
+set -eu
+
+test "$#" -eq 2 || {
+    echo "usage: $0 x86_64|aarch64 fifo|round_robin" >&2
+    exit 64
+}
+
+architecture=$1
+policy=$2
+output_base=${FLYOLOGY_M5_OUTPUT_ROOT:-build/m5}
+case "$policy" in
+    fifo)
+        config=runtime/m5/fifo.adc
+        config_dir=runtime/m5/fifo
+        binder_flags=-T0
+        ;;
+    round_robin)
+        config=runtime/m5/round_robin.adc
+        config_dir=runtime/m5/round_robin
+        binder_flags=-T10
+        ;;
+    *) echo "unsupported M5 policy: $policy" >&2; exit 64 ;;
+esac
+
+FLYOLOGY_M5=1 \
+FLYOLOGY_PRODUCT_CONFIG=$config \
+FLYOLOGY_M5_CONFIG_DIR=$config_dir \
+FLYOLOGY_BINDER_FLAGS=$binder_flags \
+FLYOLOGY_M3_OUTPUT_ROOT="$output_base/$policy" \
+    scripts/build-m3.sh "$architecture"

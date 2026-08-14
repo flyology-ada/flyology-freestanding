@@ -21,6 +21,7 @@ case "$test_tag" in
 esac
 test_directory="build/m3/tests/$architecture-smp$cpu_count-$test_tag"
 mkdir -p "$test_directory"
+output_root=${FLYOLOGY_M3_OUTPUT_ROOT:-build/m3}
 
 case "$architecture" in
     x86_64)
@@ -46,7 +47,7 @@ case "$architecture" in
     *) echo "unsupported architecture: $architecture" >&2; exit 64 ;;
 esac
 
-image="build/m3/$architecture/flyology-$architecture.fat"
+image="$output_root/$architecture/flyology-$architecture.fat"
 for required in "$qemu" "$code" "$vars_template" "$image"; do
     test -f "$required" || {
         echo "missing M3 input: $required" >&2

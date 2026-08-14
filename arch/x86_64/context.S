@@ -70,7 +70,7 @@
     mov %rax, CTX_FS_BASE(\base)
 .endm
 
-.macro restore_voluntary base
+.macro restore_voluntary base, enable_dispatch=0
     mov CTX_FS_BASE(\base), %rax
     mov %rax, %rdx
     shr $32, %rdx
@@ -85,6 +85,9 @@
     mov CTX_R14(\base), %r14
     mov CTX_R15(\base), %r15
     mov CTX_RSP(\base), %rsp
+    .if \enable_dispatch
+    sti
+    .endif
     jmp *CTX_RIP(\base)
 .endm
 
@@ -161,6 +164,12 @@ flyology_context_switch:
     save_voluntary %rdi
     restore_voluntary %rsi
 
+.global flyology_context_switch_to_task
+.type flyology_context_switch_to_task, @function
+flyology_context_switch_to_task:
+    save_voluntary %rdi
+    restore_voluntary %rsi, 1
+
 .global flyology_context_capture_full
 .type flyology_context_capture_full, @function
 flyology_context_capture_full:
@@ -190,6 +199,15 @@ flyology_context_capture_full:
 .global flyology_context_restore_from_interrupt
 .type flyology_context_restore_from_interrupt, @function
 flyology_context_restore_from_interrupt:
+    /*
+     * IST entry installs a null SS in 64-bit mode.  A normal IRETQ restores
+     * the interrupted selector, but M5 deliberately abandons that frame when
+     * it hands control to the dispatcher.  Re-establish the private data
+     * selector before resuming ordinary context-switch code so the next
+     * interrupt captures the canonical SS expected by the full-frame ABI.
+     */
+    mov $0x10, %eax
+    mov %ax, %ss
     restore_voluntary %rdi
 
 .global flyology_context_switch_to_full

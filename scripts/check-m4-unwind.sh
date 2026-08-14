@@ -7,13 +7,14 @@ test "$#" -eq 1 || {
 }
 
 architecture=$1
+output_root=${FLYOLOGY_M3_OUTPUT_ROOT:-build/m3}
 case "$architecture" in
     x86_64|aarch64) target=$architecture-elf ;;
     *) exit 64 ;;
 esac
 
-elf="build/m3/$architecture/flyology-m3.elf"
-runtime="build/m3/$architecture/exception_runtime.o"
+elf="$output_root/$architecture/flyology-m3.elf"
+runtime="$output_root/$architecture/exception_runtime.o"
 test -f "$elf"
 test -f "$runtime"
 
@@ -76,13 +77,13 @@ test "$(printf '%s\n' "$relocations" | \
     grep -c '__eh_frame_probe_start')" -eq 0
 
 all_relocations=$(scripts/toolchain.sh exec "$architecture" \
-    "$target-objdump" -r "build/m3/$architecture"/*.o)
+    "$target-objdump" -r "$output_root/$architecture"/*.o)
 registration_count=$(printf '%s\n' "$all_relocations" | awk \
     '$NF == "__register_frame" { count = count + 1 } END { print count + 0 }')
 test "$registration_count" -eq 1
 
-runtime_ada="build/m3/$architecture/flyology-m3_runtime.o"
-demo="build/m3/$architecture/flyology-m3_demo.o"
+runtime_ada="$output_root/$architecture/flyology-m3_runtime.o"
+demo="$output_root/$architecture/flyology-m3_demo.o"
 root_section=.gcc_except_table.flyology_task_root_invoke
 root_sections=$(scripts/toolchain.sh exec "$architecture" \
     "$target-readelf" -SW "$runtime_ada")

@@ -50,6 +50,19 @@ The first release is not complete. Work proceeds through the independently gated
   dependent-task abort closure, and checks exact queues, timer cancellation,
   priorities, ceilings, and clock arithmetic with a pinned edge count and
   state hash.
+- `scripts/verify-m5.sh` proves and probes the standard dispatching-policy
+  surface, reproduces and inspects FIFO and round-robin images, verifies full
+  context/unwind layouts, boots both architectures and CPU counts under both
+  policies, and runs bounded SMP4 timer/IPI preemption stress.
+- `scripts/stress-m5.sh` repeatedly executes higher-priority timer preemption,
+  remote IPI/SGI preemption, complete register/status/FP-SIMD preservation on
+  every core, nonblocking interrupt ingress under remote RTS-lock contention,
+  Ready-task priority tail requeue, FIFO non-rotation, and equal-priority
+  round-robin progress at SMP4.
+- `scripts/test-m5-policy.sh` checks the deterministic policy, budget, and
+  ready-position kernel against its pinned edge count and hash.
+- `scripts/verify-m5-reproducible.sh` rebuilds all four M5 ELF/FAT pairs in
+  two independent output roots and compares their SHA-256 output.
 - `scripts/prove.sh` proves the deterministic SPARK validation kernel.
 - `scripts/check.sh` performs shell/static and repository hygiene checks.
 

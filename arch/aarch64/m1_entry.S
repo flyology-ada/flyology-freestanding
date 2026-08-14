@@ -9,6 +9,7 @@
 .set GICR_BASE, 0x080a0000
 .set GICR_END, 0x09000000
 .set RESCHEDULE_SGI, 1
+.set CORE_M5_RETRY_COUNT, 120
 
 .macro address reg, symbol
     adrp \reg, \symbol
@@ -963,6 +964,27 @@ flyology_m3_kick_core:
     ldp x29, x30, [sp], #16
     ret
 
+.global flyology_m5_validate_environment_stack
+.type flyology_m5_validate_environment_stack, %function
+flyology_m5_validate_environment_stack:
+    address x2, cpu_count
+    ldr w2, [x2]
+    cmp x0, x2
+    b.hs fatal
+    address x2, core_records
+    add x2, x2, x0, lsl #CORE_RECORD_SHIFT
+    ldr x3, [x2, #32]
+    sub x2, x3, #(1 << STACK_SHIFT)
+    cmp x1, x2
+    b.lo 1f
+    cmp x1, x3
+    b.hs 1f
+    mov x0, #1
+    ret
+1:
+    mov x0, xzr
+    ret
+
 .global flyology_m3_report_ordinary_pass
 .type flyology_m3_report_ordinary_pass, %function
 flyology_m3_report_ordinary_pass:
@@ -1185,6 +1207,264 @@ flyology_m4_report_collision_stress_pass:
     address x0, m4_collision_stress_pass
     b serial_puts_locked
 
+.global flyology_m5_report_fifo_preemption_pass
+.type flyology_m5_report_fifo_preemption_pass, %function
+flyology_m5_report_fifo_preemption_pass:
+    address x0, m5_fifo_preemption_pass
+    b serial_puts_locked
+
+.global flyology_m5_preemption_canary
+.type flyology_m5_preemption_canary, %function
+flyology_m5_preemption_canary:
+    sub sp, sp, #304
+    str x0, [sp, #0]
+    mov x1, sp
+    str x1, [sp, #8]
+    mrs x1, fpcr
+    str x1, [sp, #16]
+    mrs x1, fpsr
+    str x1, [sp, #24]
+    stp q8, q9, [sp, #32]
+    stp q10, q11, [sp, #64]
+    stp q12, q13, [sp, #96]
+    stp q14, q15, [sp, #128]
+    stp x18, x19, [sp, #192]
+    stp x20, x21, [sp, #208]
+    stp x22, x23, [sp, #224]
+    stp x24, x25, [sp, #240]
+    stp x26, x27, [sp, #256]
+    stp x28, x29, [sp, #272]
+    str x30, [sp, #288]
+
+    address x16, m2_simd_canary
+    ldr q0, [x16]
+    ldr q1, [x16]
+    ldr q2, [x16]
+    ldr q3, [x16]
+    ldr q4, [x16]
+    ldr q5, [x16]
+    ldr q6, [x16]
+    ldr q7, [x16]
+    ldr q8, [x16]
+    ldr q9, [x16]
+    ldr q10, [x16]
+    ldr q11, [x16]
+    ldr q12, [x16]
+    ldr q13, [x16]
+    ldr q14, [x16]
+    ldr q15, [x16]
+    ldr q16, [x16]
+    ldr q17, [x16]
+    ldr q18, [x16]
+    ldr q19, [x16]
+    ldr q20, [x16]
+    ldr q21, [x16]
+    ldr q22, [x16]
+    ldr q23, [x16]
+    ldr q24, [x16]
+    ldr q25, [x16]
+    ldr q26, [x16]
+    ldr q27, [x16]
+    ldr q28, [x16]
+    ldr q29, [x16]
+    ldr q30, [x16]
+    ldr q31, [x16, #16]
+    mov x17, #(1 << 22)
+    msr fpcr, x17
+    msr fpsr, xzr
+    mrs x16, tpidr_el1
+    mov x17, #1
+    str x17, [x16, #80]
+
+    ldr x0, [sp, #0]
+    mov x1, #1
+    mov x2, #2
+    mov x3, #3
+    mov x4, #4
+    mov x5, #5
+    mov x6, #6
+    mov x7, #7
+    mov x8, #8
+    mov x9, #9
+    mov x10, #10
+    mov x11, #11
+    mov x12, #12
+    mov x13, #13
+    mov x14, #14
+    mov x15, #15
+    mov x16, #16
+    mov x17, #17
+    mov x18, #18
+    mov x19, #19
+    mov x20, #20
+    mov x21, #21
+    mov x22, #22
+    mov x23, #23
+    mov x24, #24
+    mov x25, #25
+    mov x26, #26
+    mov x27, #27
+    mov x28, #28
+    mov x29, #29
+    mov x30, #30
+    mov x1, #0xa0000000
+    msr nzcv, x1
+1:
+    ldarb w1, [x0]
+    cbz w1, 1b
+
+    mrs x1, nzcv
+    lsr x1, x1, #28
+    cmp x1, #10
+    b.ne fatal
+    ldr x1, [sp, #0]
+    cmp x0, x1
+    b.ne fatal
+.macro m5_check_gpr register, value
+    cmp \register, #\value
+    b.ne fatal
+.endm
+    m5_check_gpr x2, 2
+    m5_check_gpr x3, 3
+    m5_check_gpr x4, 4
+    m5_check_gpr x5, 5
+    m5_check_gpr x6, 6
+    m5_check_gpr x7, 7
+    m5_check_gpr x8, 8
+    m5_check_gpr x9, 9
+    m5_check_gpr x10, 10
+    m5_check_gpr x11, 11
+    m5_check_gpr x12, 12
+    m5_check_gpr x13, 13
+    m5_check_gpr x14, 14
+    m5_check_gpr x15, 15
+    m5_check_gpr x16, 16
+    m5_check_gpr x17, 17
+    m5_check_gpr x18, 18
+    m5_check_gpr x19, 19
+    m5_check_gpr x20, 20
+    m5_check_gpr x21, 21
+    m5_check_gpr x22, 22
+    m5_check_gpr x23, 23
+    m5_check_gpr x24, 24
+    m5_check_gpr x25, 25
+    m5_check_gpr x26, 26
+    m5_check_gpr x27, 27
+    m5_check_gpr x28, 28
+    m5_check_gpr x29, 29
+    m5_check_gpr x30, 30
+.purgem m5_check_gpr
+    mov x1, sp
+    ldr x2, [sp, #8]
+    cmp x1, x2
+    b.ne fatal
+    mrs x1, fpcr
+    cmp x1, #(1 << 22)
+    b.ne fatal
+    mrs x1, fpsr
+    cbnz x1, fatal
+
+.macro m5_check_q register, expected_offset
+    str q\register, [sp, #160]
+    ldp x2, x3, [sp, #160]
+    address x4, m2_simd_canary
+    ldr x5, [x4, #\expected_offset]
+    ldr x6, [x4, #(\expected_offset + 8)]
+    cmp x2, x5
+    b.ne fatal
+    cmp x3, x6
+    b.ne fatal
+.endm
+    m5_check_q 0, 0
+    m5_check_q 1, 0
+    m5_check_q 2, 0
+    m5_check_q 3, 0
+    m5_check_q 4, 0
+    m5_check_q 5, 0
+    m5_check_q 6, 0
+    m5_check_q 7, 0
+    m5_check_q 8, 0
+    m5_check_q 9, 0
+    m5_check_q 10, 0
+    m5_check_q 11, 0
+    m5_check_q 12, 0
+    m5_check_q 13, 0
+    m5_check_q 14, 0
+    m5_check_q 15, 0
+    m5_check_q 16, 0
+    m5_check_q 17, 0
+    m5_check_q 18, 0
+    m5_check_q 19, 0
+    m5_check_q 20, 0
+    m5_check_q 21, 0
+    m5_check_q 22, 0
+    m5_check_q 23, 0
+    m5_check_q 24, 0
+    m5_check_q 25, 0
+    m5_check_q 26, 0
+    m5_check_q 27, 0
+    m5_check_q 28, 0
+    m5_check_q 29, 0
+    m5_check_q 30, 0
+    m5_check_q 31, 16
+.purgem m5_check_q
+
+    mrs x1, tpidr_el1
+    str xzr, [x1, #80]
+    ldp q8, q9, [sp, #32]
+    ldp q10, q11, [sp, #64]
+    ldp q12, q13, [sp, #96]
+    ldp q14, q15, [sp, #128]
+    ldp x18, x19, [sp, #192]
+    ldp x20, x21, [sp, #208]
+    ldp x22, x23, [sp, #224]
+    ldp x24, x25, [sp, #240]
+    ldp x26, x27, [sp, #256]
+    ldp x28, x29, [sp, #272]
+    ldr x30, [sp, #288]
+    ldr x1, [sp, #16]
+    msr fpcr, x1
+    ldr x1, [sp, #24]
+    msr fpsr, x1
+    add sp, sp, #304
+    ret
+
+.global flyology_m5_report_round_robin_pass
+.type flyology_m5_report_round_robin_pass, %function
+flyology_m5_report_round_robin_pass:
+    address x0, m5_round_robin_pass
+    b serial_puts_locked
+
+.global flyology_m5_report_remote_preemption_pass
+.type flyology_m5_report_remote_preemption_pass, %function
+flyology_m5_report_remote_preemption_pass:
+    address x0, m5_remote_preemption_pass
+    b serial_puts_locked
+
+.global flyology_m5_report_all_core_preemption_pass
+.type flyology_m5_report_all_core_preemption_pass, %function
+flyology_m5_report_all_core_preemption_pass:
+    address x0, m5_all_core_preemption_pass
+    b serial_puts_locked
+
+.global flyology_m5_report_fifo_no_rotation_pass
+.type flyology_m5_report_fifo_no_rotation_pass, %function
+flyology_m5_report_fifo_no_rotation_pass:
+    address x0, m5_fifo_no_rotation_pass
+    b serial_puts_locked
+
+.global flyology_m5_report_priority_requeue_pass
+.type flyology_m5_report_priority_requeue_pass, %function
+flyology_m5_report_priority_requeue_pass:
+    address x0, m5_priority_requeue_pass
+    b serial_puts_locked
+
+.global flyology_m5_report_nonblocking_ingress_pass
+.type flyology_m5_report_nonblocking_ingress_pass, %function
+flyology_m5_report_nonblocking_ingress_pass:
+    address x0, m5_nonblocking_ingress_pass
+    b serial_puts_locked
+
 .global flyology_m3_report_master_pass
 .type flyology_m3_report_master_pass, %function
 flyology_m3_report_master_pass:
@@ -1247,6 +1527,46 @@ flyology_m4_program_timer:
 flyology_m4_cancel_timer:
     msr cntv_ctl_el0, xzr
     isb
+    ret
+
+.global flyology_m5_retry_interrupt
+.type flyology_m5_retry_interrupt, %function
+flyology_m5_retry_interrupt:
+    /* Re-enable a bounded local prompt after nonblocking ISR lock failure. */
+    mrs x2, tpidr_el1
+    add x2, x2, #CORE_M5_RETRY_COUNT
+    ldr x3, [x2]
+    adds x3, x3, #1
+    b.cs fatal
+    stlr x3, [x2]
+    isb
+    mrs x0, cntvct_el0
+    mrs x1, cntfrq_el0
+    lsr x1, x1, #10
+    cbnz x1, 1f
+    mov x1, #1
+1:
+    add x0, x0, x1
+    msr cntv_cval_el0, x0
+    mov x0, #1
+    msr cntv_ctl_el0, x0
+    isb
+    ret
+
+.global flyology_m5_retry_count
+.type flyology_m5_retry_count, %function
+flyology_m5_retry_count:
+    address x1, core_records
+    mov x0, xzr
+    mov x2, #MAX_CORES
+1:
+    add x4, x1, #CORE_M5_RETRY_COUNT
+    ldar x3, [x4]
+    adds x0, x0, x3
+    b.cs fatal
+    add x1, x1, #(1 << CORE_RECORD_SHIFT)
+    subs x2, x2, #1
+    b.ne 1b
     ret
 
 #ifndef FLYOLOGY_EXCEPTION
@@ -1340,6 +1660,31 @@ flyology_rts_lock_acquire:
 3:
     ret
 
+.global flyology_rts_lock_try_acquire
+.type flyology_rts_lock_try_acquire, %function
+flyology_rts_lock_try_acquire:
+    mrs x3, tpidr_el1
+    ldr x4, [x3, #88]
+    cbnz x4, 2f
+    address x0, serial_lock
+    ldar w1, [x0]
+    cbnz w1, 2f
+    address x0, rts_lock
+    ldaxr w1, [x0]
+    cbnz w1, 1f
+    mov w1, #1
+    stxr w2, w1, [x0]
+    cbnz w2, 2f
+    mov x4, #1
+    str x4, [x3, #88]
+    mov x0, #1
+    ret
+1:
+    clrex
+2:
+    mov x0, xzr
+    ret
+
 .global flyology_rts_lock_release
 .type flyology_rts_lock_release, %function
 flyology_rts_lock_release:
@@ -1359,6 +1704,15 @@ flyology_rts_lock_release:
     b.eq 1f
     mov x2, #1
     str x2, [x1, #96]
+#ifdef FLYOLOGY_M5
+    ldr x2, [x1, #112]
+    cbnz x2, 1f
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    ldr x0, [x1, #16]
+    bl send_reschedule_sgi
+    ldp x29, x30, [sp], #16
+#endif
 1:
     ret
 #endif
@@ -1699,6 +2053,12 @@ reschedule_irq:
     stp q26, q27, [sp, #736]
     stp q28, q29, [sp, #768]
     stp q30, q31, [sp, #800]
+    mrs x0, tpidr_el1
+    ldr x1, [x0, #112]
+    cmp x1, #255
+    b.hs frame_state_fatal
+    add x1, x1, #1
+    str x1, [x0, #112]
     ldr x0, [sp, #256]
     cbz x0, frame_state_fatal
     ldr x0, [sp, #248]
@@ -1756,7 +2116,30 @@ reschedule_irq:
     mov x1, #2
     bl m2_mark_delivered
 2:
+#ifdef FLYOLOGY_M5
+    mov x21, xzr
+    mrs x0, tpidr_el1
+    ldr x1, [x0, #88]
+    cbnz x1, 6f
+    mov x0, sp
+    mrs x1, tpidr_el1
+    ldr x1, [x1, #0]
+    bl flyology_m5_interrupt_dispatch
+    mov x21, x0
+6:
+#endif
     msr icc_eoir1_el1, x20
+    mrs x0, tpidr_el1
+    ldr x1, [x0, #112]
+    cbz x1, frame_state_fatal
+    sub x1, x1, #1
+    str x1, [x0, #112]
+#ifdef FLYOLOGY_M5
+    cbz x21, 7f
+    mov x0, x21
+    b flyology_context_restore_from_interrupt
+7:
+#endif
     ldp q0, q1, [sp, #320]
     ldp q2, q3, [sp, #352]
     ldp q4, q5, [sp, #384]
@@ -1905,6 +2288,13 @@ m4_abort_timeout_pass: .asciz "FLYOLOGY:M4:ABORT_TIMEOUT:PASS\n"
 m4_abort_accepted_pass: .asciz "FLYOLOGY:M4:ABORT_ACCEPTED:PASS\n"
 m4_abort_protected_pass: .asciz "FLYOLOGY:M4:ABORT_PROTECTED:PASS\n"
 m4_collision_stress_pass: .asciz "FLYOLOGY:M4:COLLISION_STRESS:PASS\n"
+m5_fifo_preemption_pass: .asciz "FLYOLOGY:M5:FIFO_PREEMPTION:PASS\n"
+m5_round_robin_pass: .asciz "FLYOLOGY:M5:ROUND_ROBIN:PASS\n"
+m5_remote_preemption_pass: .asciz "FLYOLOGY:M5:REMOTE_PREEMPTION:PASS\n"
+m5_all_core_preemption_pass: .asciz "FLYOLOGY:M5:ALL_CORE_PREEMPTION:PASS\n"
+m5_fifo_no_rotation_pass: .asciz "FLYOLOGY:M5:FIFO_NO_ROTATION:PASS\n"
+m5_priority_requeue_pass: .asciz "FLYOLOGY:M5:PRIORITY_REQUEUE:PASS\n"
+m5_nonblocking_ingress_pass: .asciz "FLYOLOGY:M5:NONBLOCKING_INGRESS:PASS\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:AARCH64_BOOT\n"
 exception_marker: .asciz "FLYOLOGY:FAIL:AARCH64_EXCEPTION\n"

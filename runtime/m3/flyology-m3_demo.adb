@@ -5,6 +5,7 @@ with Ada.Real_Time;
 with Ada.Task_Identification;
 with Ada.Unchecked_Deallocation;
 with Flyology.M3_Runtime;
+with Flyology.M5_Configuration;
 with System.Multiprocessors;
 
 package body Flyology.M3_Demo is
@@ -1871,15 +1872,19 @@ package body Flyology.M3_Demo is
          then
             Report_Failure;
          end if;
-         --  Worker is pinned to the environment core. Open completes and
-         --  wakes its failing call, but cooperative M4 cannot resume Worker
-         --  on that core before this ordinary Ada abort is published.
+         --  In cooperative M4 the worker cannot resume between Open and the
+         --  abort.  M5 may preempt at either boundary, so the worker may
+         --  catch the transferred exception, and may even finish, before the
+         --  abort becomes effective.
          Protected_Gate.Open;
          abort Worker;
       end;
       Protected_Gate.Close;
-      if Exception_Abort_Protected_Caught
-        or else Exception_Abort_Protected_Continued
+      if (not Flyology.M5_Configuration.Enabled
+          and then (Exception_Abort_Protected_Caught
+                    or else Exception_Abort_Protected_Continued))
+        or else (Exception_Abort_Protected_Continued
+                 and then not Exception_Abort_Protected_Caught)
         or else Protected_Gate.Failing /= 0
         or else not Ada.Task_Identification.Is_Terminated
           (Exception_Abort_Protected_Id)
@@ -1901,12 +1906,21 @@ package body Flyology.M3_Demo is
          if Ada.Dynamic_Priorities.Get_Priority (Server'Identity) /= 7 then
             Report_Failure;
          end if;
-         select
-            Server.Ping (Value);
-            Accepted := True;
-         else
-            null;
-         end select;
+         --  Activation completion precedes entry-call publication.  Under
+         --  interrupt preemption the environment can therefore reach this
+         --  conditional call before Server has begun accepting.  Retrying
+         --  the nonblocking operation gives it a bounded causal gate while
+         --  retaining the conditional-call semantics under test.
+         for Attempt in 1 .. 1_000 loop
+            select
+               Server.Ping (Value);
+               Accepted := True;
+            else
+               null;
+            end select;
+            exit when Accepted;
+            delay 0.001;
+         end loop;
          if not Accepted then
             Report_Failure;
          end if;

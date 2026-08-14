@@ -15,4 +15,4 @@ output=$(build/host-m5-policy/bin/m5_policy_tests)
 printf '%s\n' "$output"
 
 test "$output" = \
-    'FLYOLOGY:M5:POLICY_MODEL:PASS:EDGES 607:HASH 2150687402772249098'
+    'FLYOLOGY:M5:POLICY_MODEL:PASS:EDGES 611:HASH 4221926451382466817'

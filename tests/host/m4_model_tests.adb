@@ -41,7 +41,7 @@ procedure M4_Model_Tests is
    use type Completions.Completion_Phase;
    use type Completions.Consume_Status;
    use type Completions.Delivery_Action;
-   use type Priority.Change_Status;
+   use type Priority.Requeue_Status;
    use type Priority.Enqueue_Status;
    use type Termination.Dependent_Phase;
    use type Termination.Snapshot;
@@ -442,11 +442,15 @@ procedure M4_Model_Tests is
          end;
       end loop;
       declare
-         Changed : constant Priority.Change_Result :=
-           Priority.Change_Priority (Queue, Reference (1), 9);
+         Changed : constant Priority.Requeue_Result :=
+           Priority.Requeue_Priority
+             (Queue,
+              Reference (1),
+              9,
+              Priority.Arrival_Sequence (Priority.Capacity + 1));
          Choice : Priority.Selection;
       begin
-         pragma Assert (Changed.Status = Priority.Changed);
+         pragma Assert (Changed.Status = Priority.Requeued);
          Queue := Changed.Queue;
          Choice := Priority.Select_Next (Queue);
          pragma Assert (Choice.Found);

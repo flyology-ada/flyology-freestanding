@@ -58,4 +58,8 @@ package body Flyology.M2_Architecture is
    begin
       Item.Frame := Source;
    end Capture_Full_Context;
+
+   function Interrupted_Stack
+     (Source : Interrupt_Frame) return System.Address
+   is (System.Address (Source.Interrupted_SP));
 end Flyology.M2_Architecture;

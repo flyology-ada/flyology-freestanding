@@ -98,26 +98,42 @@ is
              then Enqueue'Result.Queue.Length = Before.Length + 1
                and then Contains
                  (Enqueue'Result.Queue, Item.Reference)
+               and then
+                 (for some Index in Queue_Index =>
+                    Index <= Enqueue'Result.Queue.Length
+                      and then Enqueue'Result.Queue.Storage (Index) = Item)
              else Enqueue'Result.Queue = Before);
 
-   type Change_Status is (Changed, Missing);
-   type Change_Result is record
+   type Requeue_Status is (Requeued, Missing);
+   type Requeue_Result is record
       Queue  : Ready_Queue;
-      Status : Change_Status := Missing;
+      Status : Requeue_Status := Missing;
    end record;
 
-   function Change_Priority
+   function Requeue_Priority
      (Before       : Ready_Queue;
       Reference    : Task_Ref;
-      New_Priority : Dispatcher_Model.Priority) return Change_Result
-   with Pre => Valid (Before),
-        Post => Valid (Change_Priority'Result.Queue)
-          and then Change_Priority'Result.Queue.Length = Before.Length
+      New_Priority : Dispatcher_Model.Priority;
+      New_Sequence : Arrival_Sequence) return Requeue_Result
+   with Pre => Valid (Before)
+          and then New_Sequence /= No_Sequence
+          and then not Contains_Sequence (Before, New_Sequence),
+        Post => Valid (Requeue_Priority'Result.Queue)
+          and then Requeue_Priority'Result.Queue.Length = Before.Length
           and then
-            (if Change_Priority'Result.Status = Missing
-             then Change_Priority'Result.Queue = Before
-             else Contains
-               (Change_Priority'Result.Queue, Reference));
+            (if Requeue_Priority'Result.Status = Missing
+             then Requeue_Priority'Result.Queue = Before
+             else
+               (for some Index in Queue_Index =>
+                  Index <= Requeue_Priority'Result.Queue.Length
+                    and then Requeue_Priority'Result.Queue.Storage
+                      (Index).Reference = Reference
+                    and then Requeue_Priority'Result.Queue.Storage
+                      (Index).Priority = New_Priority
+                    and then Requeue_Priority'Result.Queue.Storage
+                      (Index).Sequence = New_Sequence
+                    and then Requeue_Priority'Result.Queue.Storage
+                      (Index).Position = At_Tail));
 
    type Selection is record
       Item      : Ready_Entry := Empty_Entry;

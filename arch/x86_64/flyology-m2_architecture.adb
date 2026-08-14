@@ -72,4 +72,8 @@ package body Flyology.M2_Architecture is
    begin
       Capture_Raw (Item'Address, Source'Address);
    end Capture_Full_Context;
+
+   function Interrupted_Stack
+     (Source : Interrupt_Frame) return System.Address
+   is (System.Address (Source.Stack_Pointer));
 end Flyology.M2_Architecture;

@@ -1,0 +1,5 @@
+--  SPDX-License-Identifier: MIT OR Apache-2.0
+
+pragma Restrictions (No_Exception_Registration);
+pragma Restrictions (No_Tagged_Type_Registration);
+pragma Task_Dispatching_Policy (FIFO_Within_Priorities);

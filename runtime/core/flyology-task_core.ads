@@ -3,6 +3,7 @@
 with Flyology.Dispatcher_Model;
 with Flyology.Ceiling_Model;
 with Flyology.Clock_Model;
+with Flyology.Preemption_Model;
 with Flyology.Task_Primitives_Contract;
 with Flyology.Timer_Model;
 with Flyology.Wait_Arbitration_Model;
@@ -27,6 +28,12 @@ package Flyology.Task_Core is
    subtype Tick is Flyology.Timer_Model.Tick;
    subtype Frequency is Flyology.Clock_Model.Frequency;
    subtype Timer_Cancel_Status is Flyology.Timer_Model.Cancel_Status;
+   subtype Dispatching_Policy is Flyology.Preemption_Model.Policy_Kind;
+   subtype Binder_Time_Slice is Flyology.Preemption_Model.Binder_Time_Slice;
+   FIFO_Within_Priorities : constant Dispatching_Policy :=
+     Flyology.Preemption_Model.FIFO_Within_Priorities;
+   Round_Robin_Within_Priorities : constant Dispatching_Policy :=
+     Flyology.Preemption_Model.Round_Robin_Within_Priorities;
    Cancelled : constant Timer_Cancel_Status := Flyology.Timer_Model.Cancelled;
 
    No_Task : Task_Ref renames Dispatcher.No_Task;
@@ -36,6 +43,9 @@ package Flyology.Task_Core is
       Slot : System.Address);
 
    procedure Initialize (CPU_Count : Positive);
+   procedure Configure_Dispatching
+     (Policy : Dispatching_Policy;
+      Slice  : Binder_Time_Slice);
    procedure Install_Retirement_Hook (Hook : Retirement_Hook);
    function CPU_Count return Positive;
 

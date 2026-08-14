@@ -13,7 +13,8 @@ case "$architecture" in
     *) echo "unsupported architecture: $architecture" >&2; exit 64 ;;
 esac
 
-elf="build/m3/$architecture/flyology-m3.elf"
+output_root=${FLYOLOGY_M3_OUTPUT_ROOT:-build/m3}
+elf="$output_root/$architecture/flyology-m3.elf"
 test -f "$elf" || { echo "missing M3 ELF: $elf" >&2; exit 66; }
 
 readelf_output=$(scripts/toolchain.sh exec "$architecture" \
