@@ -95,7 +95,8 @@ ordinary-task QEMU gate requires four simultaneous delayed tasks in the SMP4
 image, rejects early resume by comparing the architecture clock with the
 registered absolute deadline, and emits one `FLYOLOGY:M4:DELAYS:PASS` marker
 only after their lexical master observes all completions. Absolute delays and
-broader cancellation races remain separate M4 gates.
+the bounded cancellation races exercised by timed entry calls use the same
+kernel and are covered below.
 
 The owned `absolute_delay_probe.adb` confirms on both targets that an Ada
 `delay until` statement lowers to `Ada.Real_Time.Delays.Delay_Until (Time)`.
@@ -227,8 +228,8 @@ The retained completion record is cleared first, then the shared checked
 delivery boundary chooses deliverable abort ahead of the stored exception.
 
 This checkpoint does not claim absolute-delay timed protected calls, entry
-families, requeue, priority-ordered entry service, near-boundary service versus
-timeout stress, or concurrent finalized-object access.
+families, requeue, priority-ordered entry service, or concurrent finalized-
+object access.
 
 The owned `simple_rendezvous_probe.adb` establishes the same compiler surface
 on both cross targets for a simple task entry call: `Create_Task` receives an
@@ -264,7 +265,7 @@ the product emit `FLYOLOGY:M4:EXCEPTION_ABORT:PASS`.
 
 This identity-only transfer is not full Exception_Occurrence copying.
 Asynchronous calls, entry families, requeue, and priority-ordered entry queues
-remain later M4 gates.
+remain unsupported outside the bounded M4 milestone outcome.
 
 The language-defined `Ada.Dynamic_Priorities` facade follows
 [Ada RM D.5.1](https://www.adaic.org/resources/add_content/standards/22rm/html/RM-D-5-1.html).
@@ -316,9 +317,9 @@ and a later server scan discards the stale record rather than accepting it.
 The QEMU image proves both outcomes with ordinary Ada: an open server completes
 before a long timeout, while a delayed server loses to a short timeout and
 subsequently accepts a fresh normal call. Only then is
-`FLYOLOGY:M4:TIMED_ENTRY:PASS` emitted. The test is deterministic rather than a
-full boundary-race stress campaign; repeated accept/timeout collision stress
-remains required before M4 closes.
+`FLYOLOGY:M4:TIMED_ENTRY:PASS` emitted. The later six-case collision campaign
+adds equal-boundary accept/timeout/abort ordering and is repeated by the SMP4
+stress gate.
 
 A timed-out queued call remains owned by its exact caller and wait token until
 that caller resumes and clears the record. A server scan may skip a call whose
@@ -474,7 +475,8 @@ published the open alternative before collective completion, neither may
 execute its post-select statement, both identities must be terminated and not
 callable, and only then is `FLYOLOGY:M4:TERMINATE_ALTERNATIVE:PASS` emitted.
 Multiple accept alternatives, guarded alternatives, else/delay alternatives,
-timed selective wait, and priority queueing remain M4 work.
+timed selective wait, and priority queueing remain unsupported outside the
+bounded M4 milestone outcome.
 
 Normal task destruction now separates the stable language identity from its
 bounded execution slot. Completion is also explicitly two-phase: the task
@@ -632,7 +634,9 @@ before `FLYOLOGY:M4:ABORT_PROTECTED:PASS`. SMP4 exercises the remote wake path
 while SMP1 exercises the same arbitration locally. A six-case follow-on
 campaign covers service before timeout, timeout before service, abort before
 service, service at the timeout boundary, abort immediately before that
-boundary, and service followed by abort before the gate closes. Every case
+boundary, and service followed immediately by an abort request. In the last two
+cases the remote caller may legitimately resume before or after the environment
+issues abort, so the gate accepts either one normal winner or abort. Every case
 requires exactly one terminal outcome, a zero entry count, terminated/noncallable
 caller identity, and a fresh successful protected call afterward. The shared
 `FLYOLOGY:M4:COLLISION_STRESS:PASS` marker is emitted only after both the task-
