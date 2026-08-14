@@ -6,6 +6,7 @@ scripts/prove.sh
 scripts/test-m3-models.sh
 scripts/test-m4-models.sh
 scripts/test-m4-allocator.sh
+scripts/test-m4-abort-exception.sh
 scripts/probe-m3-interface.sh
 scripts/probe-m4-interface.sh
 scripts/check-m2-layout.sh

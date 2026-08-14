@@ -38,10 +38,6 @@ package body System.Tasking.Protected_Objects.Operations is
    with Import, Convention => C,
         External_Name => "flyology_exception_identity";
 
-   procedure Raise_Exception_Identity (Identity : System.Address)
-   with Import, Convention => C,
-        External_Name => "flyology_raise_exception_identity", No_Return;
-
    procedure Reraise_Exception (Occurrence : System.Address)
    with Import, Convention => C,
         External_Name => "__gnat_reraise_zcx", No_Return;
@@ -156,9 +152,7 @@ package body System.Tasking.Protected_Objects.Operations is
       end if;
       Object.Pending (Slot) := (others => <>);
       Entries.Unlock_Entries (Object);
-      if Identity /= System.Null_Address then
-         Raise_Exception_Identity (Identity);
-      end if;
+      Flyology.M3_Runtime.Deliver_Completion (Identity);
    end Consume_Completed_Call;
 
    procedure Complete_Entry_Body
@@ -413,7 +407,6 @@ package body System.Tasking.Protected_Objects.Operations is
       end if;
       Consume_Completed_Call (Object, Token, Slot);
       Block.Was_Cancelled := False;
-      Flyology.M3_Runtime.Deliver_Pending_Abort;
    end Protected_Entry_Call;
 
    procedure Timed_Protected_Entry_Call
@@ -512,7 +505,6 @@ package body System.Tasking.Protected_Objects.Operations is
       if Outcome = Waits.Object_Wake then
          Accepted := True;
          Consume_Completed_Call (Object, Token, Slot);
-         Flyology.M3_Runtime.Deliver_Pending_Abort;
          return;
       elsif Outcome = Waits.Abort_Wake then
          Remove_Aborted_Call (Object, Token, Slot);

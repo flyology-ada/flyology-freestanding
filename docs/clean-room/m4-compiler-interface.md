@@ -196,10 +196,21 @@ record before raising a fresh occurrence with that identity. The ordinary-Ada
 gate requires both immediate and cross-core queued Program_Error handlers, a
 subsequent normally serviced call, and an empty entry queue before the shared
 `FLYOLOGY:M4:EXCEPTIONAL_SYNC:PASS` marker. Only exception identity is
-preserved; messages and tracebacks are not copied. This checkpoint does not
-claim absolute-delay timed protected calls, entry families, requeue,
-priority-ordered entry service, simultaneous exceptional-completion versus
-timeout/abort collisions, or concurrent finalized-object access.
+preserved; messages and tracebacks are not copied.
+
+An owned hosted GNAT 15.3 black-box queues a protected entry, begins its action,
+requests abort of the caller, and then lets that action raise Constraint_Error.
+The caller's named handler must not execute: abort is delivered at the end of
+the abort-deferred call before the transferred exception. The product gate
+forces the same rule without a runtime test hook. It pins the blocked caller to
+the environment core, completes the failing entry from the environment task,
+and issues an ordinary Ada abort before cooperative M4 can resume that caller.
+The retained completion record is cleared first, then the shared checked
+delivery boundary chooses deliverable abort ahead of the stored exception.
+
+This checkpoint does not claim absolute-delay timed protected calls, entry
+families, requeue, priority-ordered entry service, near-boundary service versus
+timeout stress, or concurrent finalized-object access.
 
 The owned `simple_rendezvous_probe.adb` establishes the same compiler surface
 on both cross targets for a simple task entry call: `Create_Task` receives an
@@ -226,11 +237,16 @@ call ownership, and reraises the original occurrence. The caller consumes and
 clears the retained record before raising a fresh occurrence with the same
 identity. The ordinary-Ada gate requires Program_Error handlers in both server
 and caller, normal master completion, and the shared exceptional-sync marker.
-This identity-only transfer is not full Exception_Occurrence copying, and
-exception-versus-abort/timeout collision ordering remains an M4 closure gate.
-Conditional/timed calls, selective waits, entry families, requeue, abort, and
-priority-ordered entry queues remain later M4 gates where not separately
-demonstrated below.
+An additional accepted rendezvous holds its server in an abort-deferred delay,
+requests caller abort, and only then raises Program_Error. The client must
+terminate without entering its Program_Error handler. The same outcome is
+pinned by an owned hosted GNAT 15.3 black-box. Only after both this rendezvous
+case and the protected-entry case terminate with empty retained records does
+the product emit `FLYOLOGY:M4:EXCEPTION_ABORT:PASS`.
+
+This identity-only transfer is not full Exception_Occurrence copying.
+Asynchronous calls, entry families, requeue, and priority-ordered entry queues
+remain later M4 gates.
 
 The language-defined `Ada.Dynamic_Priorities` facade follows
 [Ada RM D.5.1](https://www.adaic.org/resources/add_content/standards/22rm/html/RM-D-5-1.html).
@@ -584,7 +600,7 @@ required before M4 closure.
 
 ## Model and stress closure gates
 
-The authoritative M4 host model enumerates 220,853 deterministic operations
+The authoritative M4 host model enumerates 220,873 deterministic operations
 over the production wait-arbitration, exact FIFO token, deadline, priority,
 ceiling, clock, allocator-arithmetic, exceptional-completion, and collective-
 termination kernels, plus the fixed-capacity abort-owner closure. It
@@ -597,9 +613,10 @@ overflow/violation, and checked conversion boundaries are also enumerated.
 Every four-task owner-map shape and named-task subset is closed over the same
 16-slot model used by production, with every output bit serialized into the
 pinned hash. Every completion phase is checked for legal normal/exceptional
-completion, consumption, and identity-presence invariants. The gate pins both
+completion, consumption, identity-presence, and abort-before-transferred-
+exception delivery invariants. The gate pins both
 the edge count and serialized-state hash so an accidental search reduction
-fails. GNATprove 16.1 reports all 372 generated checks proved across the
+fails. GNATprove 16.1 reports all 374 generated checks proved across the
 SPARK-analyzed deterministic core units. The concurrent Task_Core facade, the
 imported `Task_Primitives_Contract` declarations, compiler-facing GNARL
 facades, architecture assembly, C unwinder, and allocator CAS facade remain

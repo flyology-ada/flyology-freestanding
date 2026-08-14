@@ -44,4 +44,16 @@ is
         and then Consume'Result.Phase = Free
       else Consume'Result.Status = Not_Completed
         and then Consume'Result.Phase = Before);
+
+   type Delivery_Action is
+     (Return_Normally, Raise_Transferred_Exception, Deliver_Abort);
+
+   function Select_Delivery
+     (Has_Exception_Identity : Boolean;
+      Abort_Deliverable      : Boolean) return Delivery_Action
+   with Post =>
+     Select_Delivery'Result =
+       (if Abort_Deliverable then Deliver_Abort
+        elsif Has_Exception_Identity then Raise_Transferred_Exception
+        else Return_Normally);
 end Flyology.Exceptional_Completion_Model;

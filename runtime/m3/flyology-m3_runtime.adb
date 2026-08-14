@@ -44,6 +44,7 @@ package body Flyology.M3_Runtime is
    use type Completions.Complete_Status;
    use type Completions.Completion_Phase;
    use type Completions.Consume_Status;
+   use type Completions.Delivery_Action;
    use type Termination.Dependent_Phase;
    use type Core.Timer_Cancel_Status;
    use type Core.Wait_Token;
@@ -991,6 +992,34 @@ package body Flyology.M3_Runtime is
       end if;
    end Deliver_Pending_Abort_Locked;
 
+   procedure Deliver_Completion (Exception_Identity : System.Address) is
+      Dense  : constant Core_Number := Core_Of_Current;
+      Slot   : Task_Slot;
+      Action : Completions.Delivery_Action;
+   begin
+      Enter_Kernel;
+      Slot := Record_Of (To_Identity (Core.Current_Locked (Dense)));
+      Action := Completions.Select_Delivery
+        (Has_Exception_Identity => Exception_Identity /= System.Null_Address,
+         Abort_Deliverable      =>
+           Tasks (Slot).Abort_Depth = 0
+             and then Tasks (Slot).Abort_Pending);
+      if Action = Completions.Deliver_Abort then
+         Tasks (Slot).Abort_Pending := False;
+         Tasks (Slot).Abort_In_Progress := True;
+      end if;
+      Leave_Kernel;
+
+      case Action is
+         when Completions.Return_Normally =>
+            null;
+         when Completions.Raise_Transferred_Exception =>
+            Raise_Exception_Identity (Exception_Identity);
+         when Completions.Deliver_Abort =>
+            Raise_Abort;
+      end case;
+   end Deliver_Completion;
+
    procedure Abort_Tasks (Members : Task_List) is
       Named         : Abort_Closure.Selection := [others => False];
       Plan          : Abort_Closure.Selection := [others => False];
@@ -1667,9 +1696,7 @@ package body Flyology.M3_Runtime is
       end if;
       Calls (Call) := (others => <>);
       Leave_Kernel;
-      if Identity /= System.Null_Address then
-         Raise_Exception_Identity (Identity);
-      end if;
+      Deliver_Completion (Identity);
    end Consume_Call_Completion;
 
    procedure Call_Simple
@@ -1744,7 +1771,6 @@ package body Flyology.M3_Runtime is
          Stop;
       end if;
       Consume_Call_Completion (Call, Caller);
-      Deliver_Pending_Abort;
    end Call_Simple;
 
    procedure Task_Entry_Call
@@ -1819,7 +1845,6 @@ package body Flyology.M3_Runtime is
          Stop;
       end if;
       Consume_Call_Completion (Call, Caller);
-      Deliver_Pending_Abort;
    end Task_Entry_Call;
 
    procedure Timed_Task_Entry_Call
@@ -1951,7 +1976,6 @@ package body Flyology.M3_Runtime is
       if Outcome = Waits.Object_Wake then
          Consume_Call_Completion (Call, Caller);
       end if;
-      Deliver_Pending_Abort;
    end Timed_Task_Entry_Call;
 
    procedure Accept_Call

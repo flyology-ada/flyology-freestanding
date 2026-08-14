@@ -32,6 +32,7 @@ package Flyology.M3_Runtime is
    procedure Abort_Undefer;
    procedure Deliver_Pending_Abort;
    procedure Deliver_Pending_Abort_Locked;
+   procedure Deliver_Completion (Exception_Identity : System.Address);
    procedure Abort_Tasks (Members : Task_List);
    procedure Enter_Master;
    procedure Complete_Master;

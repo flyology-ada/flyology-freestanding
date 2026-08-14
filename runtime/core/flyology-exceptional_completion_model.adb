@@ -25,4 +25,18 @@ is
       end if;
       return (Phase => Before, Status => Not_Completed);
    end Consume;
+
+   function Select_Delivery
+     (Has_Exception_Identity : Boolean;
+      Abort_Deliverable      : Boolean) return Delivery_Action
+   is
+   begin
+      if Abort_Deliverable then
+         return Deliver_Abort;
+      elsif Has_Exception_Identity then
+         return Raise_Transferred_Exception;
+      else
+         return Return_Normally;
+      end if;
+   end Select_Delivery;
 end Flyology.Exceptional_Completion_Model;

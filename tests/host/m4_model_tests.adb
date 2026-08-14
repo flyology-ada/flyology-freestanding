@@ -40,6 +40,7 @@ procedure M4_Model_Tests is
    use type Completions.Complete_Status;
    use type Completions.Completion_Phase;
    use type Completions.Consume_Status;
+   use type Completions.Delivery_Action;
    use type Priority.Change_Status;
    use type Priority.Enqueue_Status;
    use type Termination.Dependent_Phase;
@@ -522,6 +523,24 @@ procedure M4_Model_Tests is
             Count
               (9_200 + Completions.Completion_Phase'Pos (Phase) * 2 +
                  Boolean'Pos (Has_Identity));
+            for Abort_Deliverable in Boolean loop
+               declare
+                  Action : constant Completions.Delivery_Action :=
+                    Completions.Select_Delivery
+                      (Has_Identity, Abort_Deliverable);
+               begin
+                  pragma Assert
+                    (Action =
+                       (if Abort_Deliverable
+                        then Completions.Deliver_Abort
+                        elsif Has_Identity
+                        then Completions.Raise_Transferred_Exception
+                        else Completions.Return_Normally));
+                  Count
+                    (9_300 + Boolean'Pos (Has_Identity) * 2 +
+                       Boolean'Pos (Abort_Deliverable));
+               end;
+            end loop;
          end loop;
       end loop;
    end Check_Exceptional_Completions;

@@ -240,6 +240,19 @@ package body Flyology.M3_Demo is
    Exceptional_Protected_Caught : Boolean := False with Atomic;
    Exceptional_Rendezvous_Caller_Caught : Boolean := False with Atomic;
    Exceptional_Rendezvous_Server_Caught : Boolean := False with Atomic;
+   Exception_Abort_Accepted : Boolean := False with Atomic;
+   Exception_Abort_Release : Boolean := False with Atomic;
+   Exception_Abort_Caller_Started : Boolean := False with Atomic;
+   Exception_Abort_Caller_Caught : Boolean := False with Atomic;
+   Exception_Abort_Caller_Continued : Boolean := False with Atomic;
+   Exception_Abort_Server_Caught : Boolean := False with Atomic;
+   Exception_Abort_Caller_Id : Ada.Task_Identification.Task_Id :=
+     Ada.Task_Identification.Null_Task_Id with Atomic;
+   Exception_Abort_Protected_Started : Boolean := False with Atomic;
+   Exception_Abort_Protected_Caught : Boolean := False with Atomic;
+   Exception_Abort_Protected_Continued : Boolean := False with Atomic;
+   Exception_Abort_Protected_Id : Ada.Task_Identification.Task_Id :=
+     Ada.Task_Identification.Null_Task_Id with Atomic;
    Unactivated_Ran : Boolean := False with Atomic;
    Activation_Sibling_Ran : Boolean := False with Atomic;
    Activation_Failed_Body_Ran : Boolean := False with Atomic;
@@ -274,6 +287,18 @@ package body Flyology.M3_Demo is
    is
       entry Ping;
    end Exceptional_Rendezvous_Server_Type;
+
+   task type Exception_Abort_Server_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range)
+     with CPU => CPU_Number
+   is
+      entry Ping;
+   end Exception_Abort_Server_Type;
+
+   task type Exception_Abort_Client_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range;
+      Server     : not null access Exception_Abort_Server_Type)
+     with CPU => CPU_Number;
 
    task type Dynamic_Worker_Type;
    type Dynamic_Worker_Access is access Dynamic_Worker_Type;
@@ -358,6 +383,10 @@ package body Flyology.M3_Demo is
      with CPU => CPU_Number;
 
    task type Exceptional_Protected_Worker_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range)
+     with CPU => CPU_Number;
+
+   task type Exception_Abort_Protected_Worker_Type
      (CPU_Number : System.Multiprocessors.CPU_Range)
      with CPU => CPU_Number;
 
@@ -490,6 +519,37 @@ package body Flyology.M3_Demo is
             Exceptional_Rendezvous_Server_Caught := True;
       end;
    end Exceptional_Rendezvous_Server_Type;
+
+   task body Exception_Abort_Server_Type is
+   begin
+      begin
+         accept Ping do
+            Exception_Abort_Accepted := True;
+            while not Exception_Abort_Release loop
+               delay 0.001;
+            end loop;
+            raise Program_Error;
+         end Ping;
+      exception
+         when Program_Error =>
+            Exception_Abort_Server_Caught := True;
+      end;
+   end Exception_Abort_Server_Type;
+
+   task body Exception_Abort_Client_Type is
+   begin
+      Exception_Abort_Caller_Id :=
+        Ada.Task_Identification.Current_Task;
+      Exception_Abort_Caller_Started := True;
+      begin
+         Server.Ping;
+      exception
+         when Program_Error =>
+            Exception_Abort_Caller_Caught := True;
+            delay 0.001;
+      end;
+      Exception_Abort_Caller_Continued := True;
+   end Exception_Abort_Client_Type;
 
    task body Dynamic_Worker_Type is
    begin
@@ -854,6 +914,21 @@ package body Flyology.M3_Demo is
       end;
    end Exceptional_Protected_Worker_Type;
 
+   task body Exception_Abort_Protected_Worker_Type is
+   begin
+      Exception_Abort_Protected_Id :=
+        Ada.Task_Identification.Current_Task;
+      Exception_Abort_Protected_Started := True;
+      begin
+         Protected_Gate.Fail;
+      exception
+         when Program_Error =>
+            Exception_Abort_Protected_Caught := True;
+            delay 0.001;
+      end;
+      Exception_Abort_Protected_Continued := True;
+   end Exception_Abort_Protected_Worker_Type;
+
    task body Unactivated_Worker_Type is
    begin
       Unactivated_Ran := True;
@@ -920,6 +995,10 @@ package body Flyology.M3_Demo is
    procedure Report_Exceptional_Sync_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_exceptional_sync_pass";
+
+   procedure Report_Exception_Abort_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_exception_abort_pass";
 
    procedure Report_Unactivated_Cleanup_Pass
    with Import, Convention => C,
@@ -1419,6 +1498,47 @@ package body Flyology.M3_Demo is
       then
          Report_Failure;
       end if;
+
+      Exception_Abort_Protected_Started := False;
+      Exception_Abort_Protected_Caught := False;
+      Exception_Abort_Protected_Continued := False;
+      Exception_Abort_Protected_Id :=
+        Ada.Task_Identification.Null_Task_Id;
+      declare
+         Worker : Exception_Abort_Protected_Worker_Type (1);
+         Worker_Id : constant Ada.Task_Identification.Task_Id :=
+           Worker'Identity;
+      begin
+         for Attempt in 1 .. 1_000 loop
+            exit when Exception_Abort_Protected_Started
+              and then Exception_Abort_Protected_Id = Worker_Id
+              and then Protected_Gate.Failing = 1;
+            delay 0.001;
+         end loop;
+         if not Exception_Abort_Protected_Started
+           or else Exception_Abort_Protected_Id /= Worker_Id
+           or else Protected_Gate.Failing /= 1
+         then
+            Report_Failure;
+         end if;
+         --  Worker is pinned to the environment core. Open completes and
+         --  wakes its failing call, but cooperative M4 cannot resume Worker
+         --  on that core before this ordinary Ada abort is published.
+         Protected_Gate.Open;
+         abort Worker;
+      end;
+      Protected_Gate.Close;
+      if Exception_Abort_Protected_Caught
+        or else Exception_Abort_Protected_Continued
+        or else Protected_Gate.Failing /= 0
+        or else not Ada.Task_Identification.Is_Terminated
+          (Exception_Abort_Protected_Id)
+        or else Ada.Task_Identification.Is_Callable
+          (Exception_Abort_Protected_Id)
+      then
+         Report_Failure;
+      end if;
+
       declare
          Server : Rendezvous_Server_Type
            (System.Multiprocessors.CPU_Range (CPU_Count));
@@ -1462,6 +1582,48 @@ package body Flyology.M3_Demo is
          Report_Failure;
       end if;
       Report_Exceptional_Sync_Pass;
+
+      Exception_Abort_Accepted := False;
+      Exception_Abort_Release := False;
+      Exception_Abort_Caller_Started := False;
+      Exception_Abort_Caller_Caught := False;
+      Exception_Abort_Caller_Continued := False;
+      Exception_Abort_Server_Caught := False;
+      Exception_Abort_Caller_Id :=
+        Ada.Task_Identification.Null_Task_Id;
+      declare
+         Server : aliased Exception_Abort_Server_Type
+           (System.Multiprocessors.CPU_Range (CPU_Count));
+         Client : Exception_Abort_Client_Type (1, Server'Access);
+         Client_Id : constant Ada.Task_Identification.Task_Id :=
+           Client'Identity;
+      begin
+         for Attempt in 1 .. 1_000 loop
+            exit when Exception_Abort_Caller_Started
+              and then Exception_Abort_Accepted
+              and then Exception_Abort_Caller_Id = Client_Id;
+            delay 0.001;
+         end loop;
+         if not Exception_Abort_Caller_Started
+           or else not Exception_Abort_Accepted
+           or else Exception_Abort_Caller_Id /= Client_Id
+         then
+            Report_Failure;
+         end if;
+         abort Client;
+         Exception_Abort_Release := True;
+      end;
+      if not Exception_Abort_Server_Caught
+        or else Exception_Abort_Caller_Caught
+        or else Exception_Abort_Caller_Continued
+        or else not Ada.Task_Identification.Is_Terminated
+          (Exception_Abort_Caller_Id)
+        or else Ada.Task_Identification.Is_Callable
+          (Exception_Abort_Caller_Id)
+      then
+         Report_Failure;
+      end if;
+      Report_Exception_Abort_Pass;
 
       declare
          Server : Delayed_Rendezvous_Server_Type;
