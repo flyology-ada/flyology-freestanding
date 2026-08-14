@@ -1,6 +1,7 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Ada.Text_IO;
+with Flyology.Allocator_Model;
 with Flyology.Ceiling_Model;
 with Flyology.Clock_Model;
 with Flyology.Dispatcher_Model;
@@ -12,6 +13,7 @@ with Flyology.Wait_Arbitration_Model;
 with Flyology.Wait_Queue_Model;
 
 procedure M4_Model_Tests is
+   package Allocator renames Flyology.Allocator_Model;
    package Ceiling renames Flyology.Ceiling_Model;
    package Clock renames Flyology.Clock_Model;
    package Dispatcher renames Flyology.Dispatcher_Model;
@@ -23,6 +25,8 @@ procedure M4_Model_Tests is
    package Wait_Queue renames Flyology.Wait_Queue_Model;
 
    use type Ceiling.Enter_Status;
+   use type Allocator.Byte_Count;
+   use type Allocator.Reservation;
    use type Ceiling.Leave_Status;
    use type Dispatcher.Generation;
    use type Dispatcher.Priority;
@@ -162,6 +166,62 @@ procedure M4_Model_Tests is
          end loop;
       end loop;
    end Check_Wait_Enumeration;
+
+   procedure Check_Allocator is
+      type Count_Array is array (Natural range <>) of Allocator.Byte_Count;
+      type Cursor_Array is array (Natural range <>) of Allocator.Byte_Offset;
+      Counts : constant Count_Array :=
+        [0, 1, 15, 16, 17, 65_520, 65_521, 65_536, 65_537,
+         Allocator.Byte_Count'Last];
+      Cursors : constant Cursor_Array := [0, 1, 16, 65_520, 65_536];
+   begin
+      for Cursor_Index in Cursors'Range loop
+         for Count_Index in Counts'Range loop
+            declare
+               Result : constant Allocator.Reservation :=
+                 Allocator.Reserve
+                   (Cursors (Cursor_Index), Counts (Count_Index));
+               Expected_Size : constant Allocator.Byte_Count :=
+                 Allocator.Rounded_Size (Counts (Count_Index));
+            begin
+               pragma Assert
+                 (Result.Accepted = Allocator.Can_Reserve
+                    (Cursors (Cursor_Index), Counts (Count_Index)));
+               if Allocator.Can_Reserve
+                 (Cursors (Cursor_Index), Counts (Count_Index))
+               then
+                  pragma Assert
+                    (Result.Start = Cursors (Cursor_Index)
+                     and then Result.Size = Expected_Size
+                     and then Result.Next = Result.Start + Expected_Size);
+               else
+                  pragma Assert
+                    (Result.Start = Cursors (Cursor_Index)
+                     and then Result.Size = 0
+                     and then Result.Next = Cursors (Cursor_Index));
+               end if;
+               Count (900 + Cursor_Index * 20 + Count_Index);
+               Count (Boolean'Pos (Result.Accepted));
+               Count (Integer (Result.Start));
+               Count (Integer (Result.Size));
+               Count (Integer (Result.Next));
+            end;
+         end loop;
+      end loop;
+      pragma Assert
+        (Allocator.Reserve (0, 0) =
+           (Accepted => True, Start => 0, Size => 16, Next => 16));
+      pragma Assert
+        (Allocator.Reserve (0, Allocator.Capacity) =
+           (Accepted => True, Start => 0, Size => Allocator.Capacity,
+            Next => Allocator.Capacity));
+      pragma Assert
+        (Allocator.Reserve (1, 1) =
+           (Accepted => False, Start => 1, Size => 0, Next => 1));
+      pragma Assert
+        (Allocator.Reserve (65_520, 17) =
+           (Accepted => False, Start => 65_520, Size => 0, Next => 65_520));
+   end Check_Allocator;
 
    procedure Check_Winner_Orders is
       Idle : constant Waits.Wait_State :=
@@ -461,6 +521,7 @@ procedure M4_Model_Tests is
    end Check_Exceptional_Completions;
 
 begin
+   Check_Allocator;
    Check_Wait_Enumeration;
    Check_Winner_Orders;
    Check_Exact_Queues_And_Timers;

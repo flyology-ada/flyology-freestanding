@@ -532,6 +532,10 @@ package body Flyology.M3_Demo is
    with Import, Convention => C,
         External_Name => "flyology_m4_report_unactivated_cleanup_pass";
 
+   procedure Report_Allocator_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_allocator_pass";
+
    procedure Report_Priority_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_priority_pass";
@@ -739,6 +743,29 @@ package body Flyology.M3_Demo is
          end if;
       end;
       Report_Unactivated_Cleanup_Pass;
+      declare
+         type Byte_Array is array (Positive range <>) of Character;
+         type Byte_Array_Access is access Byte_Array;
+         Huge   : Byte_Array_Access := null;
+         Small  : Byte_Array_Access := null;
+         Caught : Boolean := False;
+      begin
+         begin
+            Huge := new Byte_Array (1 .. 65_537);
+         exception
+            when Storage_Error =>
+               Caught := True;
+         end;
+         if not Caught or else Huge /= null then
+            Report_Failure;
+         end if;
+         Small := new Byte_Array (1 .. 16);
+         Small (1) := 'A';
+         if Small (1) /= 'A' then
+            Report_Failure;
+         end if;
+      end;
+      Report_Allocator_Pass;
       Report_Delay_Pass;
       declare
          use type Ada.Real_Time.Time;

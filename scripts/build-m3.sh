@@ -142,6 +142,14 @@ scripts/toolchain.sh exec "$architecture" "$target-gcc" \
     -ffunction-sections -fdata-sections -funwind-tables \
     -Wall -Wextra -Werror $architecture_flags
 
+# shellcheck disable=SC2086
+scripts/toolchain.sh exec "$architecture" "$target-gcc" \
+    -c runtime/m4/allocator_runtime.c \
+    -o "$output_directory/allocator_runtime.o" -ffreestanding \
+    -fno-stack-protector -fno-pic -fno-pie -fno-builtin \
+    -ffunction-sections -fdata-sections -funwind-tables \
+    -Wall -Wextra -Werror $architecture_flags
+
 libgcc=$(scripts/toolchain.sh exec "$architecture" \
     "$target-gcc" -print-libgcc-file-name)
 printf '%s  %s\n' "$libgcc_digest" "$libgcc" | \
@@ -156,6 +164,7 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/memory.o" \
     "$output_directory/limine_requests.o" \
     "$output_directory/exception_runtime.o" \
+    "$output_directory/allocator_runtime.o" \
     "$output_directory/b~flyology_m3.o" \
     "$output_directory/flyology_m3.o" \
     "$output_directory/flyology-m3_demo.o" \

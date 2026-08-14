@@ -15,7 +15,6 @@ typedef __SIZE_TYPE__ usize;
 
 enum {
     EXCEPTION_CAPACITY = 32,
-    ALLOCATION_CAPACITY = 65536,
     TASK_CAPACITY = 16,
     HANDLER_DEPTH = 8,
     PROPAGATION_DEPTH = 8
@@ -37,8 +36,6 @@ u8 __gnat_all_others_value;
 
 static struct flyology_exception exceptions[EXCEPTION_CAPACITY]
     __attribute__((aligned(16)));
-static u8 allocation_pool[ALLOCATION_CAPACITY] __attribute__((aligned(16)));
-static usize allocation_used;
 static const char *last_personality = "personality not called";
 static struct _Unwind_Exception *handler_stacks[TASK_CAPACITY][HANDLER_DEPTH];
 static u8 handler_depths[TASK_CAPACITY];
@@ -602,29 +599,6 @@ usize strlen(const char *text)
     while (text[length] != 0)
         ++length;
     return length;
-}
-
-void *malloc(usize count)
-{
-    usize aligned = (count + 15U) & ~(usize)15U;
-    usize start = __atomic_fetch_add(&allocation_used, aligned, __ATOMIC_ACQ_REL);
-    if (aligned < count || start > ALLOCATION_CAPACITY ||
-        aligned > ALLOCATION_CAPACITY - start)
-        return 0;
-    return allocation_pool + start;
-}
-
-void *__gnat_malloc(usize count)
-{
-    void *result = malloc(count);
-    if (result == 0)
-        __gnat_rcheck_SE_Explicit_Raise((void *)"dynamic allocation", 0);
-    return result;
-}
-
-void free(void *object)
-{
-    (void)object;
 }
 
 void abort(void)

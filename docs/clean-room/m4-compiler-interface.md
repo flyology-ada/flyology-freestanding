@@ -308,10 +308,19 @@ ordinary-Ada QEMU scenario exercises a raised task-body declarative initializer;
 the false body-elaboration predicate is compiler-interface and checked-runtime
 evidence, not a separately forced product-cell claim.
 
-The allocator is a bounded 64-KiB, 16-byte-aligned monotonic pool. Exhaustion
-enters the compiler's `Storage_Error` check path instead of returning null.
-Checked reservation without cursor corruption and reclaiming allocation remain
-M4 closure work.
+The allocator is a bounded 64-KiB, 16-byte-aligned monotonic pool. Its atomic
+compare/exchange reservation validates the request and complete aligned extent
+before publishing a new cursor, so exhaustion and oversized requests cannot
+wrap the cursor or overlap live storage. A zero-size request consumes one
+16-byte extent. Exhaustion enters the compiler's `Storage_Error` check path
+instead of returning null. The exact production C source passes a pinned native
+eight-thread test covering alignment, pairwise disjointness, capacity edges,
+zero-size uniqueness, and unchanged cursor state after rejected reservations.
+Both target QEMU images also catch `Storage_Error` from an ordinary Ada
+65,537-byte allocator request, then successfully allocate and use a small
+object. The unwind gate requires an FDE covering `__gnat_malloc` on each target,
+so that exception path cannot cross an opaque C frame.
+Reclaiming allocation remains M4 closure work.
 The QEMU demonstration allocates a task with ordinary `new`, then uses standard
 `Is_Terminated` under a bounded real-time deadline to observe its stable
 language identity and normal termination. It does not incorrectly treat return
@@ -470,9 +479,10 @@ required before M4 closure.
 
 ## Model and stress closure gates
 
-The authoritative M4 host model enumerates 32,540 deterministic operations
+The authoritative M4 host model enumerates 32,790 deterministic operations
 over the production wait-arbitration, exact FIFO token, deadline, priority,
-ceiling, clock, and exceptional-completion kernels. It covers
+ceiling, clock, allocator-arithmetic, and exceptional-completion kernels. It
+covers
 winner-before-block and winner-after-
 commit for normal wake, timeout, and abort; every second resolution is required
 to be a state-preserving duplicate. Stale task incarnations, stale/future wait
@@ -482,11 +492,11 @@ reordering, ceiling overflow/violation, and checked conversion boundaries are
 also enumerated. Every completion phase is checked for legal normal/exceptional
 completion, consumption, and identity-presence invariants. The gate pins both
 the edge count and serialized-state hash so an accidental search reduction
-fails. GNATprove 16.1 reports all 336 generated checks proved across the
+fails. GNATprove 16.1 reports all 346 generated checks proved across the
 SPARK-analyzed deterministic core units. The concurrent Task_Core facade, the
 imported `Task_Primitives_Contract` declarations, compiler-facing GNARL
-facades, architecture assembly, and C unwinder remain outside SPARK behind
-typed boundaries.
+facades, architecture assembly, C unwinder, and allocator CAS facade remain
+outside SPARK behind typed boundaries.
 
 `scripts/stress-m4.sh` complements that pure model with ten complete SMP4
 ordinary-Ada runs per architecture. Each run repeats cross-core delay wakeups,
