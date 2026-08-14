@@ -90,6 +90,7 @@ package body Flyology.M3_Runtime is
       Used      : Boolean := False;
       Activator : Dispatcher.Task_Ref := Core.No_Task;
       Pending   : Natural range 0 .. Max_Tasks := 0;
+      Any_Failed : Boolean := False;
       Wait      : Core.Wait_Token;
    end record;
    type Group_Array is array (Group_Number) of Group_Record;
@@ -339,17 +340,143 @@ package body Flyology.M3_Runtime is
       Leave_Kernel;
    end Create_Task;
 
-   procedure Activate_Tasks (Members : Task_List) is
+   function Can_Release_Unactivated_Locked
+     (Slot            : Task_Slot;
+      Expected_Master : Master_Number) return Boolean
+   is
+      Identity  : constant Task_Id := Tasks (Slot).Identity;
+      Reference : Dispatcher.Task_Ref;
+   begin
+      if Identity = null
+        or else Tasks (Slot).Master not in Integer (Master_Number'First) ..
+          Integer (Master_Number'Last)
+        or else Tasks (Slot).Master /= Integer (Expected_Master)
+        or else Tasks (Slot).Group /= 0
+        or else Tasks (Slot).Activation_Completed
+        or else Tasks (Slot).Completion_Requested
+        or else Tasks (Slot).Accepting
+        or else Tasks (Slot).Active_Call /= 0
+        or else not Dispatcher.Can_Advance_Incarnation
+          (Next_Incarnation (Slot))
+      then
+         return False;
+      end if;
+      Reference := To_Reference (Identity);
+      return Masters (Expected_Master).Used
+        and then Masters (Expected_Master).Dependents > 0
+        and then Core.Can_Cancel_Dormant_Locked (Reference);
+   end Can_Release_Unactivated_Locked;
+
+   procedure Release_Unactivated_Locked (Slot : Task_Slot) is
+      Identity  : constant Task_Id := Tasks (Slot).Identity;
+      Reference : constant Dispatcher.Task_Ref := To_Reference (Identity);
+      Master    : constant Master_Number :=
+        Master_Number (Tasks (Slot).Master);
+   begin
+      if not Can_Release_Unactivated_Locked (Slot, Master) then
+         Stop;
+      end if;
+      Core.Cancel_Dormant_Locked (Reference);
+      System.Tasking.Mark_Terminated (Identity);
+      Masters (Master).Dependents := Masters (Master).Dependents - 1;
+      Release_Exception_Task_Slot (System.Address (Slot));
+      Core.Release_Terminated_Locked (Reference);
+      Tasks (Slot) := (others => <>);
+      Next_Incarnation (Slot) :=
+        Dispatcher.Next_Incarnation (Next_Incarnation (Slot));
+   end Release_Unactivated_Locked;
+
+   procedure Expunge_Unactivated_Tasks (Members : Task_List) is
+      type Slot_Plan is array (Members'Range) of Task_Slot;
+      Dense : constant Core_Number := Core_Of_Current;
+      Owner : Dispatcher.Task_Ref;
+      Planned : Slot_Plan;
+      Removal_Count : array (Master_Number) of Natural := [others => 0];
+      Planned_Master : Master_Number := Master_Number'First;
+   begin
+      if Members'Length = 0 then
+         return;
+      end if;
+      Enter_Kernel;
+      Owner := Core.Current_Locked (Dense);
+      if Core.State_Locked (Owner) /= Dispatcher.Running then
+         Leave_Kernel;
+         Stop;
+      end if;
+      for Index in Members'Range loop
+         Planned (Index) := Record_Of (Members (Index));
+         declare
+            Slot      : constant Task_Slot := Planned (Index);
+            Reference : constant Dispatcher.Task_Ref :=
+              To_Reference (Members (Index));
+            Master    : Master_Number;
+         begin
+            if Core.State_Locked (Reference) /= Dispatcher.Dormant
+              or else Tasks (Slot).Group /= 0
+              or else Tasks (Slot).Master not in
+                Integer (Master_Number'First) .. Integer (Master_Number'Last)
+            then
+               Leave_Kernel;
+               Stop;
+            end if;
+            if Index > Members'First then
+               for Prior in Members'First .. Index - 1 loop
+                  if Planned (Prior) = Slot then
+                     Leave_Kernel;
+                     Stop;
+                  end if;
+               end loop;
+            end if;
+            Master := Master_Number (Tasks (Slot).Master);
+            if Index = Members'First then
+               Planned_Master := Master;
+            elsif Master /= Planned_Master then
+               Leave_Kernel;
+               Stop;
+            end if;
+            if not Can_Release_Unactivated_Locked (Slot, Master) then
+               Leave_Kernel;
+               Stop;
+            end if;
+            Removal_Count (Master) := Removal_Count (Master) + 1;
+         end;
+      end loop;
+      for Master in Master_Number loop
+         if Removal_Count (Master) > 0
+           and then
+             (not Masters (Master).Used
+              or else not Masters (Master).Open
+              or else Masters (Master).Owner /= Owner
+              or else Removal_Count (Master) > Masters (Master).Dependents)
+         then
+            Leave_Kernel;
+            Stop;
+         end if;
+      end loop;
+      for Slot of Planned loop
+         Release_Unactivated_Locked (Slot);
+      end loop;
+      Leave_Kernel;
+   end Expunge_Unactivated_Tasks;
+
+   procedure Activate_Tasks
+     (Members : Task_List;
+      Failed  : out Boolean)
+   is
+      type Slot_Plan is array (Members'Range) of Task_Slot;
       Dense          : constant Core_Number := Core_Of_Current;
       Activator      : Dispatcher.Task_Ref;
       Activator_Slot : Task_Slot;
       Group          : Group_Number;
       Kicks          : Boolean_Core_Array := [others => False];
       Plan           : Core_Plan (Members'Range);
+      Slots          : Slot_Plan;
       Needed         : array (Core_Number) of Natural := [others => 0];
       Cursor         : Placement.Core_Id := Placement.Core_Id (Placement_Next);
       Outcome        : Waits.Resolution;
+      Planned_Master : Master_Number := Master_Number'First;
    begin
+      Failed := False;
       if Members'Length = 0 then
          return;
       end if;
@@ -380,14 +507,43 @@ package body Flyology.M3_Runtime is
             CPU  : constant Integer := Tasks (Slot).Requested_CPU;
             Result : Placement.Placement_Result;
          begin
+            Slots (Index) := Slot;
             if Core.State_Locked (To_Reference (Members (Index))) /=
               Dispatcher.Dormant
               or else CPU not in Integer (Placement.Ada_CPU'First) ..
                 Integer (Placement.Ada_CPU'Last)
+              or else Tasks (Slot).Master not in
+                Integer (Master_Number'First) .. Integer (Master_Number'Last)
             then
                Leave_Kernel;
                Stop;
             end if;
+            if Index > Members'First then
+               for Prior in Members'First .. Index - 1 loop
+                  if Slots (Prior) = Slot then
+                     Leave_Kernel;
+                     Stop;
+                  end if;
+               end loop;
+            end if;
+            declare
+               Master : constant Master_Number :=
+                 Master_Number (Tasks (Slot).Master);
+            begin
+               if Index = Members'First then
+                  Planned_Master := Master;
+               elsif Master /= Planned_Master then
+                  Leave_Kernel;
+                  Stop;
+               end if;
+               if not Masters (Master).Used
+                 or else not Masters (Master).Open
+                 or else Masters (Master).Owner /= Activator
+               then
+                  Leave_Kernel;
+                  Stop;
+               end if;
+            end;
             Result := Placement.Place
               (Placement.Ada_CPU (CPU), Placement.Core_Count (Core.CPU_Count),
                Cursor);
@@ -412,11 +568,12 @@ package body Flyology.M3_Runtime is
       Group := Allocate_Group;
       Groups (Group).Activator := Activator;
       Groups (Group).Pending := Members'Length;
+      Groups (Group).Any_Failed := False;
       Core.Arm_Wait_Locked
         (Activator, Waits.Activation_Wait, Groups (Group).Wait);
       for Index in Members'Range loop
          declare
-            Slot : constant Task_Slot := Record_Of (Members (Index));
+            Slot : constant Task_Slot := Slots (Index);
          begin
             Tasks (Slot).Group := Integer (Group);
             Core.Activate_Locked
@@ -437,8 +594,34 @@ package body Flyology.M3_Runtime is
       if Outcome /= Waits.Object_Wake then
          Stop;
       end if;
-      Abort_Undefer;
+      Enter_Kernel;
+      if not Groups (Group).Used
+        or else Groups (Group).Pending /= 0
+        or else Groups (Group).Activator /= Activator
+      then
+         Leave_Kernel;
+         Stop;
+      end if;
+      Failed := Groups (Group).Any_Failed;
+      for Index in Members'Range loop
+         declare
+            Slot : constant Task_Slot := Record_Of (Members (Index));
+         begin
+            if Tasks (Slot).Group /= Integer (Group) then
+               Leave_Kernel;
+               Stop;
+            end if;
+            Tasks (Slot).Group := 0;
+         end;
+      end loop;
+      Groups (Group) := (others => <>);
+      Leave_Kernel;
    end Activate_Tasks;
+
+   procedure Raise_Activation_Failure is
+   begin
+      Raise_Tasking_Error (System.Null_Address, 0);
+   end Raise_Activation_Failure;
 
    procedure Complete_Activation is
       Dense     : constant Core_Number := Core_Of_Current;
@@ -474,7 +657,6 @@ package body Flyology.M3_Runtime is
             Stop;
          end if;
          Wake := True;
-         Groups (Group).Used := False;
       end if;
       Leave_Kernel;
       if Wake then
@@ -629,15 +811,19 @@ package body Flyology.M3_Runtime is
             if State = Dispatcher.Dormant then
                Leave_Kernel;
                Stop;
+            elsif State in Dispatcher.Retiring | Dispatcher.Terminated then
+               null;
             end if;
-            if Tasks (Slot).Abort_In_Progress
+            if State = Dispatcher.Retiring
+              or else Tasks (Slot).Abort_In_Progress
               or else Tasks (Slot).Abort_Pending
             then
                null;
             else
                Tasks (Slot).Abort_Pending := True;
             end if;
-            if Tasks (Slot).Abort_In_Progress
+            if State = Dispatcher.Retiring
+              or else Tasks (Slot).Abort_In_Progress
               or else not Tasks (Slot).Abort_Pending
             then
                null;
@@ -796,6 +982,7 @@ package body Flyology.M3_Runtime is
       Slot   : Task_Slot;
       Master : Master_Number;
       Outcome : Waits.Resolution;
+      Dormant_Count : Natural := 0;
    begin
       Enter_Kernel;
       Owner := Core.Current_Locked (Dense);
@@ -810,7 +997,33 @@ package body Flyology.M3_Runtime is
          Stop;
       end if;
       Deliver_Pending_Abort_Locked;
+      for Candidate in Task_Slot range 1 .. Task_Slot'Last loop
+         if Tasks (Candidate).Identity /= null
+           and then Tasks (Candidate).Master = Integer (Master)
+           and then Core.State_Locked (To_Reference (Tasks (Candidate).Identity)) =
+             Dispatcher.Dormant
+         then
+            if not Can_Release_Unactivated_Locked (Candidate, Master) then
+               Leave_Kernel;
+               Stop;
+            end if;
+            Dormant_Count := Dormant_Count + 1;
+         end if;
+      end loop;
+      if Dormant_Count > Masters (Master).Dependents then
+         Leave_Kernel;
+         Stop;
+      end if;
       Masters (Master).Open := False;
+      for Candidate in Task_Slot range 1 .. Task_Slot'Last loop
+         if Tasks (Candidate).Identity /= null
+           and then Tasks (Candidate).Master = Integer (Master)
+           and then Core.State_Locked (To_Reference (Tasks (Candidate).Identity)) =
+             Dispatcher.Dormant
+         then
+            Release_Unactivated_Locked (Candidate);
+         end if;
+      end loop;
       if Masters (Master).Dependents > 0 then
          Masters (Master).Waiting := True;
          Core.Arm_Wait_Locked
@@ -864,9 +1077,17 @@ package body Flyology.M3_Runtime is
 
    function Is_Callable (Item : Task_Id) return Boolean is
       Result : Boolean;
+      Slot   : Natural;
    begin
       Enter_Kernel;
       Result := System.Tasking.Identity_Is_Callable (Item);
+      if Result then
+         Slot := System.Tasking.Execution_Slot_Of (Item);
+         Result := Slot <= Natural (Task_Slot'Last)
+           and then Tasks (Task_Slot (Slot)).Identity = Item
+           and then Core.State_Locked (To_Reference (Item)) not in
+             Dispatcher.Retiring | Dispatcher.Terminated;
+      end if;
       Leave_Kernel;
       return Result;
    end Is_Callable;
@@ -1005,7 +1226,7 @@ package body Flyology.M3_Runtime is
       Enter_Kernel;
       Reference := To_Reference (Item);
       State := Core.State_Locked (Reference);
-      if State /= Dispatcher.Terminated then
+      if State not in Dispatcher.Retiring | Dispatcher.Terminated then
          Core.Change_Base_Priority_Locked
            (Reference, Dispatcher.Priority (Priority));
          Core_Id := Core.Assigned_Core_Locked (Reference);
@@ -1027,7 +1248,9 @@ package body Flyology.M3_Runtime is
       end if;
       Enter_Kernel;
       Reference := To_Reference (Item);
-      if Core.State_Locked (Reference) = Dispatcher.Terminated then
+      if Core.State_Locked (Reference) in
+        Dispatcher.Retiring | Dispatcher.Terminated
+      then
          Leave_Kernel;
          Raise_Tasking_Error (System.Null_Address, 0);
       end if;
@@ -1115,7 +1338,8 @@ package body Flyology.M3_Runtime is
       Target_Slot := Record_Of (Target);
       Target_Ref := To_Reference (Target);
       if Natural (Entry_Index) > Tasks (Target_Slot).Entry_Count
-        or else Core.State_Locked (Target_Ref) = Dispatcher.Terminated
+        or else Core.State_Locked (Target_Ref) in
+          Dispatcher.Retiring | Dispatcher.Terminated
       then
          Leave_Kernel;
          raise Program_Error;
@@ -1191,7 +1415,8 @@ package body Flyology.M3_Runtime is
       Target_Slot := Record_Of (Target);
       Target_Ref := To_Reference (Target);
       if Natural (Entry_Index) > Tasks (Target_Slot).Entry_Count
-        or else Core.State_Locked (Target_Ref) = Dispatcher.Terminated
+        or else Core.State_Locked (Target_Ref) in
+          Dispatcher.Retiring | Dispatcher.Terminated
       then
          Leave_Kernel;
          raise Program_Error;
@@ -1290,7 +1515,8 @@ package body Flyology.M3_Runtime is
       Target_Slot := Record_Of (Target);
       Target_Ref := To_Reference (Target);
       if Natural (Entry_Index) > Tasks (Target_Slot).Entry_Count
-        or else Core.State_Locked (Target_Ref) = Dispatcher.Terminated
+        or else Core.State_Locked (Target_Ref) in
+          Dispatcher.Retiring | Dispatcher.Terminated
       then
          Leave_Kernel;
          raise Program_Error;
@@ -1597,6 +1823,7 @@ package body Flyology.M3_Runtime is
       if Exception_Task_Capacity /= System.Address (Task_Slot'Last + 1) then
          Stop;
       end if;
+      Core.Install_Retirement_Hook (Finish_Task_Retirement'Access);
       Core.Initialize (Positive (CPU_Count));
       Tasks := [others => (others => <>)];
       Masters := [others => (others => <>)];
@@ -1617,11 +1844,7 @@ package body Flyology.M3_Runtime is
       Dense     : constant Core_Number := Core_Of_Current;
       Slot      : Task_Slot;
       Reference : Dispatcher.Task_Ref;
-      Wake_Core : Core_Number := 0;
-      Wake      : Boolean := False;
-      Master    : Master_Number;
-      Status    : Waits.Resolve_Status;
-
+      Body_Elaborated : Boolean;
    begin
       if Task_Address > System.Address (Task_Slot'Last) then
          Stop;
@@ -1633,20 +1856,96 @@ package body Flyology.M3_Runtime is
         or else Core.Current_Locked (Dense) /= Reference
         or else Core.State_Locked (Reference) /= Dispatcher.Running
         or else Tasks (Slot).Body_Procedure = null
+        or else Tasks (Slot).Elaborated = null
       then
          Leave_Kernel;
          Stop;
       end if;
+      Body_Elaborated := Tasks (Slot).Elaborated.all;
+      if not Body_Elaborated then
+         Tasks (Slot).Completion_Requested := True;
+      end if;
       Leave_Kernel;
-      Task_Root_Invoke
-        (Tasks (Slot).Body_Procedure, Tasks (Slot).Discriminants);
+      if Body_Elaborated then
+         Task_Root_Invoke
+           (Tasks (Slot).Body_Procedure, Tasks (Slot).Discriminants);
+      end if;
       if not Tasks (Slot).Completion_Requested then
          Stop;
       end if;
       Enter_Kernel;
-      Core.Terminate_Current_Locked (Dense, Reference);
-      System.Tasking.Mark_Terminated (Tasks (Slot).Identity);
-      Master := Master_Number (Tasks (Slot).Master);
+      Core.Begin_Retirement_Locked (Dense, Reference);
+      Leave_Kernel;
+      Core.Switch_To_Dispatcher (Dense, Reference);
+   end Task_Start;
+
+   procedure Finish_Task_Retirement
+     (Core_Address : System.Address;
+      Slot_Address : System.Address)
+   is
+      Dense     : Core_Number;
+      Task_Slot_Number : Task_Slot;
+      Reference : Dispatcher.Task_Ref;
+      Wake_Core : Core_Number := 0;
+      Wake      : Boolean := False;
+      Activation_Wake_Core : Core_Number := 0;
+      Activation_Wake      : Boolean := False;
+      Master    : Master_Number;
+      Group     : Group_Number;
+      Status    : Waits.Resolve_Status;
+      Stack_Probe : aliased Integer := 0;
+   begin
+      if Core_Address >= System.Address (Core.CPU_Count)
+        or else Slot_Address = 0
+        or else Slot_Address > System.Address (Task_Slot'Last)
+      then
+         Stop;
+      end if;
+      Dense := Core_Number (Core_Address);
+      Task_Slot_Number := Task_Slot (Slot_Address);
+      if not Core.Validate_Dispatcher_Stack (Dense, Stack_Probe'Address) then
+         Stop;
+      end if;
+      if Is_Callable (Tasks (Task_Slot_Number).Identity) then
+         Stop;
+      end if;
+      Reference := To_Reference (Tasks (Task_Slot_Number).Identity);
+      Enter_Kernel;
+      if not Tasks (Task_Slot_Number).Completion_Requested
+        or else Core.Assigned_Core_Locked (Reference) /= Dense
+        or else Core.State_Locked (Reference) /= Dispatcher.Retiring
+      then
+         Leave_Kernel;
+         Stop;
+      end if;
+      Core.Finish_Retirement_Locked (Reference);
+      System.Tasking.Mark_Terminated (Tasks (Task_Slot_Number).Identity);
+      if not Tasks (Task_Slot_Number).Activation_Completed then
+         if Tasks (Task_Slot_Number).Group not in
+           Integer (Group_Number'First) .. Integer (Group_Number'Last)
+         then
+            Leave_Kernel;
+            Stop;
+         end if;
+         Group := Group_Number (Tasks (Task_Slot_Number).Group);
+         if not Groups (Group).Used or else Groups (Group).Pending = 0 then
+            Leave_Kernel;
+            Stop;
+         end if;
+         Groups (Group).Any_Failed := True;
+         Groups (Group).Pending := Groups (Group).Pending - 1;
+         if Groups (Group).Pending = 0 then
+            Core.Resolve_Exact_Locked
+              (Groups (Group).Wait, Waits.Object_Wake, Status,
+               Activation_Wake_Core);
+            if Status /= Waits.Made_Ready then
+               Leave_Kernel;
+               Stop;
+            end if;
+            Activation_Wake := True;
+         end if;
+      end if;
+      Master := Master_Number (Tasks (Task_Slot_Number).Master);
       if not Masters (Master).Used or else Masters (Master).Dependents = 0 then
          Leave_Kernel;
          Stop;
@@ -1667,8 +1966,10 @@ package body Flyology.M3_Runtime is
       if Wake then
          Kick_Core (System.Address (Wake_Core));
       end if;
-      Core.Switch_To_Dispatcher (Dense, Reference);
-   end Task_Start;
+      if Activation_Wake then
+         Kick_Core (System.Address (Activation_Wake_Core));
+      end if;
+   end Finish_Task_Retirement;
 begin
    --  The architecture has validated topology and installed the BSP core
    --  pointer before adainit.  Adopt that state as soon as the task core and

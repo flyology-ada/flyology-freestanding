@@ -69,6 +69,7 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     system__tasking__stages__activate_tasks \
     system__tasking__stages__complete_activation \
     system__tasking__stages__complete_task \
+    system__tasking__stages__expunge_unactivated_tasks \
     system__tasking__stages__abort_tasks flyology_raise_abort \
     ada__task_identification__current_task \
     ada__task_identification__is_callable \
@@ -76,6 +77,10 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     flyology__task_core__task_stacks \
     flyology__task_core__arm_wait_locked \
     flyology__task_core__resolve_exact_locked \
+    flyology__task_core__install_retirement_hook \
+    flyology__task_core__cancel_dormant_locked \
+    flyology__task_core__begin_retirement_locked \
+    flyology__task_core__finish_retirement_locked \
     flyology__priority_queue_model__select_next \
     flyology__wait_arbitration_model__resolve \
     flyology__exceptional_completion_model__complete \
@@ -111,6 +116,7 @@ for marker in 'FLYOLOGY:ADA:ELABORATION:PASS' \
     'FLYOLOGY:M4:FINALIZATION:PASS' \
     'FLYOLOGY:M4:RENDEZVOUS:PASS' \
     'FLYOLOGY:M4:EXCEPTIONAL_SYNC:PASS' \
+    'FLYOLOGY:M4:UNACTIVATED_CLEANUP:PASS' \
     'FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS' \
     'FLYOLOGY:M4:CONDITIONAL_ENTRY:PASS' \
     'FLYOLOGY:M4:TIMED_ENTRY:PASS' \

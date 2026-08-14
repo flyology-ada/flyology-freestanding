@@ -79,6 +79,7 @@ package body Flyology.Task_Core is
    Next_Sequence       : Scheduler.Arrival_Sequence :=
      Scheduler.Arrival_Sequence'First + 1;
    Configured          : Positive range 1 .. Max_Cores := 1;
+   On_Retirement       : Retirement_Hook := null;
 
    procedure Enter_Kernel
    with Import, Convention => C, External_Name => "flyology_rts_lock_acquire";
@@ -169,6 +170,14 @@ package body Flyology.Task_Core is
 
    function CPU_Count return Positive is (Configured);
 
+   procedure Install_Retirement_Hook (Hook : Retirement_Hook) is
+   begin
+      if Hook = null or else On_Retirement /= null then
+         Stop;
+      end if;
+      On_Retirement := Hook;
+   end Install_Retirement_Hook;
+
    procedure Enqueue_Locked
      (Reference : Task_Ref;
       Core      : Core_Number)
@@ -234,7 +243,48 @@ package body Flyology.Task_Core is
            (Reference => Reference, Kind => Waits.No_Wait,
             Phase => Waits.Idle, Generation => 0,
             Outcome => Waits.Pending));
+      Initialize_Canary (Slot);
    end Register_Dormant_Locked;
+
+   function Can_Cancel_Dormant_Locked
+     (Reference : Task_Ref) return Boolean
+   is
+      Slot : Task_Slot;
+   begin
+      if Reference = No_Task
+        or else Reference.Slot = 0
+        or else Reference.Slot > Task_Slot'Last
+      then
+         return False;
+      end if;
+      Slot := Task_Slot (Reference.Slot);
+      if not Known_Locked (Reference)
+        or else Tasks (Slot).State /= Dispatcher.Dormant
+        or else Tasks (Slot).Wait.Phase /= Waits.Idle
+        or else not Canary_Is_Valid (Slot)
+      then
+         return False;
+      end if;
+      for Core in Core_Number loop
+         if Current_Tasks (Core) = Reference
+           or else Scheduler.Contains (Ready_Queues (Core), Reference)
+           or else Timers.Contains_Task (Timer_Tables (Core), Reference)
+         then
+            return False;
+         end if;
+      end loop;
+      return True;
+   end Can_Cancel_Dormant_Locked;
+
+   procedure Cancel_Dormant_Locked (Reference : Task_Ref) is
+      Slot : constant Task_Slot := Slot_Of (Reference);
+   begin
+      if not Can_Cancel_Dormant_Locked (Reference) then
+         Stop;
+      end if;
+      Tasks (Slot).State :=
+        Apply (Tasks (Slot).State, Dispatcher.Cancel_Unactivated);
+   end Cancel_Dormant_Locked;
 
    function State_Locked (Reference : Task_Ref) return Task_State is
       Slot : constant Task_Slot := Slot_Of (Reference);
@@ -593,6 +643,45 @@ package body Flyology.Task_Core is
       Current_Tasks (Core) := No_Task;
    end Terminate_Current_Locked;
 
+   procedure Begin_Retirement_Locked
+     (Core      : Core_Number;
+      Reference : Task_Ref)
+   is
+      Slot : constant Task_Slot := Slot_Of (Reference);
+   begin
+      if Slot = 0
+        or else Current_Tasks (Core) /= Reference
+        or else not Known_Locked (Reference)
+        or else Tasks (Slot).Assigned_Core /= Core
+      then
+         Stop;
+      end if;
+      Tasks (Slot).State :=
+        Apply (Tasks (Slot).State, Dispatcher.Begin_Retirement);
+      Current_Tasks (Core) := No_Task;
+   end Begin_Retirement_Locked;
+
+   procedure Finish_Retirement_Locked (Reference : Task_Ref) is
+      Slot : constant Task_Slot := Slot_Of (Reference);
+   begin
+      if Slot = 0
+        or else not Known_Locked (Reference)
+        or else Tasks (Slot).Wait.Phase /= Waits.Idle
+      then
+         Stop;
+      end if;
+      for Core in Core_Number loop
+         if Current_Tasks (Core) = Reference
+           or else Scheduler.Contains (Ready_Queues (Core), Reference)
+           or else Timers.Contains_Task (Timer_Tables (Core), Reference)
+         then
+            Stop;
+         end if;
+      end loop;
+      Tasks (Slot).State :=
+        Apply (Tasks (Slot).State, Dispatcher.Finish_Retirement);
+   end Finish_Retirement_Locked;
+
    procedure Release_Terminated_Locked (Reference : Task_Ref) is
       Slot : constant Task_Slot := Slot_Of (Reference);
    begin
@@ -628,7 +717,8 @@ package body Flyology.Task_Core is
    begin
       Enter_Kernel;
       Result := Known_Locked (Reference)
-        and then State_Locked (Reference) /= Dispatcher.Terminated;
+        and then State_Locked (Reference) not in
+          Dispatcher.Retiring | Dispatcher.Terminated;
       Leave_Kernel;
       return Result;
    end Is_Callable;
@@ -671,6 +761,18 @@ package body Flyology.Task_Core is
       end;
    end Validate_Current_Stack;
 
+   function Validate_Dispatcher_Stack
+     (Core  : Core_Number;
+      Probe : System.Address) return Boolean
+   is
+      Base : constant System.Address :=
+        Dispatcher_Stacks (Core) (Dispatcher_Stack'First)'Address;
+   begin
+      return Base <= System.Address'Last - System.Address (Dispatcher_Stack_Size)
+        and then Probe >= Base
+        and then Probe < Base + System.Address (Dispatcher_Stack_Size);
+   end Validate_Dispatcher_Stack;
+
    procedure Initialize_Dispatcher (Core : Core_Number) is
       Base : constant System.Address :=
         Dispatcher_Stacks (Core) (Dispatcher_Stack'First)'Address;
@@ -711,6 +813,7 @@ package body Flyology.Task_Core is
       Choice    : Scheduler.Selection;
       Reference : Task_Ref;
       Slot      : Task_Slot;
+      Retiring  : Boolean;
    begin
       if Core >= System.Address (Configured) then
          Stop;
@@ -759,6 +862,18 @@ package body Flyology.Task_Core is
                Task_Contexts (Slot)'Access);
             if Slot /= 0 and then not Canary_Is_Valid (Slot) then
                Stop;
+            end if;
+            Enter_Kernel;
+            Retiring := Slot /= 0
+              and then Known_Locked (Reference)
+              and then Tasks (Slot).State = Dispatcher.Retiring;
+            Leave_Kernel;
+            if Retiring then
+               if On_Retirement = null then
+                  Stop;
+               end if;
+               On_Retirement.all
+                 (System.Address (Dense), System.Address (Slot));
             end if;
          end if;
       end loop;

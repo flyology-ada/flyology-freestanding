@@ -36,14 +36,18 @@ is
    type Priority is range 0 .. 255;
    type Generation is range 0 .. 2 ** 63 - 1;
 
-   type Task_State is (Dormant, Ready, Running, Blocked, Terminated);
+   type Task_State is
+     (Dormant, Ready, Running, Blocked, Retiring, Terminated);
 
    type Transition_Kind is
      (Admit,
+      Cancel_Unactivated,
       Dispatch,
       Yield,
       Block,
       Wake,
+      Begin_Retirement,
+      Finish_Retirement,
       Terminate_Task);
 
    function Transition_Is_Legal
@@ -51,10 +55,13 @@ is
       Transition : Transition_Kind) return Boolean
    is (case Transition is
           when Admit          => State = Dormant,
+          when Cancel_Unactivated => State = Dormant,
           when Dispatch       => State = Ready,
           when Yield          => State = Running,
           when Block          => State = Running,
           when Wake           => State = Blocked,
+          when Begin_Retirement => State = Running,
+          when Finish_Retirement => State = Retiring,
           when Terminate_Task => State in Ready | Running);
 
    type Transition_Attempt is record
@@ -73,8 +80,11 @@ is
              then Try_Transition'Result.State =
                (case Transition is
                    when Admit | Yield | Wake => Ready,
+                   when Cancel_Unactivated   => Terminated,
                    when Dispatch             => Running,
                    when Block                => Blocked,
+                   when Begin_Retirement     => Retiring,
+                   when Finish_Retirement    => Terminated,
                    when Terminate_Task       => Terminated)
              else Try_Transition'Result.State = State);
 

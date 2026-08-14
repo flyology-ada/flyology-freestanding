@@ -17,7 +17,11 @@ package Flyology.M3_Runtime is
       Master         : Integer;
       Created_Task   : out Task_Id);
 
-   procedure Activate_Tasks (Members : Task_List);
+   procedure Activate_Tasks
+     (Members : Task_List;
+      Failed  : out Boolean);
+   procedure Raise_Activation_Failure with No_Return;
+   procedure Expunge_Unactivated_Tasks (Members : Task_List);
    procedure Complete_Activation;
    procedure Complete_Task;
    procedure Observe_Abort_Cleanup;
@@ -86,5 +90,9 @@ package Flyology.M3_Runtime is
    procedure Task_Start (Task_Address : System.Address)
    with Export, Convention => C,
         External_Name => "flyology_task_start";
+
+   procedure Finish_Task_Retirement
+     (Core_Address : System.Address;
+      Slot_Address : System.Address);
 
 end Flyology.M3_Runtime;

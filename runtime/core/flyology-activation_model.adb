@@ -49,13 +49,25 @@ is
      (Table : Task_Table;
       Chain : Activation_Chain) return Boolean is
      (Chain.Length > 0
+      and then Valid_Reference (Table, Chain.Storage (Task_Slot'First))
       and then
         (for all Index in Task_Slot =>
            (if Natural (Index) < Chain.Length then
               Valid_Reference (Table, Chain.Storage (Index))
               and then Table
                 (Task_Slot (Chain.Storage (Index).Slot)).State =
-                  Dispatcher.Dormant)));
+                  Dispatcher.Dormant
+              and then Valid_Reference
+                (Table,
+                 Table (Task_Slot (Chain.Storage (Index).Slot)).Master)
+              and then Table
+                (Task_Slot (Chain.Storage (Index).Slot)).Master =
+                  Table
+                    (Task_Slot (Chain.Storage (Task_Slot'First).Slot)).Master
+              and then
+                (for all Prior in Task_Slot =>
+                   (if Natural (Prior) < Natural (Index)
+                    then Chain.Storage (Prior) /= Chain.Storage (Index))))));
 
    procedure Try_Activate
      (Table : in out Task_Table;
@@ -96,18 +108,32 @@ is
       Activated := True;
    end Try_Activate;
 
-   function Can_Terminate
+   function Can_Begin_Retirement
      (Table : Task_Table;
       Item  : Dispatcher.Task_Ref) return Boolean is
      (Valid_Reference (Table, Item)
-      and then Table (Task_Slot (Item.Slot)).State = Dispatcher.Running
+      and then Table (Task_Slot (Item.Slot)).State = Dispatcher.Running);
+
+   procedure Begin_Retirement
+     (Table : in out Task_Table;
+      Item  : Dispatcher.Task_Ref)
+   is
+   begin
+      Table (Task_Slot (Item.Slot)).State := Dispatcher.Retiring;
+   end Begin_Retirement;
+
+   function Can_Finish_Retirement
+     (Table : Task_Table;
+      Item  : Dispatcher.Task_Ref) return Boolean is
+     (Valid_Reference (Table, Item)
+      and then Table (Task_Slot (Item.Slot)).State = Dispatcher.Retiring
       and then Valid_Reference
         (Table, Table (Task_Slot (Item.Slot)).Master)
       and then Table (Task_Slot (Item.Slot)).Master.Slot /= Item.Slot
       and then Table
         (Task_Slot (Table (Task_Slot (Item.Slot)).Master.Slot)).Dependents > 0);
 
-   procedure Complete
+   procedure Finish_Retirement
      (Table : in out Task_Table;
       Item  : Dispatcher.Task_Ref)
    is
@@ -118,5 +144,39 @@ is
       Table (Item_Slot).State := Dispatcher.Terminated;
       Table (Master_Slot).Dependents :=
         Table (Master_Slot).Dependents - 1;
-   end Complete;
+   end Finish_Retirement;
+
+   function Can_Cancel_Dormant
+     (Table : Task_Table;
+      Item  : Dispatcher.Task_Ref) return Boolean is
+     (Valid_Reference (Table, Item)
+      and then Table (Task_Slot (Item.Slot)).State = Dispatcher.Dormant
+      and then Valid_Reference
+        (Table, Table (Task_Slot (Item.Slot)).Master)
+      and then Table (Task_Slot (Item.Slot)).Master.Slot /= Item.Slot
+      and then Table
+        (Task_Slot (Table (Task_Slot (Item.Slot)).Master.Slot)).Dependents > 0);
+
+   procedure Cancel_Dormant
+     (Table : in out Task_Table;
+      Item  : Dispatcher.Task_Ref)
+   is
+      Item_Slot   : constant Task_Slot := Task_Slot (Item.Slot);
+      Master_Slot : constant Task_Slot :=
+        Task_Slot (Table (Item_Slot).Master.Slot);
+   begin
+      Table (Item_Slot).State := Dispatcher.Terminated;
+      Table (Master_Slot).Dependents :=
+        Table (Master_Slot).Dependents - 1;
+   end Cancel_Dormant;
+
+   procedure Report_Activation
+     (Group   : in out Group_State;
+      Outcome : Activation_Outcome)
+   is
+   begin
+      Group.Pending := Group.Pending - 1;
+      Group.Any_Failed := Group.Any_Failed or else Outcome = Activation_Failed;
+      Group.Wake_Ready := Group.Pending = 0;
+   end Report_Activation;
 end Flyology.Activation_Model;

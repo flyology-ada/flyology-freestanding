@@ -109,14 +109,28 @@ is
                          Dispatcher.Ready))
              else Table = Table'Old and then Chain = Chain'Old);
 
-   function Can_Terminate
+   function Can_Begin_Retirement
      (Table : Task_Table;
       Item  : Dispatcher.Task_Ref) return Boolean;
 
-   procedure Complete
+   procedure Begin_Retirement
      (Table : in out Task_Table;
       Item  : Dispatcher.Task_Ref)
-   with Pre => Can_Terminate (Table, Item),
+   with Pre => Can_Begin_Retirement (Table, Item),
+        Post => Table (Task_Slot (Item.Slot)).State = Dispatcher.Retiring
+          and then
+            (for all Index in Task_Slot =>
+               (if Index /= Task_Slot (Item.Slot)
+                then Table (Index) = Table'Old (Index)));
+
+   function Can_Finish_Retirement
+     (Table : Task_Table;
+      Item  : Dispatcher.Task_Ref) return Boolean;
+
+   procedure Finish_Retirement
+     (Table : in out Task_Table;
+      Item  : Dispatcher.Task_Ref)
+   with Pre => Can_Finish_Retirement (Table, Item),
         Post => Table (Task_Slot (Item.Slot)).Reference = Item
           and then Table (Task_Slot (Item.Slot)).State =
             Dispatcher.Terminated
@@ -137,4 +151,36 @@ is
                   and then Index /= Task_Slot
                     (Table'Old (Task_Slot (Item.Slot)).Master.Slot)
                 then Table (Index) = Table'Old (Index)));
+
+   function Can_Cancel_Dormant
+     (Table : Task_Table;
+      Item  : Dispatcher.Task_Ref) return Boolean;
+
+   procedure Cancel_Dormant
+     (Table : in out Task_Table;
+      Item  : Dispatcher.Task_Ref)
+   with Pre => Can_Cancel_Dormant (Table, Item),
+        Post => Table (Task_Slot (Item.Slot)).State = Dispatcher.Terminated
+          and then Table
+            (Task_Slot (Table'Old (Task_Slot (Item.Slot)).Master.Slot)).Dependents =
+              Table'Old
+                (Task_Slot
+                   (Table'Old (Task_Slot (Item.Slot)).Master.Slot)).Dependents - 1;
+
+   type Activation_Outcome is (Activation_Succeeded, Activation_Failed);
+
+   type Group_State is record
+      Pending    : Task_Count := 0;
+      Any_Failed : Boolean := False;
+      Wake_Ready : Boolean := False;
+   end record;
+
+   procedure Report_Activation
+     (Group   : in out Group_State;
+      Outcome : Activation_Outcome)
+   with Pre => Group.Pending > 0 and then not Group.Wake_Ready,
+        Post => Group.Pending = Group'Old.Pending - 1
+          and then Group.Any_Failed =
+            (Group'Old.Any_Failed or else Outcome = Activation_Failed)
+          and then Group.Wake_Ready = (Group'Old.Pending = 1);
 end Flyology.Activation_Model;

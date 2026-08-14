@@ -52,6 +52,10 @@ for architecture in x86_64 aarch64; do
           "$output/dynamic_task_probe.o" \
           "$output/dynamic_task_probe.expanded" \
           "$output/dynamic_task_probe.undefined"
+    rm -f "$output/activation_failure_probe.ali" \
+          "$output/activation_failure_probe.o" \
+          "$output/activation_failure_probe.expanded" \
+          "$output/activation_failure_probe.undefined"
     rm -f "$output/absolute_delay_probe.ali" \
           "$output/absolute_delay_probe.o" \
           "$output/absolute_delay_probe.expanded" \
@@ -294,6 +298,36 @@ for architecture in x86_64 aarch64; do
     done
     grep -F 'system__tasking__stages__expunge_unactivated_tasks (' \
         "$output/dynamic_task_probe.expanded" >/dev/null
+
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-gcc" -c \
+        "$repository/probes/m4/activation_failure_probe.adb" \
+        -o activation_failure_probe.o -nostdinc \
+        -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
+        -I"$repository/runtime/m3" -gnat2022 -gnatG -gnatf \
+        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        >"$output/activation_failure_probe.expanded" 2>&1
+    scripts/toolchain.sh exec-at "$architecture" "$output" \
+        "$target-nm" -u activation_failure_probe.o \
+        >"$output/activation_failure_probe.undefined"
+    for symbol in system__tasking__stages__create_task \
+        system__tasking__stages__activate_tasks \
+        system__tasking__stages__complete_activation \
+        system__tasking__stages__complete_task \
+        system__soft_links__enter_master \
+        system__soft_links__complete_master; do
+        grep -F " $symbol" \
+            "$output/activation_failure_probe.undefined" >/dev/null
+    done
+    fail_line=$(grep -nF 'activation_failure_probe__fail;' \
+        "$output/activation_failure_probe.expanded" | head -n 1 | cut -d: -f1)
+    activation_line=$(grep -nF \
+        'system__tasking__stages__complete_activation;' \
+        "$output/activation_failure_probe.expanded" | head -n 1 | cut -d: -f1)
+    test -n "$fail_line" && test -n "$activation_line"
+    test "$fail_line" -lt "$activation_line"
+    grep -F 'system__tasking__stages__complete_task;' \
+        "$output/activation_failure_probe.expanded" >/dev/null
 
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-gcc" -c \

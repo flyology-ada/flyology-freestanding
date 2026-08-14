@@ -140,6 +140,9 @@ package body Flyology.M3_Demo is
    Exceptional_Protected_Caught : Boolean := False with Atomic;
    Exceptional_Rendezvous_Caller_Caught : Boolean := False with Atomic;
    Exceptional_Rendezvous_Server_Caught : Boolean := False with Atomic;
+   Unactivated_Ran : Boolean := False with Atomic;
+   Activation_Sibling_Ran : Boolean := False with Atomic;
+   Activation_Failed_Body_Ran : Boolean := False with Atomic;
 
    task type Specific_Worker_Type
      (CPU_Number : System.Multiprocessors.CPU_Range;
@@ -217,6 +220,12 @@ package body Flyology.M3_Demo is
    task type Exceptional_Protected_Worker_Type
      (CPU_Number : System.Multiprocessors.CPU_Range)
      with CPU => CPU_Number;
+
+   task type Unactivated_Worker_Type;
+   task type Failed_Activation_Worker_Type;
+   task type Activation_Sibling_Worker_Type;
+
+   function Fail_Before_Activation return Integer;
 
    task body Specific_Worker_Type is
       Self : constant Ada.Task_Identification.Task_Id :=
@@ -452,6 +461,29 @@ package body Flyology.M3_Demo is
       end;
    end Exceptional_Protected_Worker_Type;
 
+   task body Unactivated_Worker_Type is
+   begin
+      Unactivated_Ran := True;
+   end Unactivated_Worker_Type;
+
+   task body Failed_Activation_Worker_Type is
+      Value : constant Integer := Fail_Before_Activation;
+      pragma Unreferenced (Value);
+   begin
+      Activation_Failed_Body_Ran := True;
+   end Failed_Activation_Worker_Type;
+
+   task body Activation_Sibling_Worker_Type is
+   begin
+      Activation_Sibling_Ran := True;
+   end Activation_Sibling_Worker_Type;
+
+   function Fail_Before_Activation return Integer is
+   begin
+      raise Program_Error;
+      return 0;
+   end Fail_Before_Activation;
+
    procedure Report_Ordinary_Pass
    with Import, Convention => C,
         External_Name => "flyology_m3_report_ordinary_pass";
@@ -495,6 +527,10 @@ package body Flyology.M3_Demo is
    procedure Report_Exceptional_Sync_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_exceptional_sync_pass";
+
+   procedure Report_Unactivated_Cleanup_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_unactivated_cleanup_pass";
 
    procedure Report_Priority_Pass
    with Import, Convention => C,
@@ -661,6 +697,48 @@ package body Flyology.M3_Demo is
          end loop;
       end loop;
       Report_Reclamation_Pass;
+      declare
+         Caught : Boolean := False;
+      begin
+         begin
+            declare
+               Worker : Unactivated_Worker_Type;
+               Value  : constant Integer := Fail_Before_Activation;
+               pragma Unreferenced (Worker, Value);
+            begin
+               null;
+            end;
+         exception
+            when Program_Error =>
+               Caught := True;
+         end;
+         if not Caught or else Unactivated_Ran then
+            Report_Failure;
+         end if;
+      end;
+      declare
+         Caught : Boolean := False;
+      begin
+         begin
+            declare
+               Failed  : Failed_Activation_Worker_Type;
+               Sibling : Activation_Sibling_Worker_Type;
+               pragma Unreferenced (Failed, Sibling);
+            begin
+               Report_Failure;
+            end;
+         exception
+            when Tasking_Error =>
+               Caught := True;
+         end;
+         if not Caught
+           or else not Activation_Sibling_Ran
+           or else Activation_Failed_Body_Ran
+         then
+            Report_Failure;
+         end if;
+      end;
+      Report_Unactivated_Cleanup_Pass;
       Report_Delay_Pass;
       declare
          use type Ada.Real_Time.Time;

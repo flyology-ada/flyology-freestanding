@@ -151,7 +151,9 @@ procedure M3_Model_Tests is
          declare
             Item : constant Dispatcher.Task_Ref := Table (Slot).Reference;
          begin
-            Activation.Complete (Table, Item);
+            Activation.Begin_Retirement (Table, Item);
+            pragma Assert (Table (Slot).State = Dispatcher.Retiring);
+            Activation.Finish_Retirement (Table, Item);
          end;
          pragma Assert (Table (Slot).State = Dispatcher.Terminated);
          pragma Assert
@@ -168,6 +170,54 @@ procedure M3_Model_Tests is
          pragma Assert (not Activated);
          pragma Assert (Table = Before_Table and then Chain = Before_Chain);
          Count (4_000);
+      end;
+      declare
+         Group : Activation.Group_State :=
+           (Pending => 2, Any_Failed => False, Wake_Ready => False);
+      begin
+         Activation.Report_Activation
+           (Group, Activation.Activation_Succeeded);
+         pragma Assert
+           (Group.Pending = 1
+            and then not Group.Any_Failed
+            and then not Group.Wake_Ready);
+         Activation.Report_Activation
+           (Group, Activation.Activation_Failed);
+         pragma Assert
+           (Group.Pending = 0
+            and then Group.Any_Failed
+            and then Group.Wake_Ready);
+         Count (4_001);
+      end;
+      declare
+         Cancel_Table : Activation.Task_Table :=
+           [others => Activation.Empty_Task];
+         Cancel_Chain : Activation.Activation_Chain :=
+           Activation.Empty_Chain;
+         Cancel_Master : constant Dispatcher.Task_Ref := Reference (0);
+         Item : Dispatcher.Task_Ref;
+      begin
+         Cancel_Table (0) :=
+           (Reference => Cancel_Master, State => Dispatcher.Running,
+            Home_Core => 0, Master => Dispatcher.No_Task, Dependents => 0);
+         Activation.Create
+           (Cancel_Table, Cancel_Chain, 1, 1, Cancel_Master, Item);
+         Cancel_Chain.Length := 2;
+         Cancel_Chain.Storage (1) := Item;
+         declare
+            Before : constant Activation.Task_Table := Cancel_Table;
+            Activated : Boolean;
+         begin
+            Activation.Try_Activate (Cancel_Table, Cancel_Chain, Activated);
+            pragma Assert (not Activated and then Cancel_Table = Before);
+         end;
+         Cancel_Chain.Length := 1;
+         pragma Assert (Activation.Can_Cancel_Dormant (Cancel_Table, Item));
+         Activation.Cancel_Dormant (Cancel_Table, Item);
+         pragma Assert
+           (Cancel_Table (1).State = Dispatcher.Terminated
+            and then Cancel_Table (0).Dependents = 0);
+         Count (4_002);
       end;
    end Check_Activation;
 begin

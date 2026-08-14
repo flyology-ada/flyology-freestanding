@@ -119,6 +119,7 @@ test "$(count_marker 'FLYOLOGY:M4:PROTECTED_ENTRY:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:FINALIZATION:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:RENDEZVOUS:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:EXCEPTIONAL_SYNC:PASS')" -eq 1
+test "$(count_marker 'FLYOLOGY:M4:UNACTIVATED_CLEANUP:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:CONDITIONAL_ENTRY:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:TIMED_ENTRY:PASS')" -eq 1

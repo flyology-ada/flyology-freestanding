@@ -40,7 +40,7 @@ The first release is not complete. Work proceeds through the independently gated
   two separate output roots and compares their SHA-256 output.
 - `scripts/verify-m4.sh` proves and exhausts the deterministic synchronization
   kernels, probes the clean-room M4 compiler surface, rebuilds and inspects
-  both images, boots both CPU counts, and repeats the SMP4 race scenarios.
+  both images, boots both CPU counts, and repeats the SMP4 integration paths.
 - `scripts/stress-m4.sh` repeatedly executes the ordinary-Ada delay,
   protected-entry, rendezvous, priority, abort, termination, and reclamation
   paths at SMP4 on both architectures.

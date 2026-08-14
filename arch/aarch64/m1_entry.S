@@ -1035,6 +1035,12 @@ flyology_m4_report_exceptional_sync_pass:
     address x0, m4_exceptional_sync_pass
     b serial_puts_locked
 
+.global flyology_m4_report_unactivated_cleanup_pass
+.type flyology_m4_report_unactivated_cleanup_pass, %function
+flyology_m4_report_unactivated_cleanup_pass:
+    address x0, m4_unactivated_cleanup_pass
+    b serial_puts_locked
+
 .global flyology_m4_report_priority_pass
 .type flyology_m4_report_priority_pass, %function
 flyology_m4_report_priority_pass:
@@ -1790,6 +1796,7 @@ m4_protected_entry_pass: .asciz "FLYOLOGY:M4:PROTECTED_ENTRY:PASS\n"
 m4_finalization_pass: .asciz "FLYOLOGY:M4:FINALIZATION:PASS\n"
 m4_rendezvous_pass: .asciz "FLYOLOGY:M4:RENDEZVOUS:PASS\n"
 m4_exceptional_sync_pass: .asciz "FLYOLOGY:M4:EXCEPTIONAL_SYNC:PASS\n"
+m4_unactivated_cleanup_pass: .asciz "FLYOLOGY:M4:UNACTIVATED_CLEANUP:PASS\n"
 m4_priority_pass: .asciz "FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS\n"
 m4_conditional_pass: .asciz "FLYOLOGY:M4:CONDITIONAL_ENTRY:PASS\n"
 m4_timed_entry_pass: .asciz "FLYOLOGY:M4:TIMED_ENTRY:PASS\n"

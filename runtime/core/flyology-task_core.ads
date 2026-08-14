@@ -31,11 +31,18 @@ package Flyology.Task_Core is
 
    No_Task : Task_Ref renames Dispatcher.No_Task;
 
+   type Retirement_Hook is access procedure
+     (Core : System.Address;
+      Slot : System.Address);
+
    procedure Initialize (CPU_Count : Positive);
+   procedure Install_Retirement_Hook (Hook : Retirement_Hook);
    function CPU_Count return Positive;
 
    procedure Register_Environment_Locked (Reference : Task_Ref);
    procedure Register_Dormant_Locked (Reference : Task_Ref);
+   function Can_Cancel_Dormant_Locked (Reference : Task_Ref) return Boolean;
+   procedure Cancel_Dormant_Locked (Reference : Task_Ref);
 
    function Known_Locked (Reference : Task_Ref) return Boolean;
    function State_Locked (Reference : Task_Ref) return Task_State;
@@ -102,12 +109,22 @@ package Flyology.Task_Core is
      (Core      : Core_Number;
       Reference : Task_Ref);
 
+   procedure Begin_Retirement_Locked
+     (Core      : Core_Number;
+      Reference : Task_Ref);
+
+   procedure Finish_Retirement_Locked (Reference : Task_Ref);
+
    procedure Release_Terminated_Locked (Reference : Task_Ref);
 
    function Current (Core : Core_Number) return Task_Ref;
    function Is_Callable (Reference : Task_Ref) return Boolean;
    function Is_Terminated (Reference : Task_Ref) return Boolean;
    function Validate_Current_Stack
+     (Core  : Core_Number;
+      Probe : System.Address) return Boolean;
+
+   function Validate_Dispatcher_Stack
      (Core  : Core_Number;
       Probe : System.Address) return Boolean;
 

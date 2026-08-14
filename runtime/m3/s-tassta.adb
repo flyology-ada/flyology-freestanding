@@ -42,12 +42,17 @@ package body System.Tasking.Stages is
       if Chain.Length > 0 then
          declare
             Members : Flyology.M3_Runtime.Task_List (1 .. Chain.Length);
+            Failed  : Boolean;
          begin
             for Index in Members'Range loop
                Members (Index) := Chain.Members (Index);
             end loop;
-            Flyology.M3_Runtime.Activate_Tasks (Members);
+            Flyology.M3_Runtime.Activate_Tasks (Members, Failed);
             Chain.Length := 0;
+            Flyology.M3_Runtime.Abort_Undefer;
+            if Failed then
+               Flyology.M3_Runtime.Raise_Activation_Failure;
+            end if;
          end;
       end if;
    end Activate_Tasks;
@@ -67,8 +72,19 @@ package body System.Tasking.Stages is
      (Chain : in out System.Tasking.Activation_Chain)
    is
    begin
-      if Chain.Length /= 0 then
-         raise Program_Error;
+      if Chain.Length > 0 then
+         declare
+            Members : Flyology.M3_Runtime.Task_List (1 .. Chain.Length);
+         begin
+            for Index in Members'Range loop
+               Members (Index) := Chain.Members (Index);
+            end loop;
+            Flyology.M3_Runtime.Expunge_Unactivated_Tasks (Members);
+            for Index in Members'Range loop
+               Chain.Members (Index) := null;
+            end loop;
+            Chain.Length := 0;
+         end;
       end if;
    end Expunge_Unactivated_Tasks;
 

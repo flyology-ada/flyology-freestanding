@@ -279,11 +279,39 @@ Both target compilers emit the same allocation and lifecycle surface:
 completion. The AArch64 local probe alone adds `__clear_cache`; the product
 uses a package-level task body and final inspection continues to prohibit that
 symbol. Successful activation consumes the temporary chain before its cleanup
-hook runs. An unconsumed chain still fails closed because partial activation
-cleanup has not yet been implemented.
+hook runs. Flyology now prevalidates a nonempty unconsumed chain under the one
+RTS lock, requires one exact master and dormant, unqueued, unwaiting task
+incarnations, and only then cancels every member. Static declarative failure
+does not emit that dynamic-chain hook, so `Complete_Master` performs the same
+whole-set preflight and dormant cancellation before it waits for activated
+dependents.
 
-The allocator is a checked 64-KiB, 16-byte-aligned monotonic pool. Exhaustion
+Activation failure is a separate path. A compiler wrapper that reaches
+`Complete_Task` before `Complete_Activation` does not decrement the activation
+group while it is still executing on its task stack. Dispatcher-side retirement
+records the failed acknowledgement after the context switch, and the activator
+wakes exactly once only after every successful sibling has acknowledged or
+every failed sibling has retired. The compiler chain is then cleared and the
+activator receives `Tasking_Error`. The ordinary-Ada QEMU test covers both a
+static task that is never activated because a later declarative initializer
+raises and a two-member activation group in which one task fails during body
+declarative elaboration while its sibling runs normally.
+
+The owned `activation_failure_probe.adb` pins that lowering independently on
+both target compilers: the failing declarative initializer precedes
+`Complete_Activation`, the task wrapper retains its mandatory `Complete_Task`
+cleanup, and the surrounding scope retains `Activate_Tasks` plus master
+completion. `Create_Task` also supplies the compiler-owned task-body elaboration
+predicate. `Task_Start` validates that pointer; a false value bypasses the body
+procedure and enters the same dispatcher-side failed-activation path. The
+ordinary-Ada QEMU scenario exercises a raised task-body declarative initializer;
+the false body-elaboration predicate is compiler-interface and checked-runtime
+evidence, not a separately forced product-cell claim.
+
+The allocator is a bounded 64-KiB, 16-byte-aligned monotonic pool. Exhaustion
 enters the compiler's `Storage_Error` check path instead of returning null.
+Checked reservation without cursor corruption and reclaiming allocation remain
+M4 closure work.
 The QEMU demonstration allocates a task with ordinary `new`, then uses standard
 `Is_Terminated` under a bounded real-time deadline to observe its stable
 language identity and normal termination. It does not incorrectly treat return
@@ -296,7 +324,7 @@ open root master before application package elaboration can query
 `Current_Master`.
 
 This allocation checkpoint deliberately does not claim `Unchecked_Deallocation`,
-`Free_Task`, allocation-pool reuse, unactivated-task expunging, or abort.
+`Free_Task`, allocation-pool reuse, or dynamic heap-object reclamation.
 
 The owned `selective_wait_probe.adb` confirms that both compilers construct an
 `Accept_List`, mark a null accept body in its `Accept_Alternative`, and call
@@ -318,8 +346,15 @@ alternatives, guarded alternatives, else/delay alternatives, timed selective
 wait, and priority queueing remain M4 work.
 
 Normal task destruction now separates the stable language identity from its
-bounded execution slot. After the owning master has observed every dependent
-termination, Task_Core verifies that the exact incarnation is terminated,
+bounded execution slot. Completion is also explicitly two-phase: the task
+changes from `Running` to `Retiring` and relinquishes current-core ownership,
+then switches to the independent per-core dispatcher stack. Only a callback
+whose live stack address is validated inside that dispatcher extent may change
+`Retiring` to `Terminated`, publish the standard identity state, decrement the
+master, or wake its owner. A different core therefore cannot reclaim a stack
+that still contains the terminating task's frames. After the owning master has
+observed every dependent termination, Task_Core verifies that the exact
+incarnation is terminated,
 not current, absent from every ready queue and timer table, has no active wait,
 and retains its stack canary. It then releases only the execution record,
 context, and stack slot. The next occupant receives the SPARK-checked successor
@@ -435,7 +470,7 @@ required before M4 closure.
 
 ## Model and stress closure gates
 
-The authoritative M4 host model enumerates 27,138 deterministic operations
+The authoritative M4 host model enumerates 32,540 deterministic operations
 over the production wait-arbitration, exact FIFO token, deadline, priority,
 ceiling, clock, and exceptional-completion kernels. It covers
 winner-before-block and winner-after-
@@ -447,7 +482,7 @@ reordering, ceiling overflow/violation, and checked conversion boundaries are
 also enumerated. Every completion phase is checked for legal normal/exceptional
 completion, consumption, and identity-presence invariants. The gate pins both
 the edge count and serialized-state hash so an accidental search reduction
-fails. GNATprove 16.1 reports all 310 generated checks proved across the
+fails. GNATprove 16.1 reports all 336 generated checks proved across the
 SPARK-analyzed deterministic core units. The concurrent Task_Core facade, the
 imported `Task_Primitives_Contract` declarations, compiler-facing GNARL
 facades, architecture assembly, and C unwinder remain outside SPARK behind

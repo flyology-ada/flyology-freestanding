@@ -23,8 +23,11 @@ is
         (State =>
            (case Transition is
                when Admit | Yield | Wake => Ready,
+               when Cancel_Unactivated   => Terminated,
                when Dispatch             => Running,
                when Block                => Blocked,
+               when Begin_Retirement     => Retiring,
+               when Finish_Retirement    => Terminated,
                when Terminate_Task       => Terminated),
          Accepted => True);
    end Try_Transition;
