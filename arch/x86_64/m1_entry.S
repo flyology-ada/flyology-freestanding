@@ -1231,6 +1231,12 @@ flyology_m4_report_rendezvous_pass:
     lea m4_rendezvous_pass(%rip), %rdi
     jmp serial_puts_locked
 
+.global flyology_m4_report_exceptional_sync_pass
+.type flyology_m4_report_exceptional_sync_pass, @function
+flyology_m4_report_exceptional_sync_pass:
+    lea m4_exceptional_sync_pass(%rip), %rdi
+    jmp serial_puts_locked
+
 .global flyology_m4_report_priority_pass
 .type flyology_m4_report_priority_pass, @function
 flyology_m4_report_priority_pass:
@@ -1701,6 +1707,7 @@ m4_protected_pass: .asciz "FLYOLOGY:M4:PROTECTED:PASS\n"
 m4_protected_entry_pass: .asciz "FLYOLOGY:M4:PROTECTED_ENTRY:PASS\n"
 m4_finalization_pass: .asciz "FLYOLOGY:M4:FINALIZATION:PASS\n"
 m4_rendezvous_pass: .asciz "FLYOLOGY:M4:RENDEZVOUS:PASS\n"
+m4_exceptional_sync_pass: .asciz "FLYOLOGY:M4:EXCEPTIONAL_SYNC:PASS\n"
 m4_priority_pass: .asciz "FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS\n"
 m4_conditional_pass: .asciz "FLYOLOGY:M4:CONDITIONAL_ENTRY:PASS\n"
 m4_timed_entry_pass: .asciz "FLYOLOGY:M4:TIMED_ENTRY:PASS\n"

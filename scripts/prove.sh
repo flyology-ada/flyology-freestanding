@@ -50,6 +50,6 @@ set -e
 
 printf '%s\n' "$proof_output" | tee build/proof/gnatprove-run.txt
 test "$proof_status" -eq 0 || exit "$proof_status"
-expected_checks=305
+expected_checks=310
 printf '%s\n' "$proof_output" | \
     grep -F "Success: all checks proved ($expected_checks checks)."

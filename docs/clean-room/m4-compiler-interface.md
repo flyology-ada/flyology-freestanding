@@ -174,11 +174,22 @@ This is a bounded protected-entry teardown contract, not a claim for the full
 `Ada.Finalization` or `Ada.Tags` APIs. Exception registration and tagged-type
 registration remain disabled, task execution slots still use their explicit
 lifecycle, and general controlled-object adjustment, user-defined tag queries,
-and finalization races are not yet demonstrated. Exceptional entry-body
-completion currently stops fail-closed. This checkpoint does not claim
-absolute-delay timed protected calls, entry families, requeue,
-priority-ordered entry service, exceptional entry-body propagation, abort of a
-protected-entry waiter, or concurrent finalized-object access.
+and finalization races are not yet demonstrated.
+
+Exceptional entry-body completion uses the same checked completion-phase
+kernel as rendezvous. An immediate/open entry unlocks the protected action and
+reraises the original occurrence to the direct caller. A queued entry changes
+its exact retained record from `Queued` to `Completed_Exceptional`, snapshots
+the stable exception identity, resolves the exact caller token once, and lets
+the servicing task continue to later calls. The caller consumes and clears the
+record before raising a fresh occurrence with that identity. The ordinary-Ada
+gate requires both immediate and cross-core queued Program_Error handlers, a
+subsequent normally serviced call, and an empty entry queue before the shared
+`FLYOLOGY:M4:EXCEPTIONAL_SYNC:PASS` marker. Only exception identity is
+preserved; messages and tracebacks are not copied. This checkpoint does not
+claim absolute-delay timed protected calls, entry families, requeue,
+priority-ordered entry service, simultaneous exceptional-completion versus
+timeout/abort collisions, or concurrent finalized-object access.
 
 The owned `simple_rendezvous_probe.adb` establishes the same compiler surface
 on both cross targets for a simple task entry call: `Create_Task` receives an
@@ -197,10 +208,19 @@ The implementation queues a bounded call record, blocks each participant with
 the common generation-tagged exact-wait mechanism, and performs both remote
 wakes through Task_Core. All four architecture/CPU-count cells require the
 returned `in out` value before emitting `FLYOLOGY:M4:RENDEZVOUS:PASS`.
-Exceptional accept completion currently fails closed: exception-occurrence
-copying and propagation to the caller have not yet been implemented or tested.
+
+For exceptional accept completion, the accepted call record remains owned by
+the caller and changes from `Accepted` to `Completed_Exceptional`. The server
+stores a stable exception identity, exact-wakes the caller, clears its active
+call ownership, and reraises the original occurrence. The caller consumes and
+clears the retained record before raising a fresh occurrence with the same
+identity. The ordinary-Ada gate requires Program_Error handlers in both server
+and caller, normal master completion, and the shared exceptional-sync marker.
+This identity-only transfer is not full Exception_Occurrence copying, and
+exception-versus-abort/timeout collision ordering remains an M4 closure gate.
 Conditional/timed calls, selective waits, entry families, requeue, abort, and
-priority-ordered entry queues remain later M4 gates.
+priority-ordered entry queues remain later M4 gates where not separately
+demonstrated below.
 
 The language-defined `Ada.Dynamic_Priorities` facade follows
 [Ada RM D.5.1](https://www.adaic.org/resources/add_content/standards/22rm/html/RM-D-5-1.html).
@@ -244,6 +264,13 @@ subsequently accepts a fresh normal call. Only then is
 `FLYOLOGY:M4:TIMED_ENTRY:PASS` emitted. The test is deterministic rather than a
 full boundary-race stress campaign; repeated accept/timeout collision stress
 remains required before M4 closes.
+
+A timed-out queued call remains owned by its exact caller and wait token until
+that caller resumes and clears the record. A server scan may skip a call whose
+wait is no longer pending, but it cannot free or reuse that global call slot.
+Timeout cleanup validates the original caller, token, timed flag, phase, and
+current-task ownership under the RTS lock before reclamation. This prevents a
+server from reusing the slot between timer wake and caller resumption.
 
 The owned `dynamic_task_probe.adb` uses an allocator for an ordinary task type.
 Both target compilers emit the same allocation and lifecycle surface:
@@ -302,10 +329,14 @@ The QEMU image creates more cumulative ordinary tasks than the 15 non-
 environment execution slots while retaining earlier standard `Task_Id` values.
 Later tasks validate their reused stack bounds, and the old identities remain
 pairwise distinct, terminated, and not callable before
-`FLYOLOGY:M4:RECLAMATION:PASS`. The stable identity table is bounded at 32 and
-is deliberately not reused yet. This does not claim `Unchecked_Deallocation`,
-`Free_Task`, allocation-pool reuse, or freeing an identity retained by user
-code; those require the explicit compiler deallocation hook and lifetime rules.
+`FLYOLOGY:M4:RECLAMATION:PASS`. The stable identity table is bounded at 128 and
+is deliberately not reused yet. The compiler activation chain remains bounded
+at 32 tasks, separately from the lifetime identity pool, so terminated
+identities do not consume the live execution-slot capacity. Identity exhaustion
+follows the checked `Storage_Error` path. This does not claim
+`Unchecked_Deallocation`, `Free_Task`, allocation-pool reuse, or freeing an
+identity retained by user code; those require the explicit compiler
+deallocation hook and lifetime rules.
 
 ## Abort checkpoint
 
@@ -348,14 +379,17 @@ machine locally. This checkpoint intentionally does not claim asynchronous
 abort of a CPU-bound task, abort-before-activation, multi-task abort
 statements, ATC, or full abnormal master/exception semantics.
 The private abort identity does not match an ordinary `when others`. Compiler
-`all_others` cleanup filters and zero-filter action-chain cleanups continue
-during phase two without terminating phase-one search. One exported,
+zero-filter action-chain cleanups continue during phase two without terminating
+phase-one search. Compiler `all_others` is a real internal handler used by the
+generated exceptional synchronization wrappers, so those hooks must explicitly
+preserve or continue the executing task's original occurrence. One exported,
 LSDA-bearing `flyology_task_root_invoke` boundary is the only ordinary-catch
 region allowed to contain abort. The demonstration places a user
 `when others` around the interrupted delay and fails if it runs, then requires
 the compiler task finalizer and runtime root to terminate the task normally.
-Interrupt-time forced delivery and the decisive no-safe-point behavior remain
-M5 work.
+The current abort tests do not claim an abort collision inside an exceptional
+accept or protected-entry action. Interrupt-time forced delivery and the
+decisive no-safe-point behavior remain M5 work.
 
 The next abort-race increment extends the same single-winner rule to queued
 task entry calls. If an unaccepted caller is aborted, the runtime matches the
@@ -401,16 +435,23 @@ required before M4 closure.
 
 ## Model and stress closure gates
 
-The authoritative M4 host model enumerates 27,113 deterministic operations
+The authoritative M4 host model enumerates 27,138 deterministic operations
 over the production wait-arbitration, exact FIFO token, deadline, priority,
-ceiling, and clock kernels. It covers winner-before-block and winner-after-
+ceiling, clock, and exceptional-completion kernels. It covers
+winner-before-block and winner-after-
 commit for normal wake, timeout, and abort; every second resolution is required
 to be a state-preserving duplicate. Stale task incarnations, stale/future wait
 generations, invalid phases, full/duplicate queues, exact queue removal,
 deadline cancellation and order, priority
 reordering, ceiling overflow/violation, and checked conversion boundaries are
-also enumerated. The gate pins both the edge count and serialized-state hash so
-an accidental search reduction fails.
+also enumerated. Every completion phase is checked for legal normal/exceptional
+completion, consumption, and identity-presence invariants. The gate pins both
+the edge count and serialized-state hash so an accidental search reduction
+fails. GNATprove 16.1 reports all 310 generated checks proved across the
+SPARK-analyzed deterministic core units. The concurrent Task_Core facade, the
+imported `Task_Primitives_Contract` declarations, compiler-facing GNARL
+facades, architecture assembly, and C unwinder remain outside SPARK behind
+typed boundaries.
 
 `scripts/stress-m4.sh` complements that pure model with ten complete SMP4
 ordinary-Ada runs per architecture. Each run repeats cross-core delay wakeups,

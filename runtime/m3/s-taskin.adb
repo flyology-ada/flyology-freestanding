@@ -1,7 +1,11 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 package body System.Tasking is
-   type Identity_Array is array (Natural range 0 .. Max_Tasks - 1) of
+   --  Stable Task_Id values outlive execution-slot reclamation.  Keep their
+   --  bounded lifetime pool distinct from Max_Tasks, which bounds one
+   --  activation chain and the concurrently admitted execution substrate.
+   Identity_Capacity : constant := 128;
+   type Identity_Array is array (Natural range 0 .. Identity_Capacity - 1) of
      aliased Ada_Task_Control_Block;
 
    Identities : Identity_Array;
@@ -27,7 +31,7 @@ package body System.Tasking is
       if Execution_Slot = 0 or else Incarnation = 0 then
          return null;
       end if;
-      for Slot in Positive range 1 .. Max_Tasks - 1 loop
+      for Slot in Positive range 1 .. Identity_Capacity - 1 loop
          if not Identities (Slot).Used then
             Identities (Slot).Slot := Slot;
             Identities (Slot).Execution_Slot := Execution_Slot;
@@ -42,8 +46,10 @@ package body System.Tasking is
 
    function Slot_Of (Item : Task_Id) return Natural is
    begin
-      if Item = null or else not Item.Used or else Item.Slot >= Max_Tasks then
-         return Max_Tasks;
+      if Item = null or else not Item.Used
+        or else Item.Slot >= Identity_Capacity
+      then
+         return Identity_Capacity;
       end if;
       return Item.Slot;
    end Slot_Of;
@@ -51,7 +57,7 @@ package body System.Tasking is
    function Execution_Slot_Of (Item : Task_Id) return Natural is
    begin
       if Item = null or else not Item.Used then
-         return Max_Tasks;
+         return Identity_Capacity;
       end if;
       return Item.Execution_Slot;
    end Execution_Slot_Of;

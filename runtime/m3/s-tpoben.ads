@@ -1,6 +1,7 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Ada.Finalization;
+with Flyology.Exceptional_Completion_Model;
 with Flyology.Task_Primitives_Contract;
 with Flyology.Wait_Queue_Model;
 
@@ -37,12 +38,21 @@ package System.Tasking.Protected_Objects.Entries is
 
    subtype Wait_Token is Flyology.Task_Primitives_Contract.Wait_Token;
 
+   package Completions renames Flyology.Exceptional_Completion_Model;
+   subtype Pending_Phase is Completions.Completion_Phase;
+   Free : constant Pending_Phase := Completions.Free;
+   Queued : constant Pending_Phase := Completions.Queued;
+   Completed_Normal : constant Pending_Phase := Completions.Completed_Normal;
+   Completed_Exceptional : constant Pending_Phase :=
+     Completions.Completed_Exceptional;
+
    type Pending_Call is record
-      Present     : Boolean := False;
+      Phase       : Pending_Phase := Free;
       Entry_Index : Protected_Entry_Index := 0;
       Parameters  : System.Address := System.Null_Address;
       Token       : Wait_Token;
       Timed       : Boolean := False;
+      Exception_Identity : System.Address := System.Null_Address;
    end record;
 
    type Pending_Call_Array is

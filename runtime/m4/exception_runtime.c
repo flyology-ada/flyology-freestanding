@@ -255,6 +255,28 @@ static struct flyology_exception *reserve_exception(void *identity)
     __gnat_last_chance_handler((void *)"exception pool exhausted", 0);
 }
 
+static struct flyology_exception *validated_exception(void *occurrence)
+{
+    uptr address = (uptr)occurrence;
+    uptr base = (uptr)&exceptions[0];
+    uptr limit = (uptr)&exceptions[EXCEPTION_CAPACITY];
+    struct flyology_exception *exception;
+    if (address < base || address >= limit ||
+        (address - base) % sizeof(struct flyology_exception) != 0)
+        __gnat_last_chance_handler((void *)"invalid exception occurrence", 0);
+    exception = (struct flyology_exception *)occurrence;
+    if (__atomic_load_n(&exception->occupied, __ATOMIC_ACQUIRE) == 0 ||
+        exception->unwind.exception_class != 0x464c594f41444100ULL ||
+        exception->identity == 0)
+        __gnat_last_chance_handler((void *)"stale exception occurrence", 0);
+    return exception;
+}
+
+void *flyology_exception_identity(void *occurrence)
+{
+    return validated_exception(occurrence)->identity;
+}
+
 static void raise_identity(void *identity) __attribute__((noreturn));
 static void raise_identity(void *identity)
 {
@@ -279,6 +301,13 @@ static void raise_identity(void *identity)
     else if (result == _URC_CONTINUE_UNWIND)
         last_personality = "unwinder leaked continue result";
     __gnat_last_chance_handler((void *)last_personality, 0);
+}
+
+void flyology_raise_exception_identity(void *identity)
+{
+    if (identity == 0)
+        __gnat_last_chance_handler((void *)"null exception identity", 0);
+    raise_identity(identity);
 }
 
 void flyology_exception_initialize(void)
@@ -454,7 +483,7 @@ _Unwind_Reason_Code __gnat_personality_v0
                                                 region_start);
                 if (identity == &__gnat_all_others_value) {
                     matched = 1;
-                    cleanup_match = 1;
+                    cleanup_match = 0;
                 } else if (exception->identity == &abort_signal) {
                     matched = identity == &__gnat_others_value &&
                         region_start == (uptr)flyology_task_root_invoke;

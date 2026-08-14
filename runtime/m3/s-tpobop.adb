@@ -1,6 +1,7 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Flyology.Clock_Model;
+with Flyology.Exceptional_Completion_Model;
 with Flyology.M3_Runtime;
 with Flyology.Task_Core;
 with Flyology.Wait_Arbitration_Model;
@@ -9,11 +10,16 @@ with Flyology.Wait_Queue_Model;
 package body System.Tasking.Protected_Objects.Operations is
    package Core renames Flyology.Task_Core;
    package Clock renames Flyology.Clock_Model;
+   package Completions renames Flyology.Exceptional_Completion_Model;
    package Queues renames Flyology.Wait_Queue_Model;
    package Waits renames Flyology.Wait_Arbitration_Model;
    use type Core.Wait_Resolve_Status;
+   use type Completions.Complete_Status;
+   use type Completions.Consume_Status;
    use type Core.Timer_Cancel_Status;
+   use type Core.Task_Ref;
    use type Entries.Protection_Entries_Access;
+   use type Entries.Pending_Phase;
    use type Entries.Wait_Token;
    use type Queues.Enqueue_Status;
    use type Queues.Remove_Status;
@@ -26,6 +32,19 @@ package body System.Tasking.Protected_Objects.Operations is
    with Import, Convention => C, External_Name => "flyology_m2_report_failure";
 
    procedure Stop with No_Return;
+
+   function Snapshot_Exception_Identity
+     (Occurrence : System.Address) return System.Address
+   with Import, Convention => C,
+        External_Name => "flyology_exception_identity";
+
+   procedure Raise_Exception_Identity (Identity : System.Address)
+   with Import, Convention => C,
+        External_Name => "flyology_raise_exception_identity", No_Return;
+
+   procedure Reraise_Exception (Occurrence : System.Address)
+   with Import, Convention => C,
+        External_Name => "__gnat_reraise_zcx", No_Return;
 
    procedure Stop is
    begin
@@ -45,6 +64,11 @@ package body System.Tasking.Protected_Objects.Operations is
    procedure Kick_Waiters (Object : Entries.Protection_Entries_Access);
 
    procedure Remove_Aborted_Call
+     (Object : Entries.Protection_Entries_Access;
+      Token  : Entries.Wait_Token;
+      Slot   : Natural);
+
+   procedure Consume_Completed_Call
      (Object : Entries.Protection_Entries_Access;
       Token  : Entries.Wait_Token;
       Slot   : Natural);
@@ -84,7 +108,7 @@ package body System.Tasking.Protected_Objects.Operations is
          Stop;
       end if;
       Removal := Queues.Remove_Exact (Object.Queue, Token);
-      if Object.Pending (Slot).Present then
+      if Object.Pending (Slot).Phase = Entries.Queued then
          if Object.Pending (Slot).Token /= Token
            or else Removal.Status /= Queues.Removed
          then
@@ -98,6 +122,45 @@ package body System.Tasking.Protected_Objects.Operations is
       Entries.Unlock_Entries (Object);
    end Remove_Aborted_Call;
 
+   procedure Consume_Completed_Call
+     (Object : Entries.Protection_Entries_Access;
+      Token  : Entries.Wait_Token;
+      Slot   : Natural)
+   is
+      Identity : System.Address;
+      Consumed : Completions.Consume_Result;
+   begin
+      Entries.Lock_Entries (Object);
+      if Slot not in Object.Pending'Range
+        or else Core.Current_Locked (Dense_Core) /= Token.Task_Reference
+        or else Object.Pending (Slot).Token /= Token
+        or else Object.Pending (Slot).Phase not in
+          Entries.Completed_Normal | Entries.Completed_Exceptional
+      then
+         Entries.Unlock_Entries (Object);
+         Stop;
+      end if;
+      Identity := Object.Pending (Slot).Exception_Identity;
+      if not Completions.Stored_Is_Valid
+        (Object.Pending (Slot).Phase, Identity /= System.Null_Address)
+      then
+         Entries.Unlock_Entries (Object);
+         Stop;
+      end if;
+      Consumed := Completions.Consume (Object.Pending (Slot).Phase);
+      if Consumed.Status /= Completions.Consumed
+        or else Consumed.Phase /= Completions.Free
+      then
+         Entries.Unlock_Entries (Object);
+         Stop;
+      end if;
+      Object.Pending (Slot) := (others => <>);
+      Entries.Unlock_Entries (Object);
+      if Identity /= System.Null_Address then
+         Raise_Exception_Identity (Identity);
+      end if;
+   end Consume_Completed_Call;
+
    procedure Complete_Entry_Body
      (Object : Entries.Protection_Entries_Access)
    is
@@ -106,6 +169,7 @@ package body System.Tasking.Protected_Objects.Operations is
       Slot      : Natural;
       Removal   : Queues.Remove_Result;
       Cancelled : Core.Timer_Cancel_Status;
+      Completion : Completions.Complete_Result;
    begin
       if Object = null or else not Object.Initialized then
          raise Program_Error;
@@ -115,6 +179,9 @@ package body System.Tasking.Protected_Objects.Operations is
          return;
       end if;
       Slot := Object.Executing;
+      if Object.Pending (Slot).Phase /= Entries.Queued then
+         Stop;
+      end if;
       Removal := Queues.Remove_Exact
         (Object.Queue, Object.Pending (Slot).Token);
       if Removal.Status /= Queues.Removed then
@@ -133,7 +200,13 @@ package body System.Tasking.Protected_Objects.Operations is
       if Status not in Waits.Won_Before_Block | Waits.Made_Ready then
          Stop;
       end if;
-      Object.Pending (Slot) := (others => <>);
+      Completion := Completions.Complete
+        (Object.Pending (Slot).Phase, Completions.Normal);
+      if Completion.Status /= Completions.Completed then
+         Stop;
+      end if;
+      Object.Pending (Slot).Phase := Completion.Phase;
+      Object.Pending (Slot).Exception_Identity := System.Null_Address;
       Object.Executing := 0;
       Object.Wake_Cores (System.Address (Wake_Core)) := True;
    end Complete_Entry_Body;
@@ -142,9 +215,55 @@ package body System.Tasking.Protected_Objects.Operations is
      (Object     : Entries.Protection_Entries_Access;
       Occurrence : System.Address)
    is
-      pragma Unreferenced (Occurrence);
+      Status    : Core.Wait_Resolve_Status;
+      Wake_Core : Core.Core_Number;
+      Slot      : Natural;
+      Removal   : Queues.Remove_Result;
+      Cancelled : Core.Timer_Cancel_Status;
+      Identity  : constant System.Address :=
+        Snapshot_Exception_Identity (Occurrence);
+      Completion : Completions.Complete_Result;
    begin
-      Stop;
+      if Object = null or else not Object.Initialized
+        or else Identity = System.Null_Address
+      then
+         raise Program_Error;
+      end if;
+      if Object.Executing = 0 then
+         Entries.Unlock_Entries (Object);
+         Reraise_Exception (Occurrence);
+      end if;
+      Slot := Object.Executing;
+      if Object.Pending (Slot).Phase /= Entries.Queued then
+         Stop;
+      end if;
+      Removal := Queues.Remove_Exact
+        (Object.Queue, Object.Pending (Slot).Token);
+      if Removal.Status /= Queues.Removed then
+         Stop;
+      end if;
+      Object.Queue := Removal.Queue;
+      if Object.Pending (Slot).Timed then
+         Core.Cancel_Deadline_Locked
+           (Object.Pending (Slot).Token, Cancelled);
+         if Cancelled /= Core.Cancelled then
+            Stop;
+         end if;
+      end if;
+      Core.Resolve_Exact_Locked
+        (Object.Pending (Slot).Token, Waits.Object_Wake, Status, Wake_Core);
+      if Status not in Waits.Won_Before_Block | Waits.Made_Ready then
+         Stop;
+      end if;
+      Completion := Completions.Complete
+        (Object.Pending (Slot).Phase, Completions.Exceptional);
+      if Completion.Status /= Completions.Completed then
+         Stop;
+      end if;
+      Object.Pending (Slot).Phase := Completion.Phase;
+      Object.Pending (Slot).Exception_Identity := Identity;
+      Object.Executing := 0;
+      Object.Wake_Cores (System.Address (Wake_Core)) := True;
    end Exceptional_Complete_Entry_Body;
 
    procedure Service_Entries (Object : Entries.Protection_Entries_Access) is
@@ -168,7 +287,7 @@ package body System.Tasking.Protected_Objects.Operations is
             Token := Object.Queue.Storage (Queue_Index);
             Slot := Natural (Token.Task_Reference.Slot) + 1;
             if Slot not in Object.Pending'Range
-              or else not Object.Pending (Slot).Present
+              or else Object.Pending (Slot).Phase /= Entries.Queued
               or else Object.Pending (Slot).Token /= Token
             then
                Stop;
@@ -254,7 +373,8 @@ package body System.Tasking.Protected_Objects.Operations is
       end if;
       Reference := Core.Current_Locked (Dense_Core);
       Slot := Natural (Reference.Slot) + 1;
-      if Slot not in Object.Pending'Range or else Object.Pending (Slot).Present
+      if Slot not in Object.Pending'Range
+        or else Object.Pending (Slot).Phase /= Entries.Free
       then
          Entries.Unlock_Entries (Object);
          raise Program_Error;
@@ -275,8 +395,9 @@ package body System.Tasking.Protected_Objects.Operations is
       end if;
       Object.Queue := Enqueue.Queue;
       Object.Pending (Slot) :=
-        (Present => True, Entry_Index => Index, Parameters => Parameters,
-         Token => Token, Timed => False);
+        (Phase => Entries.Queued, Entry_Index => Index,
+         Parameters => Parameters, Token => Token, Timed => False,
+         Exception_Identity => System.Null_Address);
       --  The protected-action ceiling belongs only to the queue publication
       --  transaction.  Pop it while the RTS lock is still held, immediately
       --  before the atomic block-and-release handoff, so a waker cannot race
@@ -290,6 +411,7 @@ package body System.Tasking.Protected_Objects.Operations is
       elsif Outcome /= Waits.Object_Wake then
          raise Program_Error;
       end if;
+      Consume_Completed_Call (Object, Token, Slot);
       Block.Was_Cancelled := False;
       Flyology.M3_Runtime.Deliver_Pending_Abort;
    end Protected_Entry_Call;
@@ -356,7 +478,8 @@ package body System.Tasking.Protected_Objects.Operations is
 
       Reference := Core.Current_Locked (Dense_Core);
       Slot := Natural (Reference.Slot) + 1;
-      if Slot not in Object.Pending'Range or else Object.Pending (Slot).Present
+      if Slot not in Object.Pending'Range
+        or else Object.Pending (Slot).Phase /= Entries.Free
       then
          Entries.Unlock_Entries (Object);
          raise Program_Error;
@@ -377,8 +500,9 @@ package body System.Tasking.Protected_Objects.Operations is
       end if;
       Object.Queue := Enqueue.Queue;
       Object.Pending (Slot) :=
-        (Present => True, Entry_Index => Index, Parameters => Parameters,
-         Token => Token, Timed => True);
+        (Phase => Entries.Queued, Entry_Index => Index,
+         Parameters => Parameters, Token => Token, Timed => True,
+         Exception_Identity => System.Null_Address);
       --  As for the untimed path, release the protected ceiling without
       --  releasing the RTS lock.  Block_Current_And_Release performs the
       --  only lock release after it has committed the exact wait token.
@@ -387,6 +511,7 @@ package body System.Tasking.Protected_Objects.Operations is
 
       if Outcome = Waits.Object_Wake then
          Accepted := True;
+         Consume_Completed_Call (Object, Token, Slot);
          Flyology.M3_Runtime.Deliver_Pending_Abort;
          return;
       elsif Outcome = Waits.Abort_Wake then
@@ -398,7 +523,7 @@ package body System.Tasking.Protected_Objects.Operations is
       end if;
 
       Entries.Lock_Entries (Object);
-      if Object.Pending (Slot).Present
+      if Object.Pending (Slot).Phase = Entries.Queued
         and then Object.Pending (Slot).Token = Token
       then
          Removal := Queues.Remove_Exact (Object.Queue, Token);
@@ -428,7 +553,7 @@ package body System.Tasking.Protected_Objects.Operations is
          Token := Object.Queue.Storage (Queue_Index);
          Slot := Natural (Token.Task_Reference.Slot) + 1;
          if Slot not in Object.Pending'Range
-           or else not Object.Pending (Slot).Present
+           or else Object.Pending (Slot).Phase /= Entries.Queued
            or else Object.Pending (Slot).Token /= Token
          then
             Stop;

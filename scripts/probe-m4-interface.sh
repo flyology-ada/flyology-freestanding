@@ -130,6 +130,7 @@ for architecture in x86_64 aarch64; do
         system__tasking__protected_objects__entries__unlock_entries \
         system__tasking__protected_objects__operations__communication_blockIP \
         system__tasking__protected_objects__operations__complete_entry_body \
+        system__tasking__protected_objects__operations__exceptional_complete_entry_body \
         system__tasking__protected_objects__operations__protected_entry_call \
         system__tasking__protected_objects__operations__service_entries \
         system__tasking__protected_objects__entries__finalize__2 \
@@ -140,6 +141,12 @@ for architecture in x86_64 aarch64; do
     grep -F 'protected_entry_body_array' \
         "$output/protected_probe.expanded" >/dev/null
     grep -F 'system__tasking__protected_objects__operations__service_entries' \
+        "$output/protected_probe.expanded" >/dev/null
+    grep -F 'when all others =>' \
+        "$output/protected_probe.expanded" >/dev/null
+    grep -F 'system__tasking__protected_objects__operations__exceptional_complete_entry_body' \
+        "$output/protected_probe.expanded" >/dev/null
+    grep -F 'system__soft_links__get_gnat_exception' \
         "$output/protected_probe.expanded" >/dev/null
     grep -F 'procedure protected_probe__gateTVFD' \
         "$output/protected_probe.expanded" >/dev/null

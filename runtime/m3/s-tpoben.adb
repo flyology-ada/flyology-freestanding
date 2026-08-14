@@ -3,6 +3,8 @@
 with Flyology.M3_Runtime;
 
 package body System.Tasking.Protected_Objects.Entries is
+   use type Pending_Phase;
+
    procedure Report_Finalization_Pass
      with Import,
           Convention    => C,
@@ -55,7 +57,7 @@ package body System.Tasking.Protected_Objects.Entries is
             raise Program_Error;
          end if;
          for Call of Object.Pending loop
-            if Call.Present then
+            if Call.Phase /= Free then
                raise Program_Error;
             end if;
          end loop;

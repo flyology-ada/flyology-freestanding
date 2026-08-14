@@ -24,6 +24,7 @@ package body Flyology.M3_Demo is
      with Atomic_Components;
    type Stack_Probe_Array is array (Natural range 0 .. 255) of Character;
    type Counter_Pair is array (Positive range 1 .. 2) of Natural;
+   type Service_Log_Array is array (Positive range 1 .. 4) of Natural;
 
    protected Shared_Counter is
       procedure Increment;
@@ -48,12 +49,14 @@ package body Flyology.M3_Demo is
       procedure Open;
       procedure Close;
       entry Wait (Index : Positive);
+      entry Fail;
       function Service_Order (Index : Positive) return Natural;
       function Waiting return Natural;
+      function Failing return Natural;
    private
       Opened        : Boolean := False;
       Service_Count : Natural := 0;
-      Service_Log   : Counter_Pair := [others => 0];
+      Service_Log   : Service_Log_Array := [others => 0];
    end Protected_Gate;
 
    protected body Protected_Gate is
@@ -73,10 +76,16 @@ package body Flyology.M3_Demo is
          Service_Log (Service_Count) := Index;
       end Wait;
 
+      entry Fail when Opened is
+      begin
+         raise Program_Error;
+      end Fail;
+
       function Service_Order (Index : Positive) return Natural is
         (Service_Log (Index));
 
       function Waiting return Natural is (Wait'Count);
+      function Failing return Natural is (Fail'Count);
    end Protected_Gate;
 
    Auto_Done     : Done_Array := [others => False];
@@ -128,6 +137,9 @@ package body Flyology.M3_Demo is
    Abort_Timed_Protected_Continued : Boolean := False with Atomic;
    Abort_Timed_Protected_Id : Ada.Task_Identification.Task_Id :=
      Ada.Task_Identification.Null_Task_Id with Atomic;
+   Exceptional_Protected_Caught : Boolean := False with Atomic;
+   Exceptional_Rendezvous_Caller_Caught : Boolean := False with Atomic;
+   Exceptional_Rendezvous_Server_Caught : Boolean := False with Atomic;
 
    task type Specific_Worker_Type
      (CPU_Number : System.Multiprocessors.CPU_Range;
@@ -152,6 +164,13 @@ package body Flyology.M3_Demo is
    task type Timed_Rendezvous_Server_Type is
       entry Ping (Value : in out Integer);
    end Timed_Rendezvous_Server_Type;
+
+   task type Exceptional_Rendezvous_Server_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range)
+     with CPU => CPU_Number
+   is
+      entry Ping;
+   end Exceptional_Rendezvous_Server_Type;
 
    task type Dynamic_Worker_Type;
    type Dynamic_Worker_Access is access Dynamic_Worker_Type;
@@ -192,6 +211,10 @@ package body Flyology.M3_Demo is
      with CPU => CPU_Number;
 
    task type Abort_Timed_Protected_Worker_Type
+     (CPU_Number : System.Multiprocessors.CPU_Range)
+     with CPU => CPU_Number;
+
+   task type Exceptional_Protected_Worker_Type
      (CPU_Number : System.Multiprocessors.CPU_Range)
      with CPU => CPU_Number;
 
@@ -307,6 +330,18 @@ package body Flyology.M3_Demo is
       end Ping;
    end Timed_Rendezvous_Server_Type;
 
+   task body Exceptional_Rendezvous_Server_Type is
+   begin
+      begin
+         accept Ping do
+            raise Program_Error;
+         end Ping;
+      exception
+         when Program_Error =>
+            Exceptional_Rendezvous_Server_Caught := True;
+      end;
+   end Exceptional_Rendezvous_Server_Type;
+
    task body Dynamic_Worker_Type is
    begin
       Dynamic_Id := Ada.Task_Identification.Current_Task;
@@ -407,6 +442,16 @@ package body Flyology.M3_Demo is
       Abort_Timed_Protected_Continued := True;
    end Abort_Timed_Protected_Worker_Type;
 
+   task body Exceptional_Protected_Worker_Type is
+   begin
+      begin
+         Protected_Gate.Fail;
+      exception
+         when Program_Error =>
+            Exceptional_Protected_Caught := True;
+      end;
+   end Exceptional_Protected_Worker_Type;
+
    procedure Report_Ordinary_Pass
    with Import, Convention => C,
         External_Name => "flyology_m3_report_ordinary_pass";
@@ -446,6 +491,10 @@ package body Flyology.M3_Demo is
    procedure Report_Rendezvous_Pass
    with Import, Convention => C,
         External_Name => "flyology_m4_report_rendezvous_pass";
+
+   procedure Report_Exceptional_Sync_Pass
+   with Import, Convention => C,
+        External_Name => "flyology_m4_report_exceptional_sync_pass";
 
    procedure Report_Priority_Pass
    with Import, Convention => C,
@@ -740,6 +789,53 @@ package body Flyology.M3_Demo is
       Report_Protected_Entry_Pass;
 
       declare
+         Immediate_Caught : Boolean := False;
+      begin
+         begin
+            Protected_Gate.Fail;
+         exception
+            when Program_Error =>
+               Immediate_Caught := True;
+         end;
+         Protected_Gate.Close;
+         if not Immediate_Caught then
+            Report_Failure;
+         end if;
+      end;
+      declare
+         Worker : Exceptional_Protected_Worker_Type
+           (System.Multiprocessors.CPU_Range (CPU_Count));
+      begin
+         delay 0.001;
+         if Exceptional_Protected_Caught or else Protected_Gate.Failing /= 1
+         then
+            Report_Failure;
+         end if;
+         Protected_Gate.Open;
+      end;
+      Protected_Gate.Close;
+      if not Exceptional_Protected_Caught or else Protected_Gate.Failing /= 0
+      then
+         Report_Failure;
+      end if;
+      declare
+         Worker : Protected_Entry_Worker_Type
+           (System.Multiprocessors.CPU_Range (CPU_Count), 3);
+      begin
+         delay 0.001;
+         if Protected_Entry_Done (3) or else Protected_Gate.Waiting /= 1 then
+            Report_Failure;
+         end if;
+         Protected_Gate.Open;
+      end;
+      Protected_Gate.Close;
+      if not Protected_Entry_Done (3)
+        or else Protected_Gate.Waiting /= 0
+        or else Protected_Gate.Service_Order (3) /= 3
+      then
+         Report_Failure;
+      end if;
+      declare
          Server : Rendezvous_Server_Type
            (System.Multiprocessors.CPU_Range (CPU_Count));
          Value : Integer := 41;
@@ -764,6 +860,24 @@ package body Flyology.M3_Demo is
       end;
       Report_Rendezvous_Pass;
       Report_Priority_Pass;
+
+      declare
+         Server : Exceptional_Rendezvous_Server_Type
+           (System.Multiprocessors.CPU_Range (CPU_Count));
+      begin
+         begin
+            Server.Ping;
+         exception
+            when Program_Error =>
+               Exceptional_Rendezvous_Caller_Caught := True;
+         end;
+      end;
+      if not Exceptional_Rendezvous_Caller_Caught
+        or else not Exceptional_Rendezvous_Server_Caught
+      then
+         Report_Failure;
+      end if;
+      Report_Exceptional_Sync_Pass;
 
       declare
          Server : Delayed_Rendezvous_Server_Type;

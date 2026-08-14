@@ -62,9 +62,8 @@ package body System.Tasking.Rendezvous is
    procedure Exceptional_Complete_Rendezvous
      (Occurrence : System.Address)
    is
-      pragma Unreferenced (Occurrence);
    begin
-      Flyology.M3_Runtime.Unsupported_Exceptional_Rendezvous;
+      Flyology.M3_Runtime.Exceptional_Complete_Rendezvous (Occurrence);
    end Exceptional_Complete_Rendezvous;
 
    procedure Selective_Wait

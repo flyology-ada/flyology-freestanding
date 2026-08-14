@@ -3,6 +3,7 @@
 with Flyology.Dispatcher_Model;
 with Ada.Exceptions;
 with Flyology.Clock_Model;
+with Flyology.Exceptional_Completion_Model;
 with Flyology.Placement_Model;
 with Flyology.Task_Core;
 with Flyology.Wait_Arbitration_Model;
@@ -10,6 +11,7 @@ with Flyology.Wait_Arbitration_Model;
 package body Flyology.M3_Runtime is
    package Dispatcher renames Flyology.Dispatcher_Model;
    package Clock renames Flyology.Clock_Model;
+   package Completions renames Flyology.Exceptional_Completion_Model;
    package Placement renames Flyology.Placement_Model;
    package Core renames Flyology.Task_Core;
    package Waits renames Flyology.Wait_Arbitration_Model;
@@ -29,6 +31,9 @@ package body Flyology.M3_Runtime is
    use type Waits.Resolution;
    use type Waits.Wait_Kind;
    use type Clock.Tick;
+   use type Completions.Complete_Status;
+   use type Completions.Completion_Phase;
+   use type Completions.Consume_Status;
    use type Core.Timer_Cancel_Status;
    use type Core.Wait_Token;
 
@@ -88,9 +93,15 @@ package body Flyology.M3_Runtime is
       Wait      : Core.Wait_Token;
    end record;
    type Group_Array is array (Group_Number) of Group_Record;
+   subtype Call_Phase is Completions.Completion_Phase;
+   Free : constant Call_Phase := Completions.Free;
+   Queued : constant Call_Phase := Completions.Queued;
+   Accepted_Call : constant Call_Phase := Completions.Accepted;
+   Completed_Normal : constant Call_Phase := Completions.Completed_Normal;
+   Completed_Exceptional : constant Call_Phase :=
+     Completions.Completed_Exceptional;
    type Call_Record is record
-      Used       : Boolean := False;
-      Accepted   : Boolean := False;
+      Phase      : Call_Phase := Free;
       Timed      : Boolean := False;
       Sequence   : Call_Sequence := No_Call_Sequence;
       Caller     : Dispatcher.Task_Ref := Core.No_Task;
@@ -98,6 +109,7 @@ package body Flyology.M3_Runtime is
       Entry_Index : System.Tasking.Task_Entry_Index := 1;
       Parameters : System.Address := System.Null_Address;
       Caller_Wait : Core.Wait_Token;
+      Exception_Identity : System.Address := System.Null_Address;
    end record;
    type Call_Array is array (Call_Number) of Call_Record;
    type Boolean_Core_Array is array (Core_Number) of Boolean;
@@ -143,6 +155,19 @@ package body Flyology.M3_Runtime is
    procedure Raise_Abort
    with Import, Convention => C, External_Name => "flyology_raise_abort",
         No_Return;
+
+   function Snapshot_Exception_Identity
+     (Occurrence : System.Address) return System.Address
+   with Import, Convention => C,
+        External_Name => "flyology_exception_identity";
+
+   procedure Raise_Exception_Identity (Identity : System.Address)
+   with Import, Convention => C,
+        External_Name => "flyology_raise_exception_identity", No_Return;
+
+   procedure Reraise_Exception (Occurrence : System.Address)
+   with Import, Convention => C,
+        External_Name => "__gnat_reraise_zcx", No_Return;
 
    function Exception_Task_Capacity return System.Address
    with Import, Convention => C,
@@ -635,7 +660,7 @@ package body Flyology.M3_Runtime is
                elsif Kind in Waits.Object_Wait | Waits.Timed_Object_Wait then
                   Matching_Call := 0;
                   for Call in Call_Number loop
-                     if Calls (Call).Used
+                     if Calls (Call).Phase /= Free
                        and then Calls (Call).Caller = Reference
                        and then Calls (Call).Caller_Wait = Token
                      then
@@ -658,7 +683,8 @@ package body Flyology.M3_Runtime is
                   elsif Matching_Call = 0 then
                      Leave_Kernel;
                      Stop;
-                  elsif Calls (Call_Number (Matching_Call)).Accepted then
+                  elsif Calls (Call_Number (Matching_Call)).Phase = Accepted_Call
+                  then
                      Kicks
                        (Core.Assigned_Core_Locked
                           (Calls (Call_Number (Matching_Call)).Target)) := True;
@@ -1013,7 +1039,7 @@ package body Flyology.M3_Runtime is
    function Allocate_Call_Locked return Call_Number is
    begin
       for Call in Call_Number loop
-         if not Calls (Call).Used then
+         if Calls (Call).Phase = Free then
             return Call;
          end if;
       end loop;
@@ -1030,6 +1056,43 @@ package body Flyology.M3_Runtime is
       Next_Call_Sequence := Result + 1;
       return Result;
    end Allocate_Call_Sequence_Locked;
+
+   procedure Consume_Call_Completion
+     (Call     : Call_Number;
+      Caller   : Dispatcher.Task_Ref)
+   is
+      Identity : System.Address;
+      Consumed : Completions.Consume_Result;
+   begin
+      Enter_Kernel;
+      if Calls (Call).Caller /= Caller
+        or else Core.Current_Locked (Core_Of_Current) /= Caller
+        or else Calls (Call).Phase not in
+          Completed_Normal | Completed_Exceptional
+      then
+         Leave_Kernel;
+         Stop;
+      end if;
+      Identity := Calls (Call).Exception_Identity;
+      if not Completions.Stored_Is_Valid
+        (Calls (Call).Phase, Identity /= System.Null_Address)
+      then
+         Leave_Kernel;
+         Stop;
+      end if;
+      Consumed := Completions.Consume (Calls (Call).Phase);
+      if Consumed.Status /= Completions.Consumed
+        or else Consumed.Phase /= Completions.Free
+      then
+         Leave_Kernel;
+         Stop;
+      end if;
+      Calls (Call) := (others => <>);
+      Leave_Kernel;
+      if Identity /= System.Null_Address then
+         Raise_Exception_Identity (Identity);
+      end if;
+   end Consume_Call_Completion;
 
    procedure Call_Simple
      (Target      : Task_Id;
@@ -1059,12 +1122,13 @@ package body Flyology.M3_Runtime is
       end if;
       Call := Allocate_Call_Locked;
       Calls (Call) :=
-        (Used => True, Accepted => False, Timed => False, Caller => Caller,
+        (Phase => Queued, Timed => False, Caller => Caller,
          Sequence => Allocate_Call_Sequence_Locked,
          Target => Target_Ref, Entry_Index => Entry_Index,
          Parameters => Parameters,
          Caller_Wait =>
-           (Task_Reference => Core.No_Task, Generation => 0));
+           (Task_Reference => Core.No_Task, Generation => 0),
+         Exception_Identity => System.Null_Address);
       Core.Arm_Wait_Locked
         (Caller, Waits.Object_Wait, Calls (Call).Caller_Wait);
 
@@ -1072,7 +1136,7 @@ package body Flyology.M3_Runtime is
         and then Tasks (Target_Slot).Accept_Entry = Entry_Index
         and then Tasks (Target_Slot).Active_Call = 0
       then
-         Calls (Call).Accepted := True;
+         Calls (Call).Phase := Accepted_Call;
          Tasks (Target_Slot).Active_Call := Natural (Call);
          Core.Resolve_Exact_Locked
            (Tasks (Target_Slot).Accept_Wait, Waits.Object_Wake,
@@ -1097,6 +1161,7 @@ package body Flyology.M3_Runtime is
       elsif Outcome /= Waits.Object_Wake then
          Stop;
       end if;
+      Consume_Call_Completion (Call, Caller);
       Deliver_Pending_Abort;
    end Call_Simple;
 
@@ -1141,12 +1206,13 @@ package body Flyology.M3_Runtime is
 
       Call := Allocate_Call_Locked;
       Calls (Call) :=
-        (Used => True, Accepted => True, Timed => False, Caller => Caller,
+        (Phase => Accepted_Call, Timed => False, Caller => Caller,
          Sequence => Allocate_Call_Sequence_Locked,
          Target => Target_Ref, Entry_Index => Entry_Index,
          Parameters => Parameters,
          Caller_Wait =>
-           (Task_Reference => Core.No_Task, Generation => 0));
+           (Task_Reference => Core.No_Task, Generation => 0),
+         Exception_Identity => System.Null_Address);
       Core.Arm_Wait_Locked
         (Caller, Waits.Object_Wait, Calls (Call).Caller_Wait);
       Tasks (Target_Slot).Active_Call := Natural (Call);
@@ -1166,6 +1232,7 @@ package body Flyology.M3_Runtime is
       elsif Outcome /= Waits.Object_Wake then
          Stop;
       end if;
+      Consume_Call_Completion (Call, Caller);
       Deliver_Pending_Abort;
    end Task_Entry_Call;
 
@@ -1182,6 +1249,7 @@ package body Flyology.M3_Runtime is
       Target_Ref  : Dispatcher.Task_Ref;
       Target_Slot : Task_Slot;
       Call        : Call_Number;
+      Caller_Wait : Core.Wait_Token;
       Outcome     : Waits.Resolution;
       Status      : Waits.Resolve_Status;
       Wake_Core   : Core_Number := 0;
@@ -1229,20 +1297,22 @@ package body Flyology.M3_Runtime is
       end if;
       Call := Allocate_Call_Locked;
       Calls (Call) :=
-        (Used => True, Accepted => False, Timed => True, Caller => Caller,
+        (Phase => Queued, Timed => True, Caller => Caller,
          Sequence => Allocate_Call_Sequence_Locked,
          Target => Target_Ref, Entry_Index => Entry_Index,
          Parameters => Parameters,
          Caller_Wait =>
-           (Task_Reference => Core.No_Task, Generation => 0));
+           (Task_Reference => Core.No_Task, Generation => 0),
+         Exception_Identity => System.Null_Address);
       Core.Arm_Wait_Locked
         (Caller, Waits.Timed_Object_Wait, Calls (Call).Caller_Wait);
+      Caller_Wait := Calls (Call).Caller_Wait;
 
       if Tasks (Target_Slot).Accepting
         and then Tasks (Target_Slot).Accept_Entry = Entry_Index
         and then Tasks (Target_Slot).Active_Call = 0
       then
-         Calls (Call).Accepted := True;
+         Calls (Call).Phase := Accepted_Call;
          Tasks (Target_Slot).Active_Call := Natural (Call);
          Core.Resolve_Exact_Locked
            (Tasks (Target_Slot).Accept_Wait, Waits.Object_Wake,
@@ -1255,12 +1325,12 @@ package body Flyology.M3_Runtime is
          Kick_Core (System.Address (Wake_Core));
       else
          Core.Register_Deadline_Locked
-           (Calls (Call).Caller_Wait, Core.Tick (Deadline));
+           (Caller_Wait, Core.Tick (Deadline));
          Kick_Core
            (System.Address (Core.Assigned_Core_Locked (Target_Ref)));
       end if;
       Core.Block_Current_And_Release
-        (Dense, Calls (Call).Caller_Wait, Outcome);
+        (Dense, Caller_Wait, Outcome);
 
       if Outcome = Waits.Abort_Wake then
          Deliver_Pending_Abort;
@@ -1268,7 +1338,12 @@ package body Flyology.M3_Runtime is
 
       Enter_Kernel;
       if Outcome = Waits.Timer_Expiry then
-         if Calls (Call).Accepted then
+         if Calls (Call).Phase /= Queued
+           or else Calls (Call).Caller /= Caller
+           or else Calls (Call).Caller_Wait /= Caller_Wait
+           or else not Calls (Call).Timed
+           or else Core.Current_Locked (Dense) /= Caller
+         then
             Leave_Kernel;
             Stop;
          end if;
@@ -1283,6 +1358,9 @@ package body Flyology.M3_Runtime is
          Stop;
       end if;
       Leave_Kernel;
+      if Outcome = Waits.Object_Wake then
+         Consume_Call_Completion (Call, Caller);
+      end if;
       Deliver_Pending_Abort;
    end Timed_Task_Entry_Call;
 
@@ -1309,7 +1387,7 @@ package body Flyology.M3_Runtime is
          raise Program_Error;
       end if;
       for Call in Call_Number loop
-         if Calls (Call).Used and then not Calls (Call).Accepted
+         if Calls (Call).Phase = Queued
            and then Calls (Call).Target = Server
            and then Calls (Call).Entry_Index = Entry_Index
          then
@@ -1321,8 +1399,6 @@ package body Flyology.M3_Runtime is
                   Selected := Natural (Call);
                   Oldest := Calls (Call).Sequence;
                end if;
-            else
-               Calls (Call) := (others => <>);
             end if;
          end if;
       end loop;
@@ -1369,7 +1445,7 @@ package body Flyology.M3_Runtime is
                end if;
             end;
          end if;
-         Calls (Call_Number (Selected)).Accepted := True;
+         Calls (Call_Number (Selected)).Phase := Accepted_Call;
          Tasks (Server_Slot).Active_Call := Selected;
       end if;
       Tasks (Server_Slot).Accepting := False;
@@ -1384,6 +1460,7 @@ package body Flyology.M3_Runtime is
       Call        : Call_Number;
       Status      : Waits.Resolve_Status;
       Wake_Core   : Core_Number := 0;
+      Completion  : Completions.Complete_Result;
    begin
       Enter_Kernel;
       Server := Core.Current_Locked (Dense);
@@ -1393,7 +1470,7 @@ package body Flyology.M3_Runtime is
          raise Program_Error;
       end if;
       Call := Call_Number (Tasks (Server_Slot).Active_Call);
-      if not Calls (Call).Used or else not Calls (Call).Accepted
+      if Calls (Call).Phase /= Accepted_Call
         or else Calls (Call).Target /= Server
       then
          Leave_Kernel;
@@ -1405,11 +1482,66 @@ package body Flyology.M3_Runtime is
          Leave_Kernel;
          Stop;
       end if;
-      Calls (Call) := (others => <>);
+      Completion := Completions.Complete
+        (Calls (Call).Phase, Completions.Normal);
+      if Completion.Status /= Completions.Completed then
+         Leave_Kernel;
+         Stop;
+      end if;
+      Calls (Call).Phase := Completion.Phase;
+      Calls (Call).Exception_Identity := System.Null_Address;
       Tasks (Server_Slot).Active_Call := 0;
       Leave_Kernel;
       Kick_Core (System.Address (Wake_Core));
    end Complete_Rendezvous;
+
+   procedure Exceptional_Complete_Rendezvous
+     (Occurrence : System.Address)
+   is
+      Dense       : constant Core_Number := Core_Of_Current;
+      Server      : Dispatcher.Task_Ref;
+      Server_Slot : Task_Slot;
+      Call        : Call_Number;
+      Status      : Waits.Resolve_Status;
+      Wake_Core   : Core_Number := 0;
+      Identity    : constant System.Address :=
+        Snapshot_Exception_Identity (Occurrence);
+      Completion  : Completions.Complete_Result;
+   begin
+      Enter_Kernel;
+      Server := Core.Current_Locked (Dense);
+      Server_Slot := Record_Of (To_Identity (Server));
+      if Tasks (Server_Slot).Active_Call = 0 then
+         Leave_Kernel;
+         raise Program_Error;
+      end if;
+      Call := Call_Number (Tasks (Server_Slot).Active_Call);
+      if Calls (Call).Phase /= Accepted_Call
+        or else Calls (Call).Target /= Server
+        or else Identity = System.Null_Address
+      then
+         Leave_Kernel;
+         Stop;
+      end if;
+      Core.Resolve_Exact_Locked
+        (Calls (Call).Caller_Wait, Waits.Object_Wake, Status, Wake_Core);
+      if Status /= Waits.Made_Ready then
+         Leave_Kernel;
+         Stop;
+      end if;
+      Completion := Completions.Complete
+        (Calls (Call).Phase, Completions.Exceptional);
+      if Completion.Status /= Completions.Completed then
+         Leave_Kernel;
+         Stop;
+      end if;
+      Calls (Call).Phase := Completion.Phase;
+      Calls (Call).Exception_Identity := Identity;
+      Tasks (Server_Slot).Active_Call := 0;
+      Leave_Kernel;
+      Kick_Core (System.Address (Wake_Core));
+      Reraise_Exception (Occurrence);
+   end Exceptional_Complete_Rendezvous;
 
    procedure Selective_Wait
      (Alternatives : System.Tasking.Accept_List_Access;
@@ -1431,11 +1563,6 @@ package body Flyology.M3_Runtime is
          Complete_Rendezvous;
       end if;
    end Selective_Wait;
-
-   procedure Unsupported_Exceptional_Rendezvous is
-   begin
-      Stop;
-   end Unsupported_Exceptional_Rendezvous;
 
    procedure Task_Root_Invoke
      (Body_Procedure : System.Tasking.Task_Procedure_Access;

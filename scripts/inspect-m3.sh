@@ -53,12 +53,14 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     system__tasking__protected_objects__operations__protected_entry_call \
     system__tasking__protected_objects__operations__service_entries \
     system__tasking__protected_objects__operations__complete_entry_body \
+    system__tasking__protected_objects__operations__exceptional_complete_entry_body \
     system__tasking__protected_objects__entries__finalize__2 \
     system__finalization_primitives__attach_object_to_node \
     system__finalization_primitives__finalize_object \
     system__tasking__rendezvous__call_simple \
     system__tasking__rendezvous__accept_call \
     system__tasking__rendezvous__complete_rendezvous \
+    system__tasking__rendezvous__exceptional_complete_rendezvous \
     system__tasking__rendezvous__task_entry_call \
     system__tasking__rendezvous__timed_task_entry_call \
     system__tasking__rendezvous__selective_wait \
@@ -76,12 +78,15 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     flyology__task_core__resolve_exact_locked \
     flyology__priority_queue_model__select_next \
     flyology__wait_arbitration_model__resolve \
+    flyology__exceptional_completion_model__complete \
+    flyology__exceptional_completion_model__consume \
     flyology__dispatcher_model__try_transition \
     flyology__dispatcher_model__next_incarnation \
     flyology__placement_model__place __gnat_personality_v0 \
     __gnat_begin_handler_v1 __gnat_end_handler_v1 \
     system__soft_links__save_library_occurrence \
     flyology_current_exception flyology_current_exception_is_abort \
+    flyology_exception_identity flyology_raise_exception_identity \
     flyology_task_root_invoke __eh_frame_start __eh_frame_end \
     __gnat_malloc \
     __gnat_all_others_value _Unwind_Resume \
@@ -105,6 +110,7 @@ for marker in 'FLYOLOGY:ADA:ELABORATION:PASS' \
     'FLYOLOGY:M4:PROTECTED:PASS' \
     'FLYOLOGY:M4:FINALIZATION:PASS' \
     'FLYOLOGY:M4:RENDEZVOUS:PASS' \
+    'FLYOLOGY:M4:EXCEPTIONAL_SYNC:PASS' \
     'FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS' \
     'FLYOLOGY:M4:CONDITIONAL_ENTRY:PASS' \
     'FLYOLOGY:M4:TIMED_ENTRY:PASS' \

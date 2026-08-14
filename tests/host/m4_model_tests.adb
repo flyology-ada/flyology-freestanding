@@ -4,6 +4,7 @@ with Ada.Text_IO;
 with Flyology.Ceiling_Model;
 with Flyology.Clock_Model;
 with Flyology.Dispatcher_Model;
+with Flyology.Exceptional_Completion_Model;
 with Flyology.Priority_Queue_Model;
 with Flyology.Task_Primitives_Contract;
 with Flyology.Timer_Model;
@@ -14,6 +15,7 @@ procedure M4_Model_Tests is
    package Ceiling renames Flyology.Ceiling_Model;
    package Clock renames Flyology.Clock_Model;
    package Dispatcher renames Flyology.Dispatcher_Model;
+   package Completions renames Flyology.Exceptional_Completion_Model;
    package Priority renames Flyology.Priority_Queue_Model;
    package Primitives renames Flyology.Task_Primitives_Contract;
    package Timers renames Flyology.Timer_Model;
@@ -27,6 +29,9 @@ procedure M4_Model_Tests is
    use type Dispatcher.Task_Incarnation;
    use type Dispatcher.Task_Ref;
    use type Dispatcher.Task_State;
+   use type Completions.Complete_Status;
+   use type Completions.Completion_Phase;
+   use type Completions.Consume_Status;
    use type Priority.Change_Status;
    use type Priority.Enqueue_Status;
    use type Timers.Register_Status;
@@ -407,12 +412,61 @@ procedure M4_Model_Tests is
       Count (8_900);
    end Check_Clock;
 
+   procedure Check_Exceptional_Completions is
+   begin
+      for Phase in Completions.Completion_Phase loop
+         for Kind in Completions.Completion_Kind loop
+            declare
+               Result : constant Completions.Complete_Result :=
+                 Completions.Complete (Phase, Kind);
+            begin
+               pragma Assert
+                 ((Phase in Completions.Queued | Completions.Accepted) =
+                    (Result.Status = Completions.Completed));
+               pragma Assert
+                 (if Result.Status = Completions.Completed
+                  then Result.Phase in
+                    Completions.Completed_Normal |
+                    Completions.Completed_Exceptional
+                  else Result.Phase = Phase);
+               Count
+                 (9_000 + Completions.Completion_Phase'Pos (Phase) * 10 +
+                    Completions.Completion_Kind'Pos (Kind));
+            end;
+         end loop;
+         declare
+            Result : constant Completions.Consume_Result :=
+              Completions.Consume (Phase);
+         begin
+            pragma Assert
+              ((Phase in Completions.Completed_Normal |
+                 Completions.Completed_Exceptional) =
+                 (Result.Status = Completions.Consumed));
+            pragma Assert
+              (if Result.Status = Completions.Consumed
+               then Result.Phase = Completions.Free
+               else Result.Phase = Phase);
+            Count (9_100 + Completions.Completion_Phase'Pos (Phase));
+         end;
+         for Has_Identity in Boolean loop
+            pragma Assert
+              (Completions.Stored_Is_Valid (Phase, Has_Identity) =
+                 (Has_Identity =
+                    (Phase = Completions.Completed_Exceptional)));
+            Count
+              (9_200 + Completions.Completion_Phase'Pos (Phase) * 2 +
+                 Boolean'Pos (Has_Identity));
+         end loop;
+      end loop;
+   end Check_Exceptional_Completions;
+
 begin
    Check_Wait_Enumeration;
    Check_Winner_Orders;
    Check_Exact_Queues_And_Timers;
    Check_Priority_And_Ceilings;
    Check_Clock;
+   Check_Exceptional_Completions;
    Ada.Text_IO.Put_Line
      ("FLYOLOGY:M4:MODEL:PASS:EDGES" & Natural'Image (Edges) &
         ":HASH" & Hash_Word'Image (Hash));
