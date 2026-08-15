@@ -15,10 +15,10 @@ This document is normative unless superseded by an accepted ADR.
 
 Dependencies point downward through typed contracts. Architecture code does not choose policy; policy code does not manipulate exception frames; GNARL does not directly program interrupt controllers.
 
-The compiler-facing predefined units delegate Ada tasking semantics to
-`Flyology.RTS`. `Flyology.RTS` is semantic glue, not a second task-state or
-ready-queue authority: it validates GNARL lifecycle operations and commits them
-through `Flyology.Kernel`.
+The compiler-facing predefined units in `src/gnarl/` delegate Ada tasking
+semantics to `Flyology.RTS`. `Flyology.RTS` is semantic glue, not a second
+task-state or ready-queue authority: it validates GNARL lifecycle operations
+and commits them through `Flyology.Kernel`.
 
 The responsibility-based product source and build structure is defined by
 [ADR-0010](docs/adr/0010-productize-the-runtime.md). The state-owning kernel is

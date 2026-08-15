@@ -30,7 +30,9 @@ input lock rather than an unreviewed per-machine workspace setting.
 
 ## Freestanding images
 
-Build a target image through the capability entry point:
+The image combines the deterministic primitives with `src/kernel`, `src/rts`,
+the clean-room compiler facades in `src/gnarl`, platform code, and one target
+conformance scenario. Build it through the capability entry point:
 
 ```sh
 scripts/build-product.sh ARCH PROFILE

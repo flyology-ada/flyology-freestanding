@@ -59,7 +59,7 @@ compile_ada() {
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
         -c "$source" -o "$output_directory/$object" \
         -nostdinc -Iruntime/bootstrap -Iruntime/core -Isrc/kernel -Isrc/rts \
-        -Iruntime/m3 \
+        -Isrc/gnarl \
         -I"$m5_config_dir" -Iruntime/m5 \
         -I"$m6_config_dir" -Iruntime/m6 \
         -I"$m6_test_config_dir" \
@@ -73,25 +73,25 @@ compile_ada() {
 
 compile_ada runtime/bootstrap/system.ads system.o yes
 compile_ada runtime/bootstrap/s-stalib.adb s-stalib.o yes
-compile_ada runtime/m3/ada.ads ada.o yes
-compile_ada runtime/m3/s-stoele.ads s-stoele.o yes
-compile_ada runtime/m3/s-secsta.adb s-secsta.o yes
-compile_ada runtime/m3/a-tags.adb a-tags.o yes
-compile_ada runtime/m3/s-finroo.adb s-finroo.o yes
-compile_ada runtime/m3/a-finali.adb a-finali.o yes
-compile_ada runtime/m3/a-calend.ads a-calend.o yes
-compile_ada runtime/m3/a-caldel.adb a-caldel.o yes
-compile_ada runtime/m3/a-reatim.adb a-reatim.o yes
-compile_ada runtime/m3/a-retide.adb a-retide.o yes
-compile_ada runtime/m3/a-except.adb a-except.o yes
-compile_ada runtime/m3/s-parame.ads s-parame.o yes
-compile_ada runtime/m3/s-tasinf.ads s-tasinf.o yes
-compile_ada runtime/m3/s-taskin.adb s-taskin.o yes
-compile_ada runtime/m3/s-finpri.adb s-finpri.o yes
-compile_ada runtime/m3/s-taprob.adb s-taprob.o yes
-compile_ada runtime/m3/s-tpoben.adb s-tpoben.o yes
-compile_ada runtime/m3/s-tpobop.adb s-tpobop.o yes
-compile_ada runtime/m3/s-tasren.adb s-tasren.o yes
+compile_ada src/gnarl/ada.ads ada.o yes
+compile_ada src/gnarl/s-stoele.ads s-stoele.o yes
+compile_ada src/gnarl/s-secsta.adb s-secsta.o yes
+compile_ada src/gnarl/a-tags.adb a-tags.o yes
+compile_ada src/gnarl/s-finroo.adb s-finroo.o yes
+compile_ada src/gnarl/a-finali.adb a-finali.o yes
+compile_ada src/gnarl/a-calend.ads a-calend.o yes
+compile_ada src/gnarl/a-caldel.adb a-caldel.o yes
+compile_ada src/gnarl/a-reatim.adb a-reatim.o yes
+compile_ada src/gnarl/a-retide.adb a-retide.o yes
+compile_ada src/gnarl/a-except.adb a-except.o yes
+compile_ada src/gnarl/s-parame.ads s-parame.o yes
+compile_ada src/gnarl/s-tasinf.ads s-tasinf.o yes
+compile_ada src/gnarl/s-taskin.adb s-taskin.o yes
+compile_ada src/gnarl/s-finpri.adb s-finpri.o yes
+compile_ada src/gnarl/s-taprob.adb s-taprob.o yes
+compile_ada src/gnarl/s-tpoben.adb s-tpoben.o yes
+compile_ada src/gnarl/s-tpobop.adb s-tpobop.o yes
+compile_ada src/gnarl/s-tasren.adb s-tasren.o yes
 compile_ada runtime/core/flyology.ads flyology.o
 compile_ada "$m5_config_dir/flyology-m5_configuration.ads" \
     flyology-m5_configuration.o
@@ -131,12 +131,12 @@ compile_ada "arch/$architecture/flyology-m2_architecture.adb" \
     flyology-m2_architecture.o
 compile_ada src/kernel/flyology-kernel.adb flyology-kernel.o generated
 compile_ada src/rts/flyology-rts.adb flyology-rts.o generated
-compile_ada runtime/m3/s-multip.adb s-multip.o yes
-compile_ada runtime/m3/s-tassta.adb s-tassta.o yes
-compile_ada runtime/m3/s-soflin.adb s-soflin.o yes
-compile_ada runtime/m3/a-taside.adb a-taside.o yes
-compile_ada runtime/m3/a-taidco.adb a-taidco.o yes
-compile_ada runtime/m3/a-dynpri.adb a-dynpri.o yes
+compile_ada src/gnarl/s-multip.adb s-multip.o yes
+compile_ada src/gnarl/s-tassta.adb s-tassta.o yes
+compile_ada src/gnarl/s-soflin.adb s-soflin.o yes
+compile_ada src/gnarl/a-taside.adb a-taside.o yes
+compile_ada src/gnarl/a-taidco.adb a-taidco.o yes
+compile_ada src/gnarl/a-dynpri.adb a-dynpri.o yes
 compile_ada tests/target/scenarios/flyology-conformance.ads \
     flyology-conformance.o
 compile_ada tests/target/scenarios/flyology-conformance-observations.adb \
@@ -146,8 +146,8 @@ compile_ada tests/target/scenarios/flyology-conformance-tasking.adb \
 compile_ada tests/target/scenarios/flyology-conformance-preemption.adb \
     flyology-conformance-preemption.o
 if test "${FLYOLOGY_M6:-0}" = 1; then
-    compile_ada runtime/m6/a-taidfl.adb a-taidfl.o yes
-    compile_ada runtime/m6/s-mudido.adb s-mudido.o yes
+    compile_ada src/gnarl/a-taidfl.adb a-taidfl.o yes
+    compile_ada src/gnarl/s-mudido.adb s-mudido.o yes
     compile_ada tests/target/scenarios/flyology-conformance-domains.adb \
         flyology-conformance-domains.o
     m6_link_objects="$output_directory/flyology-conformance-domains.o \
@@ -161,9 +161,9 @@ scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" -nostdinc -nostdlib -n -minimal \
     -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
     -I"$repository/src/kernel" -I"$repository/src/rts" \
-    -I"$repository/runtime/m3" -I"$repository/$m5_config_dir" \
+    -I"$repository/src/gnarl" -I"$repository/$m5_config_dir" \
     -I"$repository/runtime/m5" \
-    -I"$repository/$m6_config_dir" -I"$repository/runtime/m6" \
+    -I"$repository/$m6_config_dir" \
     -I"$repository/$m6_test_config_dir" \
     -I"$repository/tests/target/scenarios" \
     -I"$repository/arch/$architecture" \

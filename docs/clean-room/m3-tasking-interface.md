@@ -33,7 +33,8 @@ and unactivated cleanup is an explicit M4 gate and remains fail-closed here.
 ## First product checkpoint
 
 The first clean-room implementation of this observed surface lives under
-`runtime/m3/`. It uses compiler-created task objects only: the staging facade
+`src/gnarl/` (moved mechanically from the historical `runtime/m3/` path during
+productization). It uses compiler-created task objects only: the staging facade
 creates dormant bounded TCBs, activation publishes a whole lexical chain,
 the core dispatcher selects ready work, and the compiler wrapper reports
 activation and normal completion. There is no public task-creation, spawn, or
