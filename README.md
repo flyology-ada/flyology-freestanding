@@ -59,13 +59,14 @@ build, run, and inspection entry points.
 ## Start a kernel application
 
 [`examples/minimal`](examples/minimal/) is an independent Alire crate whose
-only target source prints `OK` and returns. Its `flyology_barebones` dependency
-provides the image builder and QEMU runner:
+ordinary Ada workers are pinned two per core and serialize their output through
+a rendezvous. Its `flyology_barebones` dependency provides the image builder
+and QEMU runner:
 
 ```sh
 cd examples/minimal
 alr build
-alr exec -- flyology-run x86_64
+./run.sh x86_64
 ```
 
 The build emits shallow `build/x86_64/` and `build/aarch64/` directories. Each

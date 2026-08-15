@@ -21,7 +21,7 @@ FLYOLOGY_APPLICATION_UNIT.set = "my_kernel"
 
 [[actions]]
 type = "post-build"
-command = ["flyology-build"]
+command = ["sh", "-c", "exec \"$FLYOLOGY_BUILD_TOOL\""]
 ```
 
 During local development a normal Alire path pin can select a checkout. A
@@ -42,6 +42,12 @@ begin
    Flyology.Console.Put_Line ("OK");
 end My_Kernel;
 ```
+
+The repository's complete minimal example goes one step further: it sets
+`FLYOLOGY_CPUS=4`, starts two ordinary Ada workers on each core with the `CPU`
+aspect, and routes every complete output line through a printer-task rendezvous.
+Its enclosing Ada master waits for every worker and the printer before emitting
+the final `OK`.
 
 `alr build` builds both supported architectures by default. The output is
 deliberately shallow:
@@ -69,16 +75,23 @@ variable storage is mutable.
 Build one architecture or select another runtime profile explicitly:
 
 ```sh
-alr exec -- flyology-build x86_64
-alr exec -- flyology-build --profile preemptive-fifo aarch64
+alr exec -- sh -c 'exec "$FLYOLOGY_BUILD_TOOL" "$@"' flyology-build x86_64
+alr exec -- sh -c 'exec "$FLYOLOGY_BUILD_TOOL" "$@"' flyology-build \
+  --profile preemptive-fifo aarch64
 ```
 
-Run a built image with the pinned QEMU/EDK II contract:
+The example includes a relocatable `run.sh` wrapper. Run a built image with the
+pinned QEMU/EDK II contract:
 
 ```sh
-alr exec -- flyology-run x86_64
-alr exec -- flyology-run --cpus 4 aarch64
+./run.sh x86_64
+./run.sh --cpus 4 aarch64
 ```
+
+The dependency exports `FLYOLOGY_BUILD_TOOL` and `FLYOLOGY_RUN_TOOL` as paths
+relative to its own Alire crate root. It does not prepend its scripts directory
+to `PATH`. Consequently tracked Alire metadata and generated build-hash inputs
+do not capture a developer checkout or the host's absolute `PATH` entries.
 
 Returning from the application procedure performs binder finalization and
 terminates the environment task. With no remaining Ready tasks, each core

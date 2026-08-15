@@ -12,7 +12,8 @@ project-files = ["flyology.gpr"]
 
 [environment]
 FLYOLOGY_BAREBONES_ROOT.set = "${CRATE_ROOT}"
-PATH.prepend = "${CRATE_ROOT}/scripts"
+FLYOLOGY_BUILD_TOOL.set = "${CRATE_ROOT}/scripts/flyology-build"
+FLYOLOGY_RUN_TOOL.set = "${CRATE_ROOT}/scripts/flyology-run"
 
 [configuration]
 generate_ada = false

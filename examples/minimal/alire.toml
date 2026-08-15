@@ -19,7 +19,8 @@ flyology_barebones = { path = "../.." }
 FLYOLOGY_APPLICATION_ROOT.set = "${CRATE_ROOT}"
 FLYOLOGY_APPLICATION_DIR.set = "${CRATE_ROOT}/src"
 FLYOLOGY_APPLICATION_UNIT.set = "minimal_kernel"
+FLYOLOGY_CPUS.set = "4"
 
 [[actions]]
 type = "post-build"
-command = ["flyology-build"]
+command = ["sh", "-c", "exec \"$FLYOLOGY_BUILD_TOOL\""]

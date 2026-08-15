@@ -86,11 +86,13 @@ assertion and do not enlarge the product API.
 
 ## Independent application crates
 
-The root Alire manifest contributes `flyology-build` and `flyology-run` to a
-dependent crate's build environment. The consumer identifies one source
-directory and parameterless Ada procedure; it does not name target sources,
-predefined units, linker scripts, firmware, or QEMU options. `alr build` may use
-the dependency-provided post-build action to produce both architecture bundles.
+The root Alire manifest contributes relocatable `FLYOLOGY_BUILD_TOOL` and
+`FLYOLOGY_RUN_TOOL` values to a dependent crate's build environment. The
+consumer identifies one source directory and parameterless Ada procedure; it
+does not name target sources, predefined units, linker scripts, firmware, or
+QEMU options. `alr build` may use the dependency-provided post-build action to
+produce both architecture bundles. The dependency does not mutate `PATH`, so
+Alire's generated build inputs do not capture developer-machine path entries.
 
 Consumer artifacts use `build/ARCH/` rather than the repository's deeper
 profile matrix. A selected profile is one build configuration and intentionally
