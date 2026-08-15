@@ -16,3 +16,7 @@ The current main retains the historical `Flyology_M3` unit name because the
 boot/binder ABI still names `_ada_flyology_m3`. Renaming that external boundary
 belongs to the platform split and remains protected by the exact-artifact
 differential gate.
+
+`config/domains/on` and `config/domains/off` provide the conformance-image hook
+that either invokes or omits the domain scenario. The hook is test composition,
+not domain-runtime semantics; product domain configuration remains separate.

@@ -1,5 +1,5 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
-package Flyology.M5_Demo is
+package Flyology.Conformance.Preemption is
    procedure Run (Policy : Character);
-end Flyology.M5_Demo;
+end Flyology.Conformance.Preemption;

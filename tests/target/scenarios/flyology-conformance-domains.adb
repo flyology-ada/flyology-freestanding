@@ -5,7 +5,7 @@ with System;
 with System.Multiprocessors;
 with System.Multiprocessors.Dispatching_Domains;
 
-package body Flyology.M6_Demo is
+package body Flyology.Conformance.Domains is
    package Domains renames System.Multiprocessors.Dispatching_Domains;
    package Tasks renames Ada.Task_Identification;
 
@@ -388,4 +388,4 @@ package body Flyology.M6_Demo is
          Check_All_Core_Preemption;
       end if;
    end Run;
-end Flyology.M6_Demo;
+end Flyology.Conformance.Domains;

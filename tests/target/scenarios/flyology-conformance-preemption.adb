@@ -5,7 +5,7 @@ with Ada.Real_Time;
 with System.Multiprocessors;
 with System;
 
-package body Flyology.M5_Demo is
+package body Flyology.Conformance.Preemption is
    use type System.Multiprocessors.CPU_Range;
    use type Ada.Real_Time.Time;
    use type System.Address;
@@ -535,4 +535,4 @@ package body Flyology.M5_Demo is
          Check_All_Core_Preemption;
       end if;
    end Run;
-end Flyology.M5_Demo;
+end Flyology.Conformance.Preemption;

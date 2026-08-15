@@ -10,6 +10,8 @@ test -f "$repository/flyology.gpr"
 test -f "$repository/gpr/flyology_primitives.gpr"
 test -f "$profiles"
 test -f "$repository/tests/target/scenarios/flyology_m3.adb"
+test -f "$repository/tests/target/scenarios/flyology-conformance-tasking.adb"
+test -f "$repository/tests/target/scenarios/flyology-conformance-observations.adb"
 
 grep -F 'name = "flyology_barebones"' "$manifest" >/dev/null
 grep -F 'project-files = ["flyology.gpr"]' "$manifest" >/dev/null
@@ -40,8 +42,14 @@ done
 
 if find "$repository/runtime" -type f \
     \( -name 'flyology-m*_demo.ads' -o -name 'flyology-m*_demo.adb' \
-       -o -name 'flyology_m3.adb' \) -print | grep .; then
+       -o -name 'flyology_m3.adb' -o -name 'flyology-m6_hook.ads' \
+       -o -name 'flyology-m6_hook.adb' \) -print | grep .; then
     echo 'target conformance scenario found under runtime/' >&2
+    exit 1
+fi
+
+if rg -n '\bDemo_[A-Za-z0-9_]+' "$repository/runtime" >/dev/null; then
+    echo 'demo-named test hook found in runtime API' >&2
     exit 1
 fi
 

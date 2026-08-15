@@ -29,6 +29,7 @@ binder_flags=${FLYOLOGY_BINDER_FLAGS:-}
 assembly_defines='-DFLYOLOGY_M2 -DFLYOLOGY_M3 -DFLYOLOGY_EXCEPTION'
 m5_config_dir=${FLYOLOGY_M5_CONFIG_DIR:-runtime/m5/off}
 m6_config_dir=${FLYOLOGY_M6_CONFIG_DIR:-runtime/m6/off}
+m6_test_config_dir=${FLYOLOGY_M6_TEST_CONFIG_DIR:-tests/target/config/domains/off}
 if test "${FLYOLOGY_M5:-0}" = 1; then
     assembly_defines="$assembly_defines -DFLYOLOGY_M5"
 fi
@@ -60,6 +61,7 @@ compile_ada() {
         -nostdinc -Iruntime/bootstrap -Iruntime/core -Iruntime/m3 \
         -I"$m5_config_dir" -Iruntime/m5 \
         -I"$m6_config_dir" -Iruntime/m6 \
+        -I"$m6_test_config_dir" \
         -Itests/target/scenarios \
         -I"arch/$architecture" -I"$output_directory" \
         $style_flags -gnatw.X -gnatw.i -gnato \
@@ -94,7 +96,7 @@ compile_ada "$m5_config_dir/flyology-m5_configuration.ads" \
     flyology-m5_configuration.o
 compile_ada "$m6_config_dir/flyology-m6_configuration.ads" \
     flyology-m6_configuration.o
-compile_ada "$m6_config_dir/flyology-m6_hook.adb" flyology-m6_hook.o
+compile_ada "$m6_test_config_dir/flyology-m6_hook.adb" flyology-m6_hook.o
 compile_ada runtime/core/flyology-validation.adb flyology-validation.o
 compile_ada runtime/core/flyology-boot_validation.adb flyology-boot_validation.o
 compile_ada runtime/core/flyology-dispatcher_model.adb \
@@ -134,13 +136,20 @@ compile_ada runtime/m3/s-soflin.adb s-soflin.o yes
 compile_ada runtime/m3/a-taside.adb a-taside.o yes
 compile_ada runtime/m3/a-taidco.adb a-taidco.o yes
 compile_ada runtime/m3/a-dynpri.adb a-dynpri.o yes
-compile_ada tests/target/scenarios/flyology-m3_demo.adb flyology-m3_demo.o
-compile_ada tests/target/scenarios/flyology-m5_demo.adb flyology-m5_demo.o
+compile_ada tests/target/scenarios/flyology-conformance.ads \
+    flyology-conformance.o
+compile_ada tests/target/scenarios/flyology-conformance-observations.adb \
+    flyology-conformance-observations.o
+compile_ada tests/target/scenarios/flyology-conformance-tasking.adb \
+    flyology-conformance-tasking.o
+compile_ada tests/target/scenarios/flyology-conformance-preemption.adb \
+    flyology-conformance-preemption.o
 if test "${FLYOLOGY_M6:-0}" = 1; then
     compile_ada runtime/m6/a-taidfl.adb a-taidfl.o yes
     compile_ada runtime/m6/s-mudido.adb s-mudido.o yes
-    compile_ada tests/target/scenarios/flyology-m6_demo.adb flyology-m6_demo.o
-    m6_link_objects="$output_directory/flyology-m6_demo.o \
+    compile_ada tests/target/scenarios/flyology-conformance-domains.adb \
+        flyology-conformance-domains.o
+    m6_link_objects="$output_directory/flyology-conformance-domains.o \
 $output_directory/s-mudido.o $output_directory/a-taidfl.o"
 fi
 compile_ada runtime/bootstrap/flyology-binder_support.adb \
@@ -153,6 +162,8 @@ scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     -I"$repository/runtime/m3" -I"$repository/$m5_config_dir" \
     -I"$repository/runtime/m5" \
     -I"$repository/$m6_config_dir" -I"$repository/runtime/m6" \
+    -I"$repository/$m6_test_config_dir" \
+    -I"$repository/tests/target/scenarios" \
     -I"$repository/arch/$architecture" \
     -I. $binder_flags flyology_m3.ali
 
@@ -211,8 +222,10 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/flyology-m6_configuration.o" \
     "$output_directory/flyology-m6_hook.o" \
     $m6_link_objects \
-    "$output_directory/flyology-m3_demo.o" \
-    "$output_directory/flyology-m5_demo.o" \
+    "$output_directory/flyology-conformance.o" \
+    "$output_directory/flyology-conformance-observations.o" \
+    "$output_directory/flyology-conformance-tasking.o" \
+    "$output_directory/flyology-conformance-preemption.o" \
     "$output_directory/a-taside.o" \
     "$output_directory/a-taidco.o" \
     "$output_directory/a-dynpri.o" \

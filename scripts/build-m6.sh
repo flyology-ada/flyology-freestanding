@@ -17,6 +17,7 @@ FLYOLOGY_M6=1 \
 FLYOLOGY_PRODUCT_CONFIG=runtime/m5/fifo.adc \
 FLYOLOGY_M5_CONFIG_DIR=runtime/m5/fifo \
 FLYOLOGY_M6_CONFIG_DIR=runtime/m6/on \
+FLYOLOGY_M6_TEST_CONFIG_DIR=tests/target/config/domains/on \
 FLYOLOGY_BINDER_FLAGS=-T0 \
 FLYOLOGY_M3_OUTPUT_ROOT="${FLYOLOGY_M6_OUTPUT_ROOT:-build/m6}" \
     scripts/build-m3.sh "$architecture"

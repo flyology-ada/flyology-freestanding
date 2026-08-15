@@ -224,6 +224,14 @@ package body Flyology.M3_Runtime is
    with Export, Convention => C,
         External_Name => "flyology_exception_task_slot";
 
+   procedure Test_Parallel_Barrier (Phase : System.Address)
+   with Export, Convention => C,
+        External_Name => "flyology_test_parallel_barrier";
+
+   function Test_Queued_Call_Count return System.Address
+   with Export, Convention => C,
+        External_Name => "flyology_test_queued_call_count";
+
    procedure Stop is
    begin
       Report_Failure;
@@ -1670,14 +1678,14 @@ package body Flyology.M3_Runtime is
    function Validate_Current_Stack (Probe : System.Address) return Boolean is
      (Core.Validate_Current_Stack (Core_Of_Current, Probe));
 
-   procedure Demo_Parallel_Barrier (Phase : Positive) is
+   procedure Test_Parallel_Barrier (Phase : System.Address) is
    begin
       if Core.CPU_Count = 4 then
-         Parallel_Barrier (System.Address (Phase));
+         Parallel_Barrier (Phase);
       end if;
-   end Demo_Parallel_Barrier;
+   end Test_Parallel_Barrier;
 
-   function Demo_Queued_Call_Count return Natural is
+   function Test_Queued_Call_Count return System.Address is
       Result : Natural range 0 .. Max_Calls := 0;
    begin
       Enter_Kernel;
@@ -1687,8 +1695,8 @@ package body Flyology.M3_Runtime is
          end if;
       end loop;
       Leave_Kernel;
-      return Result;
-   end Demo_Queued_Call_Count;
+      return System.Address (Result);
+   end Test_Queued_Call_Count;
 
    procedure Delay_Until_Tick (Deadline : Clock.Tick) is
       Dense      : constant Core_Number := Core_Of_Current;

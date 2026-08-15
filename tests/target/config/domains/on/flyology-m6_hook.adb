@@ -1,10 +1,10 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
-with Flyology.M6_Demo;
+with Flyology.Conformance.Domains;
 
 package body Flyology.M6_Hook is
    procedure Run is
    begin
-      Flyology.M6_Demo.Run;
+      Flyology.Conformance.Domains.Run;
    end Run;
 end Flyology.M6_Hook;

@@ -115,7 +115,7 @@ if printf '%s\n' "$root_relocations" | \
 fi
 
 if test "$profile" = m4; then
-    demo="$output_root/$architecture/flyology-m3_demo.o"
+    demo="$output_root/$architecture/flyology-conformance-tasking.o"
     demo_disassembly=$(scripts/toolchain.sh exec "$architecture" \
         "$target-objdump" -dr "$demo")
     save_context=$(printf '%s\n' "$demo_disassembly" | \

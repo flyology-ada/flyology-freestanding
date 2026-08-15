@@ -4,11 +4,12 @@ with Ada.Dynamic_Priorities;
 with Ada.Real_Time;
 with Ada.Task_Identification;
 with Ada.Unchecked_Deallocation;
+with Flyology.Conformance.Observations;
 with Flyology.M3_Runtime;
 with Flyology.M5_Configuration;
 with System.Multiprocessors;
 
-package body Flyology.M3_Demo is
+package body Flyology.Conformance.Tasking is
    use type Ada.Task_Identification.Task_Id;
 
    type Abort_Query_Count is mod 2 ** 64 with Convention => C;
@@ -442,7 +443,7 @@ package body Flyology.M3_Demo is
       end if;
       Specific_Id (Index) := Self;
       Specific_Core (Index) := Core;
-      Flyology.M3_Runtime.Demo_Parallel_Barrier (1);
+      Flyology.Conformance.Observations.Parallel_Barrier (1);
       Specific_Done (Index) := True;
    end Specific_Worker_Type;
 
@@ -461,7 +462,7 @@ package body Flyology.M3_Demo is
       end if;
       Auto_Id (Index) := Self;
       Auto_Core (Index) := Flyology.M3_Runtime.Current_Core_Number;
-      Flyology.M3_Runtime.Demo_Parallel_Barrier (2);
+      Flyology.Conformance.Observations.Parallel_Barrier (2);
       delay 0.001;
       Shared_Counter.Increment;
       Auto_Done (Index) := True;
@@ -1175,12 +1176,12 @@ package body Flyology.M3_Demo is
                for Attempt in 1 .. 1_000 loop
                   exit when Collision_Call_Started
                     and then Collision_Call_Id = Client_Id
-                    and then Flyology.M3_Runtime.Demo_Queued_Call_Count = 1;
+                    and then Flyology.Conformance.Observations.Queued_Call_Count = 1;
                   delay 0.001;
                end loop;
                if not Collision_Call_Started
                  or else Collision_Call_Id /= Client_Id
-                 or else Flyology.M3_Runtime.Demo_Queued_Call_Count /= 1
+                 or else Flyology.Conformance.Observations.Queued_Call_Count /= 1
                then
                   Report_Failure;
                end if;
@@ -1223,7 +1224,7 @@ package body Flyology.M3_Demo is
          end;
          if Collision_Server_Accept_Count /= 1
            or else not Collision_Server_Completed
-           or else Flyology.M3_Runtime.Demo_Queued_Call_Count /= 0
+           or else Flyology.Conformance.Observations.Queued_Call_Count /= 0
            or else Collision_Call_Id = Ada.Task_Identification.Null_Task_Id
            or else not Ada.Task_Identification.Is_Terminated
              (Collision_Call_Id)
@@ -2198,11 +2199,11 @@ package body Flyology.M3_Demo is
          for Attempt in 1 .. 1_000 loop
             exit when Abort_Call_Started
               and then Abort_Call_Id = Client_Id
-              and then Flyology.M3_Runtime.Demo_Queued_Call_Count = 1;
+              and then Flyology.Conformance.Observations.Queued_Call_Count = 1;
             delay 0.001;
          end loop;
          if not Abort_Call_Started or else Abort_Call_Id /= Client_Id
-           or else Flyology.M3_Runtime.Demo_Queued_Call_Count /= 1
+           or else Flyology.Conformance.Observations.Queued_Call_Count /= 1
          then
             Report_Failure;
          end if;
@@ -2263,11 +2264,11 @@ package body Flyology.M3_Demo is
          for Attempt in 1 .. 1_000 loop
             exit when Abort_Timed_Started
               and then Abort_Timed_Id = Client_Id
-              and then Flyology.M3_Runtime.Demo_Queued_Call_Count = 1;
+              and then Flyology.Conformance.Observations.Queued_Call_Count = 1;
             delay 0.001;
          end loop;
          if not Abort_Timed_Started or else Abort_Timed_Id /= Client_Id
-           or else Flyology.M3_Runtime.Demo_Queued_Call_Count /= 1
+           or else Flyology.Conformance.Observations.Queued_Call_Count /= 1
          then
             Report_Failure;
          end if;
@@ -2330,4 +2331,4 @@ package body Flyology.M3_Demo is
       Report_Stack_Pass;
       Report_Ordinary_Pass;
    end Run;
-end Flyology.M3_Demo;
+end Flyology.Conformance.Tasking;

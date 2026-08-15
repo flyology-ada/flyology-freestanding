@@ -58,8 +58,6 @@ package Flyology.M3_Runtime is
    function Task_Domain (Item : Task_Id) return Natural;
    function Assigned_CPU (Item : Task_Id) return Natural;
    function Validate_Current_Stack (Probe : System.Address) return Boolean;
-   procedure Demo_Parallel_Barrier (Phase : Positive);
-   function Demo_Queued_Call_Count return Natural;
    procedure Delay_For (Interval : Duration);
    procedure Delay_Until (Deadline : Long_Long_Integer);
    procedure Protected_Enter (Ceiling : Integer);
