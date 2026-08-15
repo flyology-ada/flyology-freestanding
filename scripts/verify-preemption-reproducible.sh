@@ -6,19 +6,23 @@ second=build/reproducible/preemption-second
 
 for policy in fifo round_robin; do
     for architecture in x86_64 aarch64; do
-        FLYOLOGY_PREEMPTION_OUTPUT_ROOT=$first \
-            scripts/build-preemption-image.sh "$architecture" "$policy" >/dev/null
-        FLYOLOGY_PREEMPTION_OUTPUT_ROOT=$second \
-            scripts/build-preemption-image.sh "$architecture" "$policy" >/dev/null
+        case "$policy" in
+            fifo) profile=preemptive-fifo ;;
+            round_robin) profile=preemptive-round-robin ;;
+        esac
+        FLYOLOGY_PRODUCT_OUTPUT_ROOT=$first \
+            scripts/build-product.sh "$architecture" "$profile" >/dev/null
+        FLYOLOGY_PRODUCT_OUTPUT_ROOT=$second \
+            scripts/build-product.sh "$architecture" "$profile" >/dev/null
 
         first_elf=$(shasum -a 256 \
-            "$first/$policy/$architecture/flyology.elf")
+            "$first/$profile/$architecture/flyology.elf")
         second_elf=$(shasum -a 256 \
-            "$second/$policy/$architecture/flyology.elf")
+            "$second/$profile/$architecture/flyology.elf")
         first_disk=$(shasum -a 256 \
-            "$first/$policy/$architecture/flyology-$architecture.fat")
+            "$first/$profile/$architecture/flyology-$architecture.fat")
         second_disk=$(shasum -a 256 \
-            "$second/$policy/$architecture/flyology-$architecture.fat")
+            "$second/$profile/$architecture/flyology-$architecture.fat")
 
         test "${first_elf%% *}" = "${second_elf%% *}"
         test "${first_disk%% *}" = "${second_disk%% *}"

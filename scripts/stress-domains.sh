@@ -8,6 +8,7 @@ esac
 test "$iterations" -ge 1
 
 architectures=${1:-'x86_64 aarch64'}
+product_root=${FLYOLOGY_PRODUCT_OUTPUT_ROOT:-build/product}
 case "$architectures" in
     x86_64|aarch64|'x86_64 aarch64') ;;
     *) echo "unsupported architecture: $architectures" >&2; exit 64 ;;
@@ -17,7 +18,7 @@ for architecture in $architectures; do
     iteration=1
     while test "$iteration" -le "$iterations"; do
         FLYOLOGY_IMAGE_TEST_TAG="stress-$iteration" \
-        FLYOLOGY_IMAGE_OUTPUT_ROOT=build/domains \
+        FLYOLOGY_IMAGE_OUTPUT_ROOT="$product_root/domains" \
             scripts/run-image.sh "$architecture" 4 domains
         iteration=$((iteration + 1))
     done

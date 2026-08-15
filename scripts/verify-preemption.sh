@@ -16,14 +16,14 @@ scripts/verify-preemption-reproducible.sh
 
 for policy in fifo round_robin; do
     for architecture in x86_64 aarch64; do
-        scripts/build-preemption-image.sh "$architecture" "$policy" >/dev/null
         case "$policy" in
             fifo) profile=preemptive-fifo ;;
             round_robin) profile=preemptive-round-robin ;;
         esac
-        FLYOLOGY_IMAGE_OUTPUT_ROOT="build/preemption/$policy" \
+        scripts/build-product.sh "$architecture" "$profile" >/dev/null
+        FLYOLOGY_IMAGE_OUTPUT_ROOT="build/product/$profile" \
             scripts/inspect-image.sh "$architecture" "$profile"
-        FLYOLOGY_IMAGE_OUTPUT_ROOT="build/preemption/$policy" \
+        FLYOLOGY_IMAGE_OUTPUT_ROOT="build/product/$profile" \
             scripts/check-unwind.sh "$architecture"
     done
 done
@@ -34,10 +34,8 @@ for policy in fifo round_robin; do
             fifo) profile=preemptive-fifo ;;
             round_robin) profile=preemptive-round-robin ;;
         esac
-        FLYOLOGY_IMAGE_OUTPUT_ROOT="build/preemption/$policy" \
-            scripts/run-image.sh "$architecture" 1 "$profile"
-        FLYOLOGY_IMAGE_OUTPUT_ROOT="build/preemption/$policy" \
-            scripts/run-image.sh "$architecture" 4 "$profile"
+        scripts/run-product.sh "$architecture" 1 "$profile"
+        scripts/run-product.sh "$architecture" 4 "$profile"
     done
 done
 

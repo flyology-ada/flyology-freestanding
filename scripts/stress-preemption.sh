@@ -2,6 +2,7 @@
 set -eu
 
 iterations=${FLYOLOGY_PREEMPTION_STRESS_ITERATIONS:-5}
+product_root=${FLYOLOGY_PRODUCT_OUTPUT_ROOT:-build/product}
 case "$iterations" in
     ''|*[!0-9]*) echo "invalid iteration count: $iterations" >&2; exit 64 ;;
 esac
@@ -45,7 +46,7 @@ for architecture in $architectures; do
                 round_robin) profile=preemptive-round-robin ;;
             esac
             FLYOLOGY_IMAGE_TEST_TAG="stress-$iteration" \
-            FLYOLOGY_IMAGE_OUTPUT_ROOT="build/preemption/$policy" \
+            FLYOLOGY_IMAGE_OUTPUT_ROOT="$product_root/$profile" \
                 scripts/run-image.sh "$architecture" 4 "$profile"
             iteration=$((iteration + 1))
         done
