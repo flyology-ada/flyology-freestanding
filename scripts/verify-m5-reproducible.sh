@@ -12,9 +12,9 @@ for policy in fifo round_robin; do
             scripts/build-m5.sh "$architecture" "$policy" >/dev/null
 
         first_elf=$(shasum -a 256 \
-            "$first/$policy/$architecture/flyology-m3.elf")
+            "$first/$policy/$architecture/flyology.elf")
         second_elf=$(shasum -a 256 \
-            "$second/$policy/$architecture/flyology-m3.elf")
+            "$second/$policy/$architecture/flyology.elf")
         first_disk=$(shasum -a 256 \
             "$first/$policy/$architecture/flyology-$architecture.fat")
         second_disk=$(shasum -a 256 \

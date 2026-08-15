@@ -22,25 +22,25 @@ case "$architecture" in
     *) echo "unsupported architecture: $architecture" >&2; exit 64 ;;
 esac
 
-output_root=${FLYOLOGY_IMAGE_OUTPUT_ROOT:-${FLYOLOGY_M3_OUTPUT_ROOT:-build/image}}
+output_root=${FLYOLOGY_IMAGE_OUTPUT_ROOT:-build/image}
 output_directory="$output_root/$architecture"
 product_config=${FLYOLOGY_PRODUCT_CONFIG:-config/restrictions/product.adc}
 binder_flags=${FLYOLOGY_BINDER_FLAGS:-}
-assembly_defines='-DFLYOLOGY_M2 -DFLYOLOGY_M3 -DFLYOLOGY_EXCEPTION'
-m5_config_dir=${FLYOLOGY_M5_CONFIG_DIR:-config/scheduler/off}
-m6_config_dir=${FLYOLOGY_M6_CONFIG_DIR:-config/domains/off}
-m6_test_config_dir=${FLYOLOGY_M6_TEST_CONFIG_DIR:-tests/target/config/domains/off}
-if test "${FLYOLOGY_M5:-0}" = 1; then
-    assembly_defines="$assembly_defines -DFLYOLOGY_M5"
+assembly_defines='-DFLYOLOGY_INTERRUPTS -DFLYOLOGY_TASKING -DFLYOLOGY_EXCEPTIONS'
+scheduler_config_dir=${FLYOLOGY_SCHEDULER_CONFIG_DIR:-config/scheduler/off}
+domain_config_dir=${FLYOLOGY_DOMAIN_CONFIG_DIR:-config/domains/off}
+conformance_config_dir=${FLYOLOGY_CONFORMANCE_CONFIG_DIR:-tests/target/config/domains/off}
+if test "${FLYOLOGY_PREEMPTION:-0}" = 1; then
+    assembly_defines="$assembly_defines -DFLYOLOGY_PREEMPTION"
 fi
-m6_link_objects=
-if test "${FLYOLOGY_M6:-0}" = 1; then
-    assembly_defines="$assembly_defines -DFLYOLOGY_M6"
+domain_link_objects=
+if test "${FLYOLOGY_DOMAINS:-0}" = 1; then
+    assembly_defines="$assembly_defines -DFLYOLOGY_DOMAINS"
 fi
 mkdir -p "$output_directory"
 rm -f "$output_directory"/*.ali "$output_directory"/*.o \
       "$output_directory"/b~flyology_conformance.ad? \
-      "$output_directory/flyology-m3.elf"
+      "$output_directory/flyology.elf"
 
 export LC_ALL=C
 export SOURCE_DATE_EPOCH=1786502400
@@ -60,9 +60,9 @@ compile_ada() {
         -c "$source" -o "$output_directory/$object" \
         -nostdinc -Isrc/bootstrap -Isrc/primitives -Isrc/kernel -Isrc/rts \
         -Isrc/gnarl \
-        -I"$m5_config_dir" \
-        -I"$m6_config_dir" \
-        -I"$m6_test_config_dir" \
+        -I"$scheduler_config_dir" \
+        -I"$domain_config_dir" \
+        -I"$conformance_config_dir" \
         -Itests/target/scenarios \
         -I"src/platform/$architecture" -I"$output_directory" \
         $style_flags -gnatw.X -gnatw.i -gnato \
@@ -93,11 +93,11 @@ compile_ada src/gnarl/s-tpoben.adb s-tpoben.o yes
 compile_ada src/gnarl/s-tpobop.adb s-tpobop.o yes
 compile_ada src/gnarl/s-tasren.adb s-tasren.o yes
 compile_ada src/primitives/flyology.ads flyology.o
-compile_ada "$m5_config_dir/flyology-scheduler_configuration.ads" \
+compile_ada "$scheduler_config_dir/flyology-scheduler_configuration.ads" \
     flyology-scheduler_configuration.o
-compile_ada "$m6_config_dir/flyology-domain_configuration.ads" \
+compile_ada "$domain_config_dir/flyology-domain_configuration.ads" \
     flyology-domain_configuration.o
-compile_ada "$m6_test_config_dir/flyology-conformance_profile.adb" \
+compile_ada "$conformance_config_dir/flyology-conformance_profile.adb" \
     flyology-conformance_profile.o
 compile_ada src/primitives/flyology-validation.adb flyology-validation.o
 compile_ada src/primitives/flyology-boot_validation.adb flyology-boot_validation.o
@@ -145,12 +145,12 @@ compile_ada tests/target/scenarios/flyology-conformance-tasking.adb \
     flyology-conformance-tasking.o
 compile_ada tests/target/scenarios/flyology-conformance-preemption.adb \
     flyology-conformance-preemption.o
-if test "${FLYOLOGY_M6:-0}" = 1; then
+if test "${FLYOLOGY_DOMAINS:-0}" = 1; then
     compile_ada src/gnarl/a-taidfl.adb a-taidfl.o yes
     compile_ada src/gnarl/s-mudido.adb s-mudido.o yes
     compile_ada tests/target/scenarios/flyology-conformance-domains.adb \
         flyology-conformance-domains.o
-    m6_link_objects="$output_directory/flyology-conformance-domains.o \
+    domain_link_objects="$output_directory/flyology-conformance-domains.o \
 $output_directory/s-mudido.o $output_directory/a-taidfl.o"
 fi
 compile_ada src/bootstrap/flyology-binder_support.adb \
@@ -162,9 +162,9 @@ scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" -nostdinc -nostdlib -n -minimal \
     -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
     -I"$repository/src/kernel" -I"$repository/src/rts" \
-    -I"$repository/src/gnarl" -I"$repository/$m5_config_dir" \
-    -I"$repository/$m6_config_dir" \
-    -I"$repository/$m6_test_config_dir" \
+    -I"$repository/src/gnarl" -I"$repository/$scheduler_config_dir" \
+    -I"$repository/$domain_config_dir" \
+    -I"$repository/$conformance_config_dir" \
     -I"$repository/tests/target/scenarios" \
     -I"$repository/src/platform/$architecture" \
     -I. $binder_flags flyology_conformance.ali
@@ -212,7 +212,7 @@ printf '%s  %s\n' "$libgcc_digest" "$libgcc" | \
 scripts/toolchain.sh exec "$architecture" "$target-ld" \
     --build-id=none --fatal-warnings --gc-sections -z noexecstack \
     -T "src/platform/$architecture/image.ld" \
-    -o "$output_directory/flyology-m3.elf" \
+    -o "$output_directory/flyology.elf" \
     "$output_directory/entry.o" \
     "$output_directory/context.o" \
     "$output_directory/memory.o" \
@@ -224,7 +224,7 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/flyology-scheduler_configuration.o" \
     "$output_directory/flyology-domain_configuration.o" \
     "$output_directory/flyology-conformance_profile.o" \
-    $m6_link_objects \
+    $domain_link_objects \
     "$output_directory/flyology-conformance.o" \
     "$output_directory/flyology-conformance-observations.o" \
     "$output_directory/flyology-conformance-tasking.o" \
@@ -280,8 +280,8 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     --start-group "$libgcc" --end-group
 
 test -z "$(scripts/toolchain.sh exec "$architecture" \
-    "$target-nm" -u "$output_directory/flyology-m3.elf")"
+    "$target-nm" -u "$output_directory/flyology.elf")"
 
 FLYOLOGY_DISK_OUTPUT_DIRECTORY="$output_directory" \
     scripts/build-disk.sh "$architecture" \
-    "$output_directory/flyology-m3.elf"
+    "$output_directory/flyology.elf"

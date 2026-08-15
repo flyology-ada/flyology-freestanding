@@ -155,11 +155,11 @@ package Flyology.Kernel is
 
    procedure Prepare_Environment (Core : System.Address)
    with Export, Convention => C,
-        External_Name => "flyology_m3_prepare_environment";
+        External_Name => "flyology_kernel_prepare_environment";
 
    procedure Prepare_AP (Core : System.Address)
    with Export, Convention => C,
-        External_Name => "flyology_m3_prepare_ap";
+        External_Name => "flyology_kernel_prepare_ap";
 
    procedure Dispatcher_Start (Core : System.Address)
    with Export, Convention => C,
@@ -171,5 +171,5 @@ package Flyology.Kernel is
 
    procedure Environment_Complete
    with Export, Convention => C,
-        External_Name => "flyology_m3_environment_complete";
+        External_Name => "flyology_kernel_environment_complete";
 end Flyology.Kernel;

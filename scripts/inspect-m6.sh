@@ -14,7 +14,7 @@ case "$architecture" in
 esac
 
 output_root=${FLYOLOGY_M6_OUTPUT_ROOT:-build/m6}
-elf="$output_root/$architecture/flyology-m3.elf"
+elf="$output_root/$architecture/flyology.elf"
 binder="$output_root/$architecture/b~flyology_conformance.adb"
 test -f "$elf"
 test -f "$binder"
@@ -57,7 +57,7 @@ for symbol in _start adainit adafinal _ada_flyology_conformance \
     flyology__kernel__activate_locked \
     flyology__domain_model__valid flyology__domain_model__try_create \
     flyology__domain_model__place flyology__domain_model__try_admit \
-    flyology_m5_preemption_canary; do
+    flyology_conformance_preemption_canary; do
     printf '%s\n' "$nm_output" | grep -E "[[:space:]]$symbol$" >/dev/null
 done
 
@@ -72,11 +72,11 @@ strings_output=$(scripts/toolchain.sh exec "$architecture" "$target-strings" "$e
 for marker in DOMAIN_LAYOUT STANDARD_QUERIES DOMAIN_INHERITANCE \
     HETEROGENEOUS_POLICY ALL_CORE_PREEMPTION; do
     printf '%s\n' "$strings_output" | \
-        grep -F "FLYOLOGY:M6:$marker:PASS" >/dev/null
+        grep -F "FLYOLOGY:DOMAINS:$marker:PASS" >/dev/null
 done
 
 grep -F 'Task_Dispatching_Policy := '\''F'\'';' "$binder" >/dev/null
 grep -F 'Time_Slice_Value := 0;' "$binder" >/dev/null
 grep -F '__gnat_freeze_dispatching_domains' "$binder" >/dev/null
 
-echo "FLYOLOGY:M6:INSPECT:PASS:$architecture"
+echo "FLYOLOGY:DOMAINS:INSPECT:PASS:$architecture"

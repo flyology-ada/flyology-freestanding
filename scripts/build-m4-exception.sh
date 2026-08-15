@@ -72,7 +72,7 @@ compile_ada "$output_directory/b~exception_probe.adb" \
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
     -c "src/platform/$architecture/entry.S" \
     -o "$output_directory/exception_entry.o" \
-    -DFLYOLOGY_EXCEPTION -ffreestanding -fno-stack-protector \
+    -DFLYOLOGY_EXCEPTIONS -ffreestanding -fno-stack-protector \
     -fno-pic -fno-pie $architecture_flags
 
 # shellcheck disable=SC2086

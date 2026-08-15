@@ -23,9 +23,9 @@ case "$policy" in
     *) echo "unsupported M5 policy: $policy" >&2; exit 64 ;;
 esac
 
-FLYOLOGY_M5=1 \
+FLYOLOGY_PREEMPTION=1 \
 FLYOLOGY_PRODUCT_CONFIG=$config \
-FLYOLOGY_M5_CONFIG_DIR=$config_dir \
+FLYOLOGY_SCHEDULER_CONFIG_DIR=$config_dir \
 FLYOLOGY_BINDER_FLAGS=$binder_flags \
 FLYOLOGY_IMAGE_OUTPUT_ROOT="$output_base/$policy" \
     scripts/build-image.sh "$architecture"

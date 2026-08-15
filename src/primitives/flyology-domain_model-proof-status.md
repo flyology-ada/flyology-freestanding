@@ -2,7 +2,7 @@
 <!-- Reflect the top-level goal given. Items in the list below are moved from
      Not Started to In Progress to Reviewed and finally to Proved and Finalized. -->
 
-The bounded M6 scheduling-domain transition model is under proof at level 2.
+The bounded domains scheduling-domain transition model is under proof at level 2.
 
 ## Proved and Finalized
 <!-- Before marking an item complete here, follow the Widen Scope step

@@ -8,7 +8,7 @@ package body System.Tasking.Protected_Objects.Entries is
    procedure Report_Finalization_Pass
      with Import,
           Convention    => C,
-          External_Name => "flyology_m4_report_finalization_pass";
+          External_Name => "flyology_conformance_report_finalization_pass";
 
    procedure Initialize_Protection_Entries
      (Object           : Protection_Entries_Access;

@@ -26,10 +26,14 @@ package body System.Tasking.Protected_Objects.Operations is
    use type Waits.Resolution;
 
    procedure Kick_Core (Core : System.Address)
-   with Import, Convention => C, External_Name => "flyology_m3_kick_core";
+   with Import,
+        Convention    => C,
+        External_Name => "flyology_platform_kick_core";
 
    procedure Report_Failure
-   with Import, Convention => C, External_Name => "flyology_m2_report_failure";
+   with Import,
+        Convention    => C,
+        External_Name => "flyology_conformance_report_failure";
 
    procedure Stop with No_Return;
 

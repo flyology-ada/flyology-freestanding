@@ -18,7 +18,7 @@ case "$profile" in
     *) exit 64 ;;
 esac
 
-elf="$output_root/$architecture/flyology-m3.elf"
+elf="$output_root/$architecture/flyology.elf"
 runtime="$output_root/$architecture/exception_runtime.o"
 test -f "$elf"
 test -f "$runtime"

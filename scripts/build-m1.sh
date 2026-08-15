@@ -19,7 +19,7 @@ case "$architecture" in
     *) echo "unsupported architecture: $architecture" >&2; exit 64 ;;
 esac
 
-variant=${FLYOLOGY_M1_VARIANT:-normal}
+variant=${FLYOLOGY_BOOT_VARIANT:-normal}
 case "$variant" in
     normal)
         build_root=build/m1
@@ -27,15 +27,15 @@ case "$variant" in
         ;;
     last-chance)
         build_root=build/m1-last-chance
-        assembly_flags=-DFLYOLOGY_M1_FAULT_LAST_CHANCE
+        assembly_flags=-DFLYOLOGY_FAULT_LAST_CHANCE
         ;;
-    *) echo "unsupported M1 variant: $variant" >&2; exit 64 ;;
+    *) echo "unsupported bootstrap variant: $variant" >&2; exit 64 ;;
 esac
 
 output_directory="$build_root/$architecture"
 mkdir -p "$output_directory"
 rm -f "$output_directory"/*.ali "$output_directory"/*.o \
-      "$output_directory"/b~flyology_m1.ad? \
+      "$output_directory"/b~flyology_boot_checkpoint.ad? \
       "$output_directory/flyology-m1.elf"
 
 export LC_ALL=C
@@ -69,7 +69,7 @@ compile_ada src/primitives/flyology-boot_validation.adb flyology-boot_validation
 compile_ada src/bootstrap/flyology-binder_support.adb flyology-binder_support.o
 compile_ada tests/legacy/checkpoints/m1/flyology-elaboration_probe.adb \
     flyology-elaboration_probe.o
-compile_ada tests/legacy/checkpoints/m1/flyology_m1.adb flyology_m1.o
+compile_ada tests/legacy/checkpoints/m1/flyology_boot_checkpoint.adb flyology_boot_checkpoint.o
 compile_ada tests/legacy/checkpoints/m1/flyology_last_chance_probe.adb \
     flyology_last_chance_probe.o
 
@@ -78,9 +78,9 @@ scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     -nostdinc -nostdlib -n -minimal \
     -I../../../src/bootstrap -I../../../src/primitives \
     -I../../../tests/legacy/checkpoints/m1 \
-    -I. flyology_m1.ali
+    -I. flyology_boot_checkpoint.ali
 
-compile_ada "$output_directory/b~flyology_m1.adb" b~flyology_m1.o generated
+compile_ada "$output_directory/b~flyology_boot_checkpoint.adb" b~flyology_boot_checkpoint.o generated
 
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
     -c "src/platform/$architecture/entry.S" \
@@ -99,8 +99,8 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     -o "$output_directory/flyology-m1.elf" \
     "$output_directory/m1_entry.o" \
     "$output_directory/limine_requests.o" \
-    "$output_directory/b~flyology_m1.o" \
-    "$output_directory/flyology_m1.o" \
+    "$output_directory/b~flyology_boot_checkpoint.o" \
+    "$output_directory/flyology_boot_checkpoint.o" \
     "$output_directory/flyology_last_chance_probe.o" \
     "$output_directory/flyology-elaboration_probe.o" \
     "$output_directory/flyology-binder_support.o" \

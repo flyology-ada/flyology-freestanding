@@ -123,31 +123,31 @@ package body Flyology.Kernel is
 
    procedure Publish_Ready
    with Import, Convention => C,
-        External_Name => "flyology_m3_dispatcher_ready";
+        External_Name => "flyology_platform_dispatcher_ready";
 
    procedure Enable_Dispatch
    with Import, Convention => C,
-        External_Name => "flyology_m2_enable_dispatch";
+        External_Name => "flyology_platform_enable_dispatch";
 
    procedure Disable_Dispatch
    with Import, Convention => C,
-        External_Name => "flyology_m2_disable_dispatch";
+        External_Name => "flyology_platform_disable_dispatch";
 
    procedure Prepare_Idle
    with Import, Convention => C,
-        External_Name => "flyology_m3_prepare_idle";
+        External_Name => "flyology_platform_prepare_idle";
 
    procedure Idle
-   with Import, Convention => C, External_Name => "flyology_m3_idle";
+   with Import, Convention => C, External_Name => "flyology_platform_idle";
 
    procedure Report_Failure
-   with Import, Convention => C, External_Name => "flyology_m2_report_failure";
+   with Import, Convention => C, External_Name => "flyology_conformance_report_failure";
 
    function Interrupt_Dispatch
      (Frame_Address : System.Address;
       Core_Address  : System.Address) return System.Address
    with Export, Convention => C,
-        External_Name => "flyology_m5_interrupt_dispatch";
+        External_Name => "flyology_kernel_interrupt_dispatch";
 
    procedure Stop is
    begin

@@ -29,13 +29,13 @@ esac
 output_root="$output_base/$policy"
 FLYOLOGY_M3_OUTPUT_ROOT="$output_root" scripts/inspect-m3.sh "$architecture"
 
-elf="$output_root/$architecture/flyology-m3.elf"
+elf="$output_root/$architecture/flyology.elf"
 binder="$output_root/$architecture/b~flyology_conformance.adb"
 nm_output=$(scripts/toolchain.sh exec "$architecture" "$target-nm" -n "$elf")
 
-for symbol in flyology_m5_interrupt_dispatch \
-    flyology_m5_preemption_canary \
-    flyology_m5_retry_interrupt flyology_m5_retry_count \
+for symbol in flyology_kernel_interrupt_dispatch \
+    flyology_conformance_preemption_canary \
+    flyology_platform_retry_interrupt flyology_platform_retry_count \
     flyology_rts_lock_try_acquire \
     flyology_context_switch_to_task flyology_context_switch_to_full \
     flyology__platform__capture_full_context \
@@ -53,18 +53,18 @@ grep -F "Task_Dispatching_Policy := '$policy_character';" "$binder" >/dev/null
 strings_output=$(scripts/toolchain.sh exec \
     "$architecture" "$target-strings" "$elf")
 printf '%s\n' "$strings_output" | \
-    grep -F 'FLYOLOGY:M5:FIFO_PREEMPTION:PASS' >/dev/null
+    grep -F 'FLYOLOGY:PREEMPTION:FIFO_PREEMPTION:PASS' >/dev/null
 printf '%s\n' "$strings_output" | \
-    grep -F 'FLYOLOGY:M5:ROUND_ROBIN:PASS' >/dev/null
+    grep -F 'FLYOLOGY:PREEMPTION:ROUND_ROBIN:PASS' >/dev/null
 printf '%s\n' "$strings_output" | \
-    grep -F 'FLYOLOGY:M5:REMOTE_PREEMPTION:PASS' >/dev/null
+    grep -F 'FLYOLOGY:PREEMPTION:REMOTE_PREEMPTION:PASS' >/dev/null
 printf '%s\n' "$strings_output" | \
-    grep -F 'FLYOLOGY:M5:ALL_CORE_PREEMPTION:PASS' >/dev/null
+    grep -F 'FLYOLOGY:PREEMPTION:ALL_CORE_PREEMPTION:PASS' >/dev/null
 printf '%s\n' "$strings_output" | \
-    grep -F 'FLYOLOGY:M5:FIFO_NO_ROTATION:PASS' >/dev/null
+    grep -F 'FLYOLOGY:PREEMPTION:FIFO_NO_ROTATION:PASS' >/dev/null
 printf '%s\n' "$strings_output" | \
-    grep -F 'FLYOLOGY:M5:PRIORITY_REQUEUE:PASS' >/dev/null
+    grep -F 'FLYOLOGY:PREEMPTION:PRIORITY_REQUEUE:PASS' >/dev/null
 printf '%s\n' "$strings_output" | \
-    grep -F 'FLYOLOGY:M5:NONBLOCKING_INGRESS:PASS' >/dev/null
+    grep -F 'FLYOLOGY:PREEMPTION:NONBLOCKING_INGRESS:PASS' >/dev/null
 
-echo "FLYOLOGY:M5:INSPECT:PASS:$architecture:$policy"
+echo "FLYOLOGY:PREEMPTION:INSPECT:PASS:$architecture:$policy"

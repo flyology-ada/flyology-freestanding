@@ -2,11 +2,11 @@
 
 with Flyology.Elaboration_Probe;
 
-procedure Flyology_M1 is
+procedure Flyology_Boot_Checkpoint is
 begin
    if not Flyology.Elaboration_Probe.Ready then
       loop
          null;
       end loop;
    end if;
-end Flyology_M1;
+end Flyology_Boot_Checkpoint;

@@ -40,7 +40,7 @@ if printf '%s\n' "$program_output" | grep -E 'INTERP|DYNAMIC|TLS|RWE' >/dev/null
     exit 1
 fi
 
-for symbol in _start adainit _ada_flyology_m1 \
+for symbol in _start adainit _ada_flyology_boot_checkpoint \
     __gnat_last_chance_handler flyology_memory_entry_is_valid \
     flyology_memory_entries_are_disjoint \
     flyology_topology_identities_are_distinct \
@@ -157,4 +157,4 @@ esac
 expect_u64 384 12520253611641474307
 expect_u64 392 10768793488028224610
 
-echo "FLYOLOGY:M1:INSPECT:PASS:$architecture"
+echo "FLYOLOGY:BOOT:INSPECT:PASS:$architecture"

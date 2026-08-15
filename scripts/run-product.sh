@@ -14,27 +14,12 @@ image_root="$output_root/$profile"
 tag=${FLYOLOGY_PRODUCT_TEST_TAG:-gate}
 
 case "$profile" in
-    tasking)
-        FLYOLOGY_M3_OUTPUT_ROOT="$image_root" \
-        FLYOLOGY_M3_TEST_TAG="product-tasking-$tag" \
-            scripts/run-m3.sh "$architecture" "$cpu_count"
-        ;;
-    preemptive-fifo)
-        FLYOLOGY_M5_IMAGE_ROOT="$image_root" \
-        FLYOLOGY_M5_TEST_TAG="product-fifo-$tag" \
-            scripts/run-m5.sh "$architecture" "$cpu_count" fifo
-        ;;
-    preemptive-round-robin)
-        FLYOLOGY_M5_IMAGE_ROOT="$image_root" \
-        FLYOLOGY_M5_TEST_TAG="product-round-robin-$tag" \
-            scripts/run-m5.sh "$architecture" "$cpu_count" round_robin
-        ;;
-    domains)
-        FLYOLOGY_M6_OUTPUT_ROOT="$image_root" \
-        FLYOLOGY_M6_TEST_TAG="product-domains-$tag" \
-            scripts/run-m6.sh "$architecture" "$cpu_count"
-        ;;
+    tasking|preemptive-fifo|preemptive-round-robin|domains) ;;
     *) echo "unsupported product profile: $profile" >&2; exit 64 ;;
 esac
+
+FLYOLOGY_IMAGE_OUTPUT_ROOT="$image_root" \
+FLYOLOGY_IMAGE_TEST_TAG="$tag" \
+    scripts/run-image.sh "$architecture" "$cpu_count" "$profile"
 
 echo "FLYOLOGY:PRODUCT:RUN:PASS:$architecture:SMP$cpu_count:$profile"

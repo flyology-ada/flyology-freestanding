@@ -8,7 +8,7 @@ package Flyology.M2_Runtime is
    procedure Core_Entry
    with Export,
         Convention    => C,
-        External_Name => "flyology_m2_core_entry";
+        External_Name => "flyology_interrupts_core_entry";
 
    procedure Task_Start (Core_Value : System.Address)
    with Export,

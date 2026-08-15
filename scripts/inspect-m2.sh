@@ -44,15 +44,15 @@ if printf '%s\n' "$program_output" | grep -E 'INTERP|DYNAMIC|TLS|RWE' >/dev/null
     exit 1
 fi
 
-for symbol in _start adainit adafinal _ada_flyology_m2 \
-    flyology_m2_core_entry flyology_task_start flyology_context_switch \
+for symbol in _start adainit adafinal _ada_flyology_interrupt_checkpoint \
+    flyology_interrupts_core_entry flyology_task_start flyology_context_switch \
     flyology_current_core flyology_rts_lock_acquire \
-    flyology_rts_lock_release flyology_m2_report_pass \
-    flyology_m2_wait_for_timer_request \
-    flyology_m2_acknowledge_requests \
-    flyology_m2_parallel_task_barrier \
-    flyology_m2_arm_deferred_timer flyology_m2_consume_deferred \
-    flyology_m2_report_failure __gnat_last_chance_handler \
+    flyology_rts_lock_release flyology_interrupts_report_pass \
+    flyology_interrupts_wait_for_timer_request \
+    flyology_interrupts_acknowledge_requests \
+    flyology_interrupts_parallel_task_barrier \
+    flyology_interrupts_arm_deferred_timer flyology_interrupts_consume_deferred \
+    flyology_conformance_report_failure __gnat_last_chance_handler \
     flyology_memory_entry_is_valid flyology_topology_identities_are_distinct \
     limine_base_revision limine_memmap_request limine_mp_request; do
     printf '%s\n' "$nm_output" | grep -E "[[:space:]]$symbol$" >/dev/null
@@ -73,12 +73,12 @@ if test "$architecture" = x86_64; then
         grep -F ':IDT_TRANSITION:PASS' >/dev/null
 fi
 
-for marker in 'FLYOLOGY:M2:CORE:' ':SUBSTRATE:PASS' \
+for marker in 'FLYOLOGY:INTERRUPTS:CORE:' ':SUBSTRATE:PASS' \
     ':INTERRUPT_FRAME:PASS' ':REQUEST_EPOCH:PASS' ':PARALLEL:PASS' \
     ':DEFERRED_REQUEST:PASS' \
-    ":$reschedule:PASS" ':TIMER:PASS' 'FLYOLOGY:M2:PASS'; do
+    ":$reschedule:PASS" ':TIMER:PASS' 'FLYOLOGY:INTERRUPTS:PASS'; do
     scripts/toolchain.sh exec "$architecture" "$target-strings" "$elf" | \
         grep -F "$marker" >/dev/null
 done
 
-echo "FLYOLOGY:M2:INSPECT:PASS:$architecture"
+echo "FLYOLOGY:INTERRUPTS:INSPECT:PASS:$architecture"

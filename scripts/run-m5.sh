@@ -27,37 +27,16 @@ output_base=${FLYOLOGY_M5_OUTPUT_ROOT:-build/m5}
 case "$gate_tag" in
     *[!A-Za-z0-9_.-]*) echo "invalid M5 test tag: $gate_tag" >&2; exit 64 ;;
 esac
-test_tag="m5-$policy-$gate_tag"
 output_root=${FLYOLOGY_M5_IMAGE_ROOT:-"$output_base/$policy"}
 
-FLYOLOGY_M3_OUTPUT_ROOT="$output_root" \
-FLYOLOGY_M3_TEST_TAG="$test_tag" \
-    scripts/run-m3.sh "$architecture" "$cpu_count"
+case "$policy" in
+    fifo) profile=preemptive-fifo ;;
+    round_robin) profile=preemptive-round-robin ;;
+esac
 
-serial_log="build/m3/tests/$architecture-smp$cpu_count-$test_tag/serial.log"
-count_marker() {
-    marker=$1
-    grep -aFo "$marker" "$serial_log" | wc -l | tr -d ' '
-}
-
-test "$(count_marker 'FLYOLOGY:M5:FIFO_PREEMPTION:PASS')" -eq 1
-if test "$policy" = round_robin; then
-    test "$(count_marker 'FLYOLOGY:M5:ROUND_ROBIN:PASS')" -eq 1
-    test "$(count_marker 'FLYOLOGY:M5:FIFO_NO_ROTATION:PASS')" -eq 0
-else
-    test "$(count_marker 'FLYOLOGY:M5:ROUND_ROBIN:PASS')" -eq 0
-    test "$(count_marker 'FLYOLOGY:M5:FIFO_NO_ROTATION:PASS')" -eq 1
-fi
-if test "$cpu_count" -eq 4; then
-    test "$(count_marker 'FLYOLOGY:M5:REMOTE_PREEMPTION:PASS')" -eq 1
-    test "$(count_marker 'FLYOLOGY:M5:ALL_CORE_PREEMPTION:PASS')" -eq 1
-    test "$(count_marker 'FLYOLOGY:M5:PRIORITY_REQUEUE:PASS')" -eq 1
-    test "$(count_marker 'FLYOLOGY:M5:NONBLOCKING_INGRESS:PASS')" -eq 1
-else
-    test "$(count_marker 'FLYOLOGY:M5:REMOTE_PREEMPTION:PASS')" -eq 0
-    test "$(count_marker 'FLYOLOGY:M5:ALL_CORE_PREEMPTION:PASS')" -eq 0
-    test "$(count_marker 'FLYOLOGY:M5:PRIORITY_REQUEUE:PASS')" -eq 0
-    test "$(count_marker 'FLYOLOGY:M5:NONBLOCKING_INGRESS:PASS')" -eq 0
-fi
+FLYOLOGY_IMAGE_OUTPUT_ROOT="$output_root" \
+FLYOLOGY_IMAGE_TEST_ROOT=build/m3/tests \
+FLYOLOGY_IMAGE_TEST_TAG="m5-$policy-$gate_tag" \
+    scripts/run-image.sh "$architecture" "$cpu_count" "$profile"
 
 echo "FLYOLOGY:M5:BOOT_TEST:PASS:$architecture:SMP$cpu_count:$policy"

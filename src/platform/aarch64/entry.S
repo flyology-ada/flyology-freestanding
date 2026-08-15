@@ -9,7 +9,7 @@
 .set GICR_BASE, 0x080a0000
 .set GICR_END, 0x09000000
 .set RESCHEDULE_SGI, 1
-.set CORE_M5_RETRY_COUNT, 120
+.set CORE_PREEMPTION_RETRY_COUNT, 120
 
 .macro address reg, symbol
     adrp \reg, \symbol
@@ -27,7 +27,7 @@ _start:
     b.ne fatal
 
     /* Limine may enter EL1t. Normalize the runtime and owned core stacks to
-       EL1h; M2 tasks later use SP_EL0 while exceptions retain SP_EL1. */
+       EL1h; interrupt substrate tasks later use SP_EL0 while exceptions retain SP_EL1. */
     msr spsel, #1
     isb
 
@@ -85,7 +85,7 @@ _start:
     cbz x2, fatal
     bl install_uart_mapping
     bl serial_init
-#ifdef FLYOLOGY_M1_FAULT_LAST_CHANCE
+#ifdef FLYOLOGY_FAULT_LAST_CHANCE
     bl flyology_last_chance_probe
 #endif
 
@@ -169,7 +169,7 @@ scan_next:
     b scan_cpus
 scan_done:
     cbz x22, fatal
-#ifdef FLYOLOGY_M2
+#ifdef FLYOLOGY_INTERRUPTS
     address x0, cpu_count
     str w20, [x0]
 #endif
@@ -188,39 +188,39 @@ scan_done:
     cmp x1, x2
     b.ne fatal
 
-#ifdef FLYOLOGY_EXCEPTION
+#ifdef FLYOLOGY_EXCEPTIONS
     bl flyology_exception_initialize
 #endif
     bl adainit
-#ifdef FLYOLOGY_EXCEPTION
-#ifndef FLYOLOGY_M3
+#ifdef FLYOLOGY_EXCEPTIONS
+#ifndef FLYOLOGY_TASKING
     bl _ada_exception_probe
     address x0, exception_pass
     bl serial_puts_locked
 #endif
 #endif
-#ifdef FLYOLOGY_M3
+#ifdef FLYOLOGY_TASKING
     address x0, ada_elaboration_pass
     bl serial_puts_locked
 #endif
-#ifdef FLYOLOGY_M2
-#ifndef FLYOLOGY_M3
-    bl _ada_flyology_m2
+#ifdef FLYOLOGY_INTERRUPTS
+#ifndef FLYOLOGY_TASKING
+    bl _ada_flyology_interrupt_checkpoint
 #endif
 #else
-#if defined(FLYOLOGY_EXCEPTION) && !defined(FLYOLOGY_M3)
+#if defined(FLYOLOGY_EXCEPTIONS) && !defined(FLYOLOGY_TASKING)
     bl adafinal
 #else
-    bl _ada_flyology_m1
+    bl _ada_flyology_boot_checkpoint
     bl adafinal
 #endif
 #endif
-#ifndef FLYOLOGY_M3
+#ifndef FLYOLOGY_TASKING
     address x0, ada_pass
     bl serial_puts_locked
 #endif
 
-#ifdef FLYOLOGY_M2
+#ifdef FLYOLOGY_INTERRUPTS
     bl initialize_gic_distributor
 #endif
 
@@ -253,7 +253,7 @@ wait_online:
     ldar w1, [x0]
     cmp x1, x20
     b.ne wait_online
-#ifdef FLYOLOGY_M2
+#ifdef FLYOLOGY_INTERRUPTS
     bl initialize_gic_core
     mov x0, sp
     msr sp_el0, x0
@@ -267,17 +267,17 @@ wait_online:
     isb
     msr daifclr, #2
     isb
-#ifdef FLYOLOGY_M3
+#ifdef FLYOLOGY_TASKING
     mov x0, xzr
-    bl flyology_m3_prepare_environment
+    bl flyology_kernel_prepare_environment
 #else
-    bl flyology_m2_core_entry
+    bl flyology_interrupts_core_entry
     msr daifset, #2
-    bl m2_idle_reschedule_test
-    bl m2_complete_increment
+    bl interrupt_idle_reschedule_test
+    bl interrupt_complete_increment
 #endif
 wait_m2_complete:
-#ifdef FLYOLOGY_M3
+#ifdef FLYOLOGY_TASKING
     wfe
     address x0, dispatcher_ready_count
     ldar w1, [x0]
@@ -288,24 +288,24 @@ wait_m2_complete:
     bl _ada_flyology_conformance
     address x0, ada_pass
     bl serial_puts_locked
-    address x0, m3_boot_pass
+    address x0, tasking_boot_pass
     bl serial_puts_locked
     bl adafinal
     msr daifset, #2
-    bl flyology_m3_environment_complete
+    bl flyology_kernel_environment_complete
     b fatal
 #else
     wfe
-    address x0, m2_complete_count
+    address x0, interrupt_complete_count
     ldar w1, [x0]
     cmp x1, x20
     b.ne wait_m2_complete
-    address x0, m2_pass
+    address x0, interrupt_pass
     bl serial_puts_locked
     bl adafinal
 #endif
 #else
-    address x0, m1_pass
+    address x0, boot_pass
     bl serial_puts_locked
 #endif
 halt:
@@ -355,7 +355,7 @@ ap_entry:
     mov w1, #1
     stlr w1, [x0]
     bl online_increment
-#ifdef FLYOLOGY_M2
+#ifdef FLYOLOGY_INTERRUPTS
     bl initialize_gic_core
     mov x0, sp
     msr sp_el0, x0
@@ -369,15 +369,15 @@ ap_entry:
     isb
     msr daifclr, #2
     isb
-#ifdef FLYOLOGY_M3
+#ifdef FLYOLOGY_TASKING
     mov x0, x20
-    bl flyology_m3_prepare_ap
+    bl flyology_kernel_prepare_ap
     b fatal
 #else
-    bl flyology_m2_core_entry
+    bl flyology_interrupts_core_entry
     msr daifset, #2
-    bl m2_idle_reschedule_test
-    bl m2_complete_increment
+    bl interrupt_idle_reschedule_test
+    bl interrupt_complete_increment
 #endif
 #endif
 ap_halt:
@@ -446,10 +446,10 @@ online_increment:
     sev
     ret
 
-#ifdef FLYOLOGY_M2
-.type m2_complete_increment, %function
-m2_complete_increment:
-    address x0, m2_complete_count
+#ifdef FLYOLOGY_INTERRUPTS
+.type interrupt_complete_increment, %function
+interrupt_complete_increment:
+    address x0, interrupt_complete_count
 1:
     ldaxr w1, [x0]
     add w1, w1, #1
@@ -571,9 +571,9 @@ send_reschedule_sgi:
     isb
     ret
 
-.type m2_idle_ready_increment, %function
-m2_idle_ready_increment:
-    address x0, m2_idle_ready_count
+.type interrupt_idle_ready_increment, %function
+interrupt_idle_ready_increment:
+    address x0, interrupt_idle_ready_count
 1:
     ldaxr w1, [x0]
     add w1, w1, #1
@@ -583,8 +583,8 @@ m2_idle_ready_increment:
     ret
 
 /* x0 = core record, x1 = reason bit. Publish reason before epoch. */
-.type m2_post_request, %function
-m2_post_request:
+.type interrupt_post_request, %function
+interrupt_post_request:
     add x2, x0, #64
 1:
     ldaxr x3, [x2]
@@ -601,8 +601,8 @@ m2_post_request:
     sev
     ret
 
-.type m2_mark_delivered, %function
-m2_mark_delivered:
+.type interrupt_mark_delivered, %function
+interrupt_mark_delivered:
     add x2, x0, #72
 1:
     ldaxr x3, [x2]
@@ -612,8 +612,8 @@ m2_mark_delivered:
     sev
     ret
 
-.type m2_arm_task_timer, %function
-m2_arm_task_timer:
+.type interrupt_arm_task_timer, %function
+interrupt_arm_task_timer:
     mrs x0, tpidr_el1
     ldr x1, [x0, #72]
     bic x1, x1, #2
@@ -625,9 +625,9 @@ m2_arm_task_timer:
     isb
     ret
 
-.global flyology_m2_wait_for_timer_request
-.type flyology_m2_wait_for_timer_request, %function
-flyology_m2_wait_for_timer_request:
+.global flyology_interrupts_wait_for_timer_request
+.type flyology_interrupts_wait_for_timer_request, %function
+flyology_interrupts_wait_for_timer_request:
     sub sp, sp, #32
     stp x29, x30, [sp]
     mrs x2, fpcr
@@ -637,10 +637,10 @@ flyology_m2_wait_for_timer_request:
     mrs x0, tpidr_el1
     mov x1, #1
     str x1, [x0, #80]
-    address x1, m2_simd_canary
+    address x1, interrupt_simd_canary
     ldr q0, [x1]
     ldr q31, [x1, #16]
-    bl m2_arm_task_timer
+    bl interrupt_arm_task_timer
     movz x9, #0x7788
     movk x9, #0x5566, lsl #16
     movk x9, #0x3344, lsl #32
@@ -676,7 +676,7 @@ flyology_m2_wait_for_timer_request:
     movk x1, #0x5aa5, lsl #48
     cmp x11, x1
     b.ne fatal
-    address x1, m2_simd_canary
+    address x1, interrupt_simd_canary
     ldr q1, [x1]
     cmeq v2.16b, v0.16b, v1.16b
     uminv b2, v2.16b
@@ -700,9 +700,9 @@ flyology_m2_wait_for_timer_request:
     add sp, sp, #32
     ret
 
-.global flyology_m2_acknowledge_requests
-.type flyology_m2_acknowledge_requests, %function
-flyology_m2_acknowledge_requests:
+.global flyology_interrupts_acknowledge_requests
+.type flyology_interrupts_acknowledge_requests, %function
+flyology_interrupts_acknowledge_requests:
     mrs x1, tpidr_el1
     add x2, x1, #48
     ldar x3, [x2]
@@ -712,10 +712,10 @@ flyology_m2_acknowledge_requests:
     ldar x0, [x2]
     ret
 
-.global flyology_m2_parallel_task_barrier
-.type flyology_m2_parallel_task_barrier, %function
-flyology_m2_parallel_task_barrier:
-    address x0, m2_task_barrier_count
+.global flyology_interrupts_parallel_task_barrier
+.type flyology_interrupts_parallel_task_barrier, %function
+flyology_interrupts_parallel_task_barrier:
+    address x0, interrupt_task_barrier_count
 1:
     ldaxr w1, [x0]
     add w1, w1, #1
@@ -733,15 +733,15 @@ flyology_m2_parallel_task_barrier:
     sev
     ret
 
-.global flyology_m2_arm_deferred_timer
-.type flyology_m2_arm_deferred_timer, %function
-flyology_m2_arm_deferred_timer:
+.global flyology_interrupts_arm_deferred_timer
+.type flyology_interrupts_arm_deferred_timer, %function
+flyology_interrupts_arm_deferred_timer:
     stp x29, x30, [sp, #-16]!
     mrs x0, tpidr_el1
     ldr x1, [x0, #72]
     bic x1, x1, #2
     str x1, [x0, #72]
-    bl m2_arm_task_timer
+    bl interrupt_arm_task_timer
     mrs x0, tpidr_el1
     add x0, x0, #72
 1:
@@ -750,9 +750,9 @@ flyology_m2_arm_deferred_timer:
     ldp x29, x30, [sp], #16
     ret
 
-.global flyology_m2_consume_deferred
-.type flyology_m2_consume_deferred, %function
-flyology_m2_consume_deferred:
+.global flyology_interrupts_consume_deferred
+.type flyology_interrupts_consume_deferred, %function
+flyology_interrupts_consume_deferred:
     mrs x0, tpidr_el1
     add x1, x0, #96
 1:
@@ -761,33 +761,33 @@ flyology_m2_consume_deferred:
     cbnz w2, 1b
     ret
 
-.global flyology_m2_disable_dispatch
-.type flyology_m2_disable_dispatch, %function
-flyology_m2_disable_dispatch:
+.global flyology_platform_disable_dispatch
+.type flyology_platform_disable_dispatch, %function
+flyology_platform_disable_dispatch:
     msr daifset, #2
     ret
 
-.global flyology_m2_enable_dispatch
-.type flyology_m2_enable_dispatch, %function
-flyology_m2_enable_dispatch:
+.global flyology_platform_enable_dispatch
+.type flyology_platform_enable_dispatch, %function
+flyology_platform_enable_dispatch:
     msr daifclr, #2
     isb
     ret
 
-.type m2_idle_reschedule_test, %function
-m2_idle_reschedule_test:
+.type interrupt_idle_reschedule_test, %function
+interrupt_idle_reschedule_test:
     stp x29, x30, [sp, #-48]!
     stp x19, x20, [sp, #16]
     str x21, [sp, #32]
     mov x29, sp
     mrs x19, tpidr_el1
     str xzr, [x19, #72]
-    bl m2_idle_ready_increment
+    bl interrupt_idle_ready_increment
     ldr x3, [x19]
     cbnz x3, 3f
 1:
     wfe
-    address x0, m2_idle_ready_count
+    address x0, interrupt_idle_ready_count
     ldar w1, [x0]
     address x0, cpu_count
     ldr w20, [x0]
@@ -801,7 +801,7 @@ m2_idle_reschedule_test:
     add x5, x5, x21, lsl #CORE_RECORD_SHIFT
     mov x0, x5
     mov x1, #1
-    bl m2_post_request
+    bl interrupt_post_request
     ldr x0, [x5, #16]
     bl send_reschedule_sgi
     add x21, x21, #1
@@ -817,10 +817,10 @@ m2_idle_reschedule_test:
     msr daifset, #2
     b 3b
 4:
-    bl flyology_m2_acknowledge_requests
+    bl flyology_interrupts_acknowledge_requests
     tbz x0, #0, fatal
     ldr x0, [x19]
-    bl m2_report_sgi_pass
+    bl interrupt_report_sgi_pass
     ldr x0, [x19, #72]
     bic x0, x0, #2
     str x0, [x19, #72]
@@ -840,47 +840,47 @@ m2_idle_reschedule_test:
     msr daifset, #2
     b 5b
 6:
-    bl flyology_m2_acknowledge_requests
+    bl flyology_interrupts_acknowledge_requests
     tbz x0, #1, fatal
     ldr x0, [x19]
-    bl m2_report_timer_pass
+    bl interrupt_report_timer_pass
     ldp x19, x20, [sp, #16]
     ldr x21, [sp, #32]
     ldp x29, x30, [sp], #48
     ret
 
-.type m2_report_sgi_pass, %function
-m2_report_sgi_pass:
+.type interrupt_report_sgi_pass, %function
+interrupt_report_sgi_pass:
     stp x29, x30, [sp, #-32]!
     str x19, [sp, #16]
     mov x29, sp
     mov x19, x0
     bl serial_lock_acquire
-    address x0, m2_core_prefix
+    address x0, interrupt_core_prefix
     bl serial_puts
     address x1, digits
     ldrb w0, [x1, x19]
     bl serial_putc
-    address x0, m2_sgi_suffix
+    address x0, interrupt_sgi_suffix
     bl serial_puts
     bl serial_lock_release
     ldr x19, [sp, #16]
     ldp x29, x30, [sp], #32
     ret
 
-.type m2_report_timer_pass, %function
-m2_report_timer_pass:
+.type interrupt_report_timer_pass, %function
+interrupt_report_timer_pass:
     stp x29, x30, [sp, #-32]!
     str x19, [sp, #16]
     mov x29, sp
     mov x19, x0
     bl serial_lock_acquire
-    address x0, m2_core_prefix
+    address x0, interrupt_core_prefix
     bl serial_puts
     address x1, digits
     ldrb w0, [x1, x19]
     bl serial_putc
-    address x0, m2_timer_suffix
+    address x0, interrupt_timer_suffix
     bl serial_puts
     bl serial_lock_release
     ldr x19, [sp, #16]
@@ -894,22 +894,22 @@ flyology_current_core:
     ldr x0, [x0]
     ret
 
-#ifdef FLYOLOGY_M3
+#ifdef FLYOLOGY_TASKING
 .weak adafinal
 .type adafinal, %function
 adafinal:
     ret
 
-.global flyology_m3_boot_cpu_count
-.type flyology_m3_boot_cpu_count, %function
-flyology_m3_boot_cpu_count:
+.global flyology_platform_boot_cpu_count
+.type flyology_platform_boot_cpu_count, %function
+flyology_platform_boot_cpu_count:
     address x0, cpu_count
     ldr w0, [x0]
     ret
 
-.global flyology_m3_dispatcher_ready
-.type flyology_m3_dispatcher_ready, %function
-flyology_m3_dispatcher_ready:
+.global flyology_platform_dispatcher_ready
+.type flyology_platform_dispatcher_ready, %function
+flyology_platform_dispatcher_ready:
     address x0, dispatcher_ready_count
 1:
     ldaxr w1, [x0]
@@ -919,9 +919,9 @@ flyology_m3_dispatcher_ready:
     sev
     ret
 
-.global flyology_m3_prepare_idle
-.type flyology_m3_prepare_idle, %function
-flyology_m3_prepare_idle:
+.global flyology_platform_prepare_idle
+.type flyology_platform_prepare_idle, %function
+flyology_platform_prepare_idle:
     mrs x0, tpidr_el1
     add x2, x0, #48
     ldar x1, [x2]
@@ -929,9 +929,9 @@ flyology_m3_prepare_idle:
     stlr x1, [x2]
     ret
 
-.global flyology_m3_idle
-.type flyology_m3_idle, %function
-flyology_m3_idle:
+.global flyology_platform_idle
+.type flyology_platform_idle, %function
+flyology_platform_idle:
     msr daifset, #2
     mrs x0, tpidr_el1
     add x3, x0, #48
@@ -946,9 +946,9 @@ flyology_m3_idle:
     isb
     ret
 
-.global flyology_m3_kick_core
-.type flyology_m3_kick_core, %function
-flyology_m3_kick_core:
+.global flyology_platform_kick_core
+.type flyology_platform_kick_core, %function
+flyology_platform_kick_core:
     stp x29, x30, [sp, #-16]!
     mov x29, sp
     address x1, cpu_count
@@ -958,15 +958,15 @@ flyology_m3_kick_core:
     address x2, core_records
     add x0, x2, x0, lsl #CORE_RECORD_SHIFT
     mov x1, #1
-    bl m2_post_request
+    bl interrupt_post_request
     ldr x0, [x0, #16]
     bl send_reschedule_sgi
     ldp x29, x30, [sp], #16
     ret
 
-.global flyology_m5_validate_environment_stack
-.type flyology_m5_validate_environment_stack, %function
-flyology_m5_validate_environment_stack:
+.global flyology_conformance_validate_environment_stack
+.type flyology_conformance_validate_environment_stack, %function
+flyology_conformance_validate_environment_stack:
     address x2, cpu_count
     ldr w2, [x2]
     cmp x0, x2
@@ -985,237 +985,237 @@ flyology_m5_validate_environment_stack:
     mov x0, xzr
     ret
 
-.global flyology_m3_report_ordinary_pass
-.type flyology_m3_report_ordinary_pass, %function
-flyology_m3_report_ordinary_pass:
-    address x0, m3_ordinary_pass
+.global flyology_conformance_report_ordinary_pass
+.type flyology_conformance_report_ordinary_pass, %function
+flyology_conformance_report_ordinary_pass:
+    address x0, tasking_ordinary_pass
     b serial_puts_locked
 
-.global flyology_m3_report_specific_pass
-.type flyology_m3_report_specific_pass, %function
-flyology_m3_report_specific_pass:
-    address x0, m3_specific_pass
+.global flyology_conformance_report_specific_pass
+.type flyology_conformance_report_specific_pass, %function
+flyology_conformance_report_specific_pass:
+    address x0, tasking_specific_pass
     b serial_puts_locked
 
-.global flyology_m3_report_parallel_pass
-.type flyology_m3_report_parallel_pass, %function
-flyology_m3_report_parallel_pass:
-    address x0, m3_parallel_pass
+.global flyology_conformance_report_parallel_pass
+.type flyology_conformance_report_parallel_pass, %function
+flyology_conformance_report_parallel_pass:
+    address x0, tasking_parallel_pass
     b serial_puts_locked
 
-.global flyology_m3_report_auto_master_pass
-.type flyology_m3_report_auto_master_pass, %function
-flyology_m3_report_auto_master_pass:
-    address x0, m3_auto_master_pass
+.global flyology_conformance_report_auto_master_pass
+.type flyology_conformance_report_auto_master_pass, %function
+flyology_conformance_report_auto_master_pass:
+    address x0, tasking_auto_master_pass
     b serial_puts_locked
 
-.global flyology_m4_report_reclamation_pass
-.type flyology_m4_report_reclamation_pass, %function
-flyology_m4_report_reclamation_pass:
-    address x0, m4_reclamation_pass
+.global flyology_conformance_report_reclamation_pass
+.type flyology_conformance_report_reclamation_pass, %function
+flyology_conformance_report_reclamation_pass:
+    address x0, rts_reclamation_pass
     b serial_puts_locked
 
-.global flyology_m4_report_delay_pass
-.type flyology_m4_report_delay_pass, %function
-flyology_m4_report_delay_pass:
-    address x0, m4_delay_pass
+.global flyology_conformance_report_delay_pass
+.type flyology_conformance_report_delay_pass, %function
+flyology_conformance_report_delay_pass:
+    address x0, rts_delay_pass
     b serial_puts_locked
 
-.global flyology_m4_report_absolute_delay_pass
-.type flyology_m4_report_absolute_delay_pass, %function
-flyology_m4_report_absolute_delay_pass:
-    address x0, m4_absolute_delay_pass
+.global flyology_conformance_report_absolute_delay_pass
+.type flyology_conformance_report_absolute_delay_pass, %function
+flyology_conformance_report_absolute_delay_pass:
+    address x0, rts_absolute_delay_pass
     b serial_puts_locked
 
-.global flyology_m4_report_protected_pass
-.type flyology_m4_report_protected_pass, %function
-flyology_m4_report_protected_pass:
-    address x0, m4_protected_pass
+.global flyology_conformance_report_protected_pass
+.type flyology_conformance_report_protected_pass, %function
+flyology_conformance_report_protected_pass:
+    address x0, rts_protected_pass
     b serial_puts_locked
 
-.global flyology_m4_report_protected_entry_pass
-.type flyology_m4_report_protected_entry_pass, %function
-flyology_m4_report_protected_entry_pass:
-    address x0, m4_protected_entry_pass
+.global flyology_conformance_report_protected_entry_pass
+.type flyology_conformance_report_protected_entry_pass, %function
+flyology_conformance_report_protected_entry_pass:
+    address x0, rts_protected_entry_pass
     b serial_puts_locked
 
-.global flyology_m4_report_finalization_pass
-.type flyology_m4_report_finalization_pass, %function
-flyology_m4_report_finalization_pass:
-    address x0, m4_finalization_pass
+.global flyology_conformance_report_finalization_pass
+.type flyology_conformance_report_finalization_pass, %function
+flyology_conformance_report_finalization_pass:
+    address x0, rts_finalization_pass
     b serial_puts_locked
 
-.global flyology_m4_report_rendezvous_pass
-.type flyology_m4_report_rendezvous_pass, %function
-flyology_m4_report_rendezvous_pass:
-    address x0, m4_rendezvous_pass
+.global flyology_conformance_report_rendezvous_pass
+.type flyology_conformance_report_rendezvous_pass, %function
+flyology_conformance_report_rendezvous_pass:
+    address x0, rts_rendezvous_pass
     b serial_puts_locked
 
-.global flyology_m4_report_exceptional_sync_pass
-.type flyology_m4_report_exceptional_sync_pass, %function
-flyology_m4_report_exceptional_sync_pass:
-    address x0, m4_exceptional_sync_pass
+.global flyology_conformance_report_exceptional_sync_pass
+.type flyology_conformance_report_exceptional_sync_pass, %function
+flyology_conformance_report_exceptional_sync_pass:
+    address x0, rts_exceptional_sync_pass
     b serial_puts_locked
 
-.global flyology_m4_report_exceptional_protected_immediate_pass
-.type flyology_m4_report_exceptional_protected_immediate_pass, %function
-flyology_m4_report_exceptional_protected_immediate_pass:
-    address x0, m4_exceptional_protected_immediate_pass
+.global flyology_conformance_report_exceptional_protected_immediate_pass
+.type flyology_conformance_report_exceptional_protected_immediate_pass, %function
+flyology_conformance_report_exceptional_protected_immediate_pass:
+    address x0, rts_exceptional_protected_immediate_pass
     b serial_puts_locked
 
-.global flyology_m4_report_exceptional_protected_queued_pass
-.type flyology_m4_report_exceptional_protected_queued_pass, %function
-flyology_m4_report_exceptional_protected_queued_pass:
-    address x0, m4_exceptional_protected_queued_pass
+.global flyology_conformance_report_exceptional_protected_queued_pass
+.type flyology_conformance_report_exceptional_protected_queued_pass, %function
+flyology_conformance_report_exceptional_protected_queued_pass:
+    address x0, rts_exceptional_protected_queued_pass
     b serial_puts_locked
 
-.global flyology_m4_report_exception_abort_protected_pass
-.type flyology_m4_report_exception_abort_protected_pass, %function
-flyology_m4_report_exception_abort_protected_pass:
-    address x0, m4_exception_abort_protected_pass
+.global flyology_conformance_report_exception_abort_protected_pass
+.type flyology_conformance_report_exception_abort_protected_pass, %function
+flyology_conformance_report_exception_abort_protected_pass:
+    address x0, rts_exception_abort_protected_pass
     b serial_puts_locked
 
-.global flyology_m4_report_exceptional_rendezvous_pass
-.type flyology_m4_report_exceptional_rendezvous_pass, %function
-flyology_m4_report_exceptional_rendezvous_pass:
-    address x0, m4_exceptional_rendezvous_pass
+.global flyology_conformance_report_exceptional_rendezvous_pass
+.type flyology_conformance_report_exceptional_rendezvous_pass, %function
+flyology_conformance_report_exceptional_rendezvous_pass:
+    address x0, rts_exceptional_rendezvous_pass
     b serial_puts_locked
 
-.global flyology_m4_report_exception_abort_pass
-.type flyology_m4_report_exception_abort_pass, %function
-flyology_m4_report_exception_abort_pass:
-    address x0, m4_exception_abort_pass
+.global flyology_conformance_report_exception_abort_pass
+.type flyology_conformance_report_exception_abort_pass, %function
+flyology_conformance_report_exception_abort_pass:
+    address x0, rts_exception_abort_pass
     b serial_puts_locked
 
-.global flyology_m4_report_unactivated_cleanup_pass
-.type flyology_m4_report_unactivated_cleanup_pass, %function
-flyology_m4_report_unactivated_cleanup_pass:
-    address x0, m4_unactivated_cleanup_pass
+.global flyology_conformance_report_unactivated_cleanup_pass
+.type flyology_conformance_report_unactivated_cleanup_pass, %function
+flyology_conformance_report_unactivated_cleanup_pass:
+    address x0, rts_unactivated_cleanup_pass
     b serial_puts_locked
 
-.global flyology_m4_report_allocator_pass
-.type flyology_m4_report_allocator_pass, %function
-flyology_m4_report_allocator_pass:
-    address x0, m4_allocator_pass
+.global flyology_conformance_report_allocator_pass
+.type flyology_conformance_report_allocator_pass, %function
+flyology_conformance_report_allocator_pass:
+    address x0, rts_allocator_pass
     b serial_puts_locked
 
-.global flyology_m4_report_priority_pass
-.type flyology_m4_report_priority_pass, %function
-flyology_m4_report_priority_pass:
-    address x0, m4_priority_pass
+.global flyology_conformance_report_priority_pass
+.type flyology_conformance_report_priority_pass, %function
+flyology_conformance_report_priority_pass:
+    address x0, rts_priority_pass
     b serial_puts_locked
 
-.global flyology_m4_report_ceiling_pass
-.type flyology_m4_report_ceiling_pass, %function
-flyology_m4_report_ceiling_pass:
-    address x0, m4_ceiling_pass
+.global flyology_conformance_report_ceiling_pass
+.type flyology_conformance_report_ceiling_pass, %function
+flyology_conformance_report_ceiling_pass:
+    address x0, rts_ceiling_pass
     b serial_puts_locked
 
-.global flyology_m4_report_conditional_pass
-.type flyology_m4_report_conditional_pass, %function
-flyology_m4_report_conditional_pass:
-    address x0, m4_conditional_pass
+.global flyology_conformance_report_conditional_pass
+.type flyology_conformance_report_conditional_pass, %function
+flyology_conformance_report_conditional_pass:
+    address x0, rts_conditional_pass
     b serial_puts_locked
 
-.global flyology_m4_report_timed_entry_pass
-.type flyology_m4_report_timed_entry_pass, %function
-flyology_m4_report_timed_entry_pass:
-    address x0, m4_timed_entry_pass
+.global flyology_conformance_report_timed_entry_pass
+.type flyology_conformance_report_timed_entry_pass, %function
+flyology_conformance_report_timed_entry_pass:
+    address x0, rts_timed_entry_pass
     b serial_puts_locked
 
-.global flyology_m4_report_dynamic_task_pass
-.type flyology_m4_report_dynamic_task_pass, %function
-flyology_m4_report_dynamic_task_pass:
-    address x0, m4_dynamic_task_pass
+.global flyology_conformance_report_dynamic_task_pass
+.type flyology_conformance_report_dynamic_task_pass, %function
+flyology_conformance_report_dynamic_task_pass:
+    address x0, rts_dynamic_task_pass
     b serial_puts_locked
 
-.global flyology_m4_report_free_task_pass
-.type flyology_m4_report_free_task_pass, %function
-flyology_m4_report_free_task_pass:
-    address x0, m4_free_task_pass
+.global flyology_conformance_report_free_task_pass
+.type flyology_conformance_report_free_task_pass, %function
+flyology_conformance_report_free_task_pass:
+    address x0, rts_free_task_pass
     b serial_puts_locked
 
-.global flyology_m4_report_free_wait_pass
-.type flyology_m4_report_free_wait_pass, %function
-flyology_m4_report_free_wait_pass:
-    address x0, m4_free_wait_pass
+.global flyology_conformance_report_free_wait_pass
+.type flyology_conformance_report_free_wait_pass, %function
+flyology_conformance_report_free_wait_pass:
+    address x0, rts_free_wait_pass
     b serial_puts_locked
 
-.global flyology_m4_report_free_abort_race_pass
-.type flyology_m4_report_free_abort_race_pass, %function
-flyology_m4_report_free_abort_race_pass:
-    address x0, m4_free_abort_race_pass
+.global flyology_conformance_report_free_abort_race_pass
+.type flyology_conformance_report_free_abort_race_pass, %function
+flyology_conformance_report_free_abort_race_pass:
+    address x0, rts_free_abort_race_pass
     b serial_puts_locked
 
-.global flyology_m4_report_selective_wait_pass
-.type flyology_m4_report_selective_wait_pass, %function
-flyology_m4_report_selective_wait_pass:
-    address x0, m4_selective_wait_pass
+.global flyology_conformance_report_selective_wait_pass
+.type flyology_conformance_report_selective_wait_pass, %function
+flyology_conformance_report_selective_wait_pass:
+    address x0, rts_selective_wait_pass
     b serial_puts_locked
 
-.global flyology_m4_report_terminate_alternative_pass
-.type flyology_m4_report_terminate_alternative_pass, %function
-flyology_m4_report_terminate_alternative_pass:
-    address x0, m4_terminate_alternative_pass
+.global flyology_conformance_report_terminate_alternative_pass
+.type flyology_conformance_report_terminate_alternative_pass, %function
+flyology_conformance_report_terminate_alternative_pass:
+    address x0, rts_terminate_alternative_pass
     b serial_puts_locked
 
-.global flyology_m4_report_abort_pass
-.type flyology_m4_report_abort_pass, %function
-flyology_m4_report_abort_pass:
-    address x0, m4_abort_pass
+.global flyology_conformance_report_abort_pass
+.type flyology_conformance_report_abort_pass, %function
+flyology_conformance_report_abort_pass:
+    address x0, rts_abort_pass
     b serial_puts_locked
 
-.global flyology_m4_report_multi_abort_pass
-.type flyology_m4_report_multi_abort_pass, %function
-flyology_m4_report_multi_abort_pass:
-    address x0, m4_multi_abort_pass
+.global flyology_conformance_report_multi_abort_pass
+.type flyology_conformance_report_multi_abort_pass, %function
+flyology_conformance_report_multi_abort_pass:
+    address x0, rts_multi_abort_pass
     b serial_puts_locked
 
-.global flyology_m4_report_dependent_abort_pass
-.type flyology_m4_report_dependent_abort_pass, %function
-flyology_m4_report_dependent_abort_pass:
-    address x0, m4_dependent_abort_pass
+.global flyology_conformance_report_dependent_abort_pass
+.type flyology_conformance_report_dependent_abort_pass, %function
+flyology_conformance_report_dependent_abort_pass:
+    address x0, rts_dependent_abort_pass
     b serial_puts_locked
 
-.global flyology_m4_report_abort_rendezvous_pass
-.type flyology_m4_report_abort_rendezvous_pass, %function
-flyology_m4_report_abort_rendezvous_pass:
-    address x0, m4_abort_rendezvous_pass
+.global flyology_conformance_report_abort_rendezvous_pass
+.type flyology_conformance_report_abort_rendezvous_pass, %function
+flyology_conformance_report_abort_rendezvous_pass:
+    address x0, rts_abort_rendezvous_pass
     b serial_puts_locked
 
-.global flyology_m4_report_abort_timeout_pass
-.type flyology_m4_report_abort_timeout_pass, %function
-flyology_m4_report_abort_timeout_pass:
-    address x0, m4_abort_timeout_pass
+.global flyology_conformance_report_abort_timeout_pass
+.type flyology_conformance_report_abort_timeout_pass, %function
+flyology_conformance_report_abort_timeout_pass:
+    address x0, rts_abort_timeout_pass
     b serial_puts_locked
 
-.global flyology_m4_report_abort_accepted_pass
-.type flyology_m4_report_abort_accepted_pass, %function
-flyology_m4_report_abort_accepted_pass:
-    address x0, m4_abort_accepted_pass
+.global flyology_conformance_report_abort_accepted_pass
+.type flyology_conformance_report_abort_accepted_pass, %function
+flyology_conformance_report_abort_accepted_pass:
+    address x0, rts_abort_accepted_pass
     b serial_puts_locked
 
-.global flyology_m4_report_abort_protected_pass
-.type flyology_m4_report_abort_protected_pass, %function
-flyology_m4_report_abort_protected_pass:
-    address x0, m4_abort_protected_pass
+.global flyology_conformance_report_abort_protected_pass
+.type flyology_conformance_report_abort_protected_pass, %function
+flyology_conformance_report_abort_protected_pass:
+    address x0, rts_abort_protected_pass
     b serial_puts_locked
 
-.global flyology_m4_report_collision_stress_pass
-.type flyology_m4_report_collision_stress_pass, %function
-flyology_m4_report_collision_stress_pass:
-    address x0, m4_collision_stress_pass
+.global flyology_conformance_report_collision_stress_pass
+.type flyology_conformance_report_collision_stress_pass, %function
+flyology_conformance_report_collision_stress_pass:
+    address x0, rts_collision_stress_pass
     b serial_puts_locked
 
-.global flyology_m5_report_fifo_preemption_pass
-.type flyology_m5_report_fifo_preemption_pass, %function
-flyology_m5_report_fifo_preemption_pass:
-    address x0, m5_fifo_preemption_pass
+.global flyology_conformance_report_fifo_preemption_pass
+.type flyology_conformance_report_fifo_preemption_pass, %function
+flyology_conformance_report_fifo_preemption_pass:
+    address x0, preemption_fifo_preemption_pass
     b serial_puts_locked
 
-.global flyology_m5_preemption_canary
-.type flyology_m5_preemption_canary, %function
-flyology_m5_preemption_canary:
+.global flyology_conformance_preemption_canary
+.type flyology_conformance_preemption_canary, %function
+flyology_conformance_preemption_canary:
     sub sp, sp, #304
     str x0, [sp, #0]
     mov x1, sp
@@ -1236,7 +1236,7 @@ flyology_m5_preemption_canary:
     stp x28, x29, [sp, #272]
     str x30, [sp, #288]
 
-    address x16, m2_simd_canary
+    address x16, interrupt_simd_canary
     ldr q0, [x16]
     ldr q1, [x16]
     ldr q2, [x16]
@@ -1316,98 +1316,98 @@ flyology_m5_preemption_canary:
     mrs x1, nzcv
     lsr x1, x1, #28
     cmp x1, #10
-    b.ne m5_canary_status_fatal
+    b.ne preemption_canary_status_fatal
     ldr x1, [sp, #0]
     cmp x0, x1
-    b.ne m5_canary_gpr_fatal
-.macro m5_check_gpr register, value
+    b.ne preemption_canary_gpr_fatal
+.macro preemption_check_gpr register, value
     cmp \register, #\value
-    b.ne m5_canary_gpr_fatal
+    b.ne preemption_canary_gpr_fatal
 .endm
-    m5_check_gpr x2, 2
-    m5_check_gpr x3, 3
-    m5_check_gpr x4, 4
-    m5_check_gpr x5, 5
-    m5_check_gpr x6, 6
-    m5_check_gpr x7, 7
-    m5_check_gpr x8, 8
-    m5_check_gpr x9, 9
-    m5_check_gpr x10, 10
-    m5_check_gpr x11, 11
-    m5_check_gpr x12, 12
-    m5_check_gpr x13, 13
-    m5_check_gpr x14, 14
-    m5_check_gpr x15, 15
-    m5_check_gpr x16, 16
-    m5_check_gpr x17, 17
-    m5_check_gpr x18, 18
-    m5_check_gpr x19, 19
-    m5_check_gpr x20, 20
-    m5_check_gpr x21, 21
-    m5_check_gpr x22, 22
-    m5_check_gpr x23, 23
-    m5_check_gpr x24, 24
-    m5_check_gpr x25, 25
-    m5_check_gpr x26, 26
-    m5_check_gpr x27, 27
-    m5_check_gpr x28, 28
-    m5_check_gpr x29, 29
-    m5_check_gpr x30, 30
-.purgem m5_check_gpr
+    preemption_check_gpr x2, 2
+    preemption_check_gpr x3, 3
+    preemption_check_gpr x4, 4
+    preemption_check_gpr x5, 5
+    preemption_check_gpr x6, 6
+    preemption_check_gpr x7, 7
+    preemption_check_gpr x8, 8
+    preemption_check_gpr x9, 9
+    preemption_check_gpr x10, 10
+    preemption_check_gpr x11, 11
+    preemption_check_gpr x12, 12
+    preemption_check_gpr x13, 13
+    preemption_check_gpr x14, 14
+    preemption_check_gpr x15, 15
+    preemption_check_gpr x16, 16
+    preemption_check_gpr x17, 17
+    preemption_check_gpr x18, 18
+    preemption_check_gpr x19, 19
+    preemption_check_gpr x20, 20
+    preemption_check_gpr x21, 21
+    preemption_check_gpr x22, 22
+    preemption_check_gpr x23, 23
+    preemption_check_gpr x24, 24
+    preemption_check_gpr x25, 25
+    preemption_check_gpr x26, 26
+    preemption_check_gpr x27, 27
+    preemption_check_gpr x28, 28
+    preemption_check_gpr x29, 29
+    preemption_check_gpr x30, 30
+.purgem preemption_check_gpr
     mov x1, sp
     ldr x2, [sp, #8]
     cmp x1, x2
-    b.ne m5_canary_gpr_fatal
+    b.ne preemption_canary_gpr_fatal
     mrs x1, fpcr
     cmp x1, #(1 << 22)
-    b.ne m5_canary_fp_fatal
+    b.ne preemption_canary_fp_fatal
     mrs x1, fpsr
-    cbnz x1, m5_canary_fp_fatal
+    cbnz x1, preemption_canary_fp_fatal
 
-.macro m5_check_q register, expected_offset
+.macro preemption_check_q register, expected_offset
     str q\register, [sp, #160]
     ldp x2, x3, [sp, #160]
-    address x4, m2_simd_canary
+    address x4, interrupt_simd_canary
     ldr x5, [x4, #\expected_offset]
     ldr x6, [x4, #(\expected_offset + 8)]
     cmp x2, x5
-    b.ne m5_canary_simd_fatal
+    b.ne preemption_canary_simd_fatal
     cmp x3, x6
-    b.ne m5_canary_simd_fatal
+    b.ne preemption_canary_simd_fatal
 .endm
-    m5_check_q 0, 0
-    m5_check_q 1, 0
-    m5_check_q 2, 0
-    m5_check_q 3, 0
-    m5_check_q 4, 0
-    m5_check_q 5, 0
-    m5_check_q 6, 0
-    m5_check_q 7, 0
-    m5_check_q 8, 0
-    m5_check_q 9, 0
-    m5_check_q 10, 0
-    m5_check_q 11, 0
-    m5_check_q 12, 0
-    m5_check_q 13, 0
-    m5_check_q 14, 0
-    m5_check_q 15, 0
-    m5_check_q 16, 0
-    m5_check_q 17, 0
-    m5_check_q 18, 0
-    m5_check_q 19, 0
-    m5_check_q 20, 0
-    m5_check_q 21, 0
-    m5_check_q 22, 0
-    m5_check_q 23, 0
-    m5_check_q 24, 0
-    m5_check_q 25, 0
-    m5_check_q 26, 0
-    m5_check_q 27, 0
-    m5_check_q 28, 0
-    m5_check_q 29, 0
-    m5_check_q 30, 0
-    m5_check_q 31, 16
-.purgem m5_check_q
+    preemption_check_q 0, 0
+    preemption_check_q 1, 0
+    preemption_check_q 2, 0
+    preemption_check_q 3, 0
+    preemption_check_q 4, 0
+    preemption_check_q 5, 0
+    preemption_check_q 6, 0
+    preemption_check_q 7, 0
+    preemption_check_q 8, 0
+    preemption_check_q 9, 0
+    preemption_check_q 10, 0
+    preemption_check_q 11, 0
+    preemption_check_q 12, 0
+    preemption_check_q 13, 0
+    preemption_check_q 14, 0
+    preemption_check_q 15, 0
+    preemption_check_q 16, 0
+    preemption_check_q 17, 0
+    preemption_check_q 18, 0
+    preemption_check_q 19, 0
+    preemption_check_q 20, 0
+    preemption_check_q 21, 0
+    preemption_check_q 22, 0
+    preemption_check_q 23, 0
+    preemption_check_q 24, 0
+    preemption_check_q 25, 0
+    preemption_check_q 26, 0
+    preemption_check_q 27, 0
+    preemption_check_q 28, 0
+    preemption_check_q 29, 0
+    preemption_check_q 30, 0
+    preemption_check_q 31, 16
+.purgem preemption_check_q
 
     mrs x1, tpidr_el1
     str xzr, [x1, #80]
@@ -1429,123 +1429,123 @@ flyology_m5_preemption_canary:
     add sp, sp, #304
     ret
 
-m5_canary_status_fatal:
-    address x0, m5_canary_status_failure
+preemption_canary_status_fatal:
+    address x0, preemption_canary_status_failure
     bl serial_puts_locked
     b fatal
-m5_canary_gpr_fatal:
-    address x0, m5_canary_gpr_failure
+preemption_canary_gpr_fatal:
+    address x0, preemption_canary_gpr_failure
     bl serial_puts_locked
     b fatal
-m5_canary_simd_fatal:
-    address x0, m5_canary_simd_failure
+preemption_canary_simd_fatal:
+    address x0, preemption_canary_simd_failure
     bl serial_puts_locked
     b fatal
-m5_canary_fp_fatal:
-    address x0, m5_canary_fp_failure
+preemption_canary_fp_fatal:
+    address x0, preemption_canary_fp_failure
     bl serial_puts_locked
     b fatal
 
-.global flyology_m5_report_round_robin_pass
-.type flyology_m5_report_round_robin_pass, %function
-flyology_m5_report_round_robin_pass:
-    address x0, m5_round_robin_pass
+.global flyology_conformance_report_round_robin_pass
+.type flyology_conformance_report_round_robin_pass, %function
+flyology_conformance_report_round_robin_pass:
+    address x0, preemption_round_robin_pass
     b serial_puts_locked
 
-.global flyology_m5_report_remote_preemption_pass
-.type flyology_m5_report_remote_preemption_pass, %function
-flyology_m5_report_remote_preemption_pass:
-    address x0, m5_remote_preemption_pass
+.global flyology_conformance_report_remote_preemption_pass
+.type flyology_conformance_report_remote_preemption_pass, %function
+flyology_conformance_report_remote_preemption_pass:
+    address x0, preemption_remote_preemption_pass
     b serial_puts_locked
 
-.global flyology_m5_report_all_core_preemption_pass
-.type flyology_m5_report_all_core_preemption_pass, %function
-flyology_m5_report_all_core_preemption_pass:
-    address x0, m5_all_core_preemption_pass
+.global flyology_conformance_report_all_core_preemption_pass
+.type flyology_conformance_report_all_core_preemption_pass, %function
+flyology_conformance_report_all_core_preemption_pass:
+    address x0, preemption_all_core_preemption_pass
     b serial_puts_locked
 
-.global flyology_m5_report_fifo_no_rotation_pass
-.type flyology_m5_report_fifo_no_rotation_pass, %function
-flyology_m5_report_fifo_no_rotation_pass:
-    address x0, m5_fifo_no_rotation_pass
+.global flyology_conformance_report_fifo_no_rotation_pass
+.type flyology_conformance_report_fifo_no_rotation_pass, %function
+flyology_conformance_report_fifo_no_rotation_pass:
+    address x0, preemption_fifo_no_rotation_pass
     b serial_puts_locked
 
-.global flyology_m5_report_priority_requeue_pass
-.type flyology_m5_report_priority_requeue_pass, %function
-flyology_m5_report_priority_requeue_pass:
-    address x0, m5_priority_requeue_pass
+.global flyology_conformance_report_priority_requeue_pass
+.type flyology_conformance_report_priority_requeue_pass, %function
+flyology_conformance_report_priority_requeue_pass:
+    address x0, preemption_priority_requeue_pass
     b serial_puts_locked
 
-.global flyology_m5_report_nonblocking_ingress_pass
-.type flyology_m5_report_nonblocking_ingress_pass, %function
-flyology_m5_report_nonblocking_ingress_pass:
-    address x0, m5_nonblocking_ingress_pass
+.global flyology_conformance_report_nonblocking_ingress_pass
+.type flyology_conformance_report_nonblocking_ingress_pass, %function
+flyology_conformance_report_nonblocking_ingress_pass:
+    address x0, preemption_nonblocking_ingress_pass
     b serial_puts_locked
 
-#ifdef FLYOLOGY_M6
-.global flyology_m6_report_layout_pass
-.type flyology_m6_report_layout_pass, %function
-flyology_m6_report_layout_pass:
-    address x0, m6_layout_pass
+#ifdef FLYOLOGY_DOMAINS
+.global flyology_conformance_report_layout_pass
+.type flyology_conformance_report_layout_pass, %function
+flyology_conformance_report_layout_pass:
+    address x0, domain_layout_pass
     b serial_puts_locked
 
-.global flyology_m6_report_query_pass
-.type flyology_m6_report_query_pass, %function
-flyology_m6_report_query_pass:
-    address x0, m6_query_pass
+.global flyology_conformance_report_query_pass
+.type flyology_conformance_report_query_pass, %function
+flyology_conformance_report_query_pass:
+    address x0, domain_query_pass
     b serial_puts_locked
 
-.global flyology_m6_report_inheritance_pass
-.type flyology_m6_report_inheritance_pass, %function
-flyology_m6_report_inheritance_pass:
-    address x0, m6_inheritance_pass
+.global flyology_conformance_report_inheritance_pass
+.type flyology_conformance_report_inheritance_pass, %function
+flyology_conformance_report_inheritance_pass:
+    address x0, domain_inheritance_pass
     b serial_puts_locked
 
-.global flyology_m6_report_heterogeneous_pass
-.type flyology_m6_report_heterogeneous_pass, %function
-flyology_m6_report_heterogeneous_pass:
-    address x0, m6_heterogeneous_pass
+.global flyology_conformance_report_heterogeneous_pass
+.type flyology_conformance_report_heterogeneous_pass, %function
+flyology_conformance_report_heterogeneous_pass:
+    address x0, domain_heterogeneous_pass
     b serial_puts_locked
 
-.global flyology_m6_report_all_core_pass
-.type flyology_m6_report_all_core_pass, %function
-flyology_m6_report_all_core_pass:
-    address x0, m6_all_core_pass
+.global flyology_conformance_report_all_core_pass
+.type flyology_conformance_report_all_core_pass, %function
+flyology_conformance_report_all_core_pass:
+    address x0, domain_all_core_pass
     b serial_puts_locked
 
-.global flyology_m6_report_all_core_start_failure
-.type flyology_m6_report_all_core_start_failure, %function
-flyology_m6_report_all_core_start_failure:
-    address x0, m6_all_core_start_failure
+.global flyology_conformance_report_all_core_start_failure
+.type flyology_conformance_report_all_core_start_failure, %function
+flyology_conformance_report_all_core_start_failure:
+    address x0, domain_all_core_start_failure
     b serial_puts_locked
 
-.global flyology_m6_report_all_core_done_failure
-.type flyology_m6_report_all_core_done_failure, %function
-flyology_m6_report_all_core_done_failure:
-    address x0, m6_all_core_done_failure
+.global flyology_conformance_report_all_core_done_failure
+.type flyology_conformance_report_all_core_done_failure, %function
+flyology_conformance_report_all_core_done_failure:
+    address x0, domain_all_core_done_failure
     b serial_puts_locked
 #endif
 
-.global flyology_m3_report_master_pass
-.type flyology_m3_report_master_pass, %function
-flyology_m3_report_master_pass:
-    address x0, m3_master_pass
+.global flyology_conformance_report_master_pass
+.type flyology_conformance_report_master_pass, %function
+flyology_conformance_report_master_pass:
+    address x0, tasking_master_pass
     b serial_puts_locked
 
-.global flyology_m3_report_stack_pass
-.type flyology_m3_report_stack_pass, %function
-flyology_m3_report_stack_pass:
-    address x0, m3_stack_pass
+.global flyology_conformance_report_stack_pass
+.type flyology_conformance_report_stack_pass, %function
+flyology_conformance_report_stack_pass:
+    address x0, tasking_stack_pass
     b serial_puts_locked
 
-.global flyology_m3_parallel_barrier
-.type flyology_m3_parallel_barrier, %function
-flyology_m3_parallel_barrier:
+.global flyology_conformance_parallel_barrier
+.type flyology_conformance_parallel_barrier, %function
+flyology_conformance_parallel_barrier:
     cbz x0, fatal
     address x1, cpu_count
     ldr w1, [x1]
     mul w3, w0, w1
-    address x0, m3_parallel_barrier_count
+    address x0, tasking_parallel_barrier_count
 1:
     ldaxr w1, [x0]
     add w1, w1, #1
@@ -1561,41 +1561,41 @@ flyology_m3_parallel_barrier:
     sev
     ret
 
-.global flyology_m4_read_clock
-.type flyology_m4_read_clock, %function
-flyology_m4_read_clock:
+.global flyology_platform_read_clock
+.type flyology_platform_read_clock, %function
+flyology_platform_read_clock:
     isb
     mrs x0, cntvct_el0
     ret
 
-.global flyology_m4_clock_frequency
-.type flyology_m4_clock_frequency, %function
-flyology_m4_clock_frequency:
+.global flyology_platform_clock_frequency
+.type flyology_platform_clock_frequency, %function
+flyology_platform_clock_frequency:
     mrs x0, cntfrq_el0
     ret
 
-.global flyology_m4_program_timer
-.type flyology_m4_program_timer, %function
-flyology_m4_program_timer:
+.global flyology_platform_program_timer
+.type flyology_platform_program_timer, %function
+flyology_platform_program_timer:
     msr cntv_cval_el0, x0
     mov x0, #1
     msr cntv_ctl_el0, x0
     isb
     ret
 
-.global flyology_m4_cancel_timer
-.type flyology_m4_cancel_timer, %function
-flyology_m4_cancel_timer:
+.global flyology_platform_cancel_timer
+.type flyology_platform_cancel_timer, %function
+flyology_platform_cancel_timer:
     msr cntv_ctl_el0, xzr
     isb
     ret
 
-.global flyology_m5_retry_interrupt
-.type flyology_m5_retry_interrupt, %function
-flyology_m5_retry_interrupt:
+.global flyology_platform_retry_interrupt
+.type flyology_platform_retry_interrupt, %function
+flyology_platform_retry_interrupt:
     /* Re-enable a bounded local prompt after nonblocking ISR lock failure. */
     mrs x2, tpidr_el1
-    add x2, x2, #CORE_M5_RETRY_COUNT
+    add x2, x2, #CORE_PREEMPTION_RETRY_COUNT
     ldr x3, [x2]
     adds x3, x3, #1
     b.cs fatal
@@ -1614,14 +1614,14 @@ flyology_m5_retry_interrupt:
     isb
     ret
 
-.global flyology_m5_retry_count
-.type flyology_m5_retry_count, %function
-flyology_m5_retry_count:
+.global flyology_platform_retry_count
+.type flyology_platform_retry_count, %function
+flyology_platform_retry_count:
     address x1, core_records
     mov x0, xzr
     mov x2, #MAX_CORES
 1:
-    add x4, x1, #CORE_M5_RETRY_COUNT
+    add x4, x1, #CORE_PREEMPTION_RETRY_COUNT
     ldar x3, [x4]
     adds x0, x0, x3
     b.cs fatal
@@ -1630,7 +1630,7 @@ flyology_m5_retry_count:
     b.ne 1b
     ret
 
-#ifndef FLYOLOGY_EXCEPTION
+#ifndef FLYOLOGY_EXCEPTIONS
 .global __gnat_personality_v0
 .type __gnat_personality_v0, %function
 __gnat_personality_v0:
@@ -1643,57 +1643,57 @@ _Unwind_Resume:
 #endif
 #endif
 
-.global flyology_m2_report_pass
-.type flyology_m2_report_pass, %function
-flyology_m2_report_pass:
+.global flyology_interrupts_report_pass
+.type flyology_interrupts_report_pass, %function
+flyology_interrupts_report_pass:
     stp x29, x30, [sp, #-32]!
     str x19, [sp, #16]
     mov x29, sp
     mov x19, x0
     bl serial_lock_acquire
-    address x0, m2_core_prefix
+    address x0, interrupt_core_prefix
     bl serial_puts
     address x1, digits
     ldrb w0, [x1, x19]
     bl serial_putc
-    address x0, m2_core_suffix
+    address x0, interrupt_core_suffix
     bl serial_puts
-    address x0, m2_core_prefix
-    bl serial_puts
-    address x1, digits
-    ldrb w0, [x1, x19]
-    bl serial_putc
-    address x0, m2_frame_suffix
-    bl serial_puts
-    address x0, m2_core_prefix
+    address x0, interrupt_core_prefix
     bl serial_puts
     address x1, digits
     ldrb w0, [x1, x19]
     bl serial_putc
-    address x0, m2_epoch_suffix
+    address x0, interrupt_frame_suffix
     bl serial_puts
-    address x0, m2_core_prefix
-    bl serial_puts
-    address x1, digits
-    ldrb w0, [x1, x19]
-    bl serial_putc
-    address x0, m2_parallel_suffix
-    bl serial_puts
-    address x0, m2_core_prefix
+    address x0, interrupt_core_prefix
     bl serial_puts
     address x1, digits
     ldrb w0, [x1, x19]
     bl serial_putc
-    address x0, m2_deferred_suffix
+    address x0, interrupt_epoch_suffix
+    bl serial_puts
+    address x0, interrupt_core_prefix
+    bl serial_puts
+    address x1, digits
+    ldrb w0, [x1, x19]
+    bl serial_putc
+    address x0, interrupt_parallel_suffix
+    bl serial_puts
+    address x0, interrupt_core_prefix
+    bl serial_puts
+    address x1, digits
+    ldrb w0, [x1, x19]
+    bl serial_putc
+    address x0, interrupt_deferred_suffix
     bl serial_puts
     bl serial_lock_release
     ldr x19, [sp, #16]
     ldp x29, x30, [sp], #32
     ret
 
-.global flyology_m2_report_failure
-.type flyology_m2_report_failure, %function
-flyology_m2_report_failure:
+.global flyology_conformance_report_failure
+.type flyology_conformance_report_failure, %function
+flyology_conformance_report_failure:
     b fatal
 
 .global flyology_rts_lock_acquire
@@ -1765,7 +1765,7 @@ flyology_rts_lock_release:
     b.eq 1f
     mov x2, #1
     str x2, [x1, #96]
-#ifdef FLYOLOGY_M5
+#ifdef FLYOLOGY_PREEMPTION
     ldr x2, [x1, #112]
     cbnz x2, 1f
     stp x29, x30, [sp, #-16]!
@@ -1781,7 +1781,7 @@ flyology_rts_lock_release:
 /*
  * Limine does not identity-map QEMU virt MMIO. Build a private TTBR0 tree
  * containing one device block for the fixed PL011 window. TTBR1 and all
- * higher-half mappings remain owned by Limine during M1.
+ * higher-half mappings remain owned by Limine during bootstrap.
  *
  * x1 = executable physical base, x2 = executable virtual base
  */
@@ -1841,7 +1841,7 @@ install_uart_mapping:
     mov x10, #(UART_BASE >> 21)
     str x9, [x7, x10, lsl #3]
 
-#ifdef FLYOLOGY_M2
+#ifdef FLYOLOGY_INTERRUPTS
     mov x9, #GICD_BASE
     mov x10, #0x61d
     orr x9, x9, x10
@@ -1935,7 +1935,7 @@ serial_init:
 .global __gnat_rcheck_SE_Explicit_Raise
 .type __gnat_last_chance_handler, %function
 __gnat_last_chance_handler:
-#ifndef FLYOLOGY_EXCEPTION
+#ifndef FLYOLOGY_EXCEPTIONS
 __gnat_rcheck_CE_Explicit_Raise:
 __gnat_rcheck_CE_Access_Check:
 __gnat_rcheck_CE_Index_Check:
@@ -1947,12 +1947,12 @@ __gnat_rcheck_PE_Explicit_Raise:
 __gnat_rcheck_SE_Explicit_Raise:
 #endif
     msr daifset, #0xf
-#ifdef FLYOLOGY_EXCEPTION
+#ifdef FLYOLOGY_EXCEPTIONS
     mov x19, x0
 #endif
     address x0, serial_lock
     stlr wzr, [x0]
-#ifdef FLYOLOGY_EXCEPTION
+#ifdef FLYOLOGY_EXCEPTIONS
     address x0, exception_detail
     bl serial_puts
     mov x0, x19
@@ -2037,7 +2037,7 @@ fatal:
     b halt
 
 exception_fatal:
-    /* M1 vectors are terminal diagnostics; complete frames arrive in M2. */
+    /* bootstrap vectors are terminal diagnostics; complete frames arrive in interrupt substrate. */
     msr daifset, #0xf
     address x0, exception_marker
     b exception_fatal_message
@@ -2062,7 +2062,7 @@ exception_fatal_message:
     bl serial_puts
     b halt
 
-#ifdef FLYOLOGY_M2
+#ifdef FLYOLOGY_INTERRUPTS
 .type reschedule_irq, %function
 reschedule_irq:
     sub sp, sp, #832
@@ -2131,12 +2131,12 @@ reschedule_irq:
     and x0, x0, #15
     cmp x0, #4
     b.ne frame_state_fatal
-#ifndef FLYOLOGY_M5
+#ifndef FLYOLOGY_PREEMPTION
     /*
-     * M2 has no context transfer while its canary is armed.  Under M5 a
+     * interrupt substrate has no context transfer while its canary is armed.  Under preemption a
      * different task may run on this core before the canary task resumes, so
      * the per-core flag cannot describe the interrupted task's FP/SIMD state.
-     * The M5 canary validates its task-owned full continuation after resume.
+     * The preemption canary validates its task-owned full continuation after resume.
      */
     mrs x0, tpidr_el1
     ldr x0, [x0, #80]
@@ -2144,7 +2144,7 @@ reschedule_irq:
     ldr x0, [sp, #304]
     cmp x0, #(1 << 22)
     b.ne frame_fpcr_fatal
-    address x0, m2_simd_canary
+    address x0, interrupt_simd_canary
     ldr q0, [sp, #320]
     ldr q1, [x0]
     cmeq v2.16b, v0.16b, v1.16b
@@ -2152,7 +2152,7 @@ reschedule_irq:
     umov w0, v2.b[0]
     cmp w0, #0xff
     b.ne frame_simd0_fatal
-    address x0, m2_simd_canary
+    address x0, interrupt_simd_canary
     ldr q0, [sp, #816]
     ldr q1, [x0, #16]
     cmeq v2.16b, v0.16b, v1.16b
@@ -2168,7 +2168,7 @@ reschedule_irq:
     b.ne 1f
     mrs x0, tpidr_el1
     mov x1, #1
-    bl m2_mark_delivered
+    bl interrupt_mark_delivered
     b 2f
 1:
     cmp x1, #27
@@ -2176,7 +2176,7 @@ reschedule_irq:
     msr cntv_ctl_el0, xzr
     mrs x0, tpidr_el1
     mov x1, #2
-    bl m2_post_request
+    bl interrupt_post_request
     mrs x0, tpidr_el1
     ldr x1, [x0, #88]
     cbz x1, 5f
@@ -2185,9 +2185,9 @@ reschedule_irq:
 5:
     mrs x0, tpidr_el1
     mov x1, #2
-    bl m2_mark_delivered
+    bl interrupt_mark_delivered
 2:
-#ifdef FLYOLOGY_M5
+#ifdef FLYOLOGY_PREEMPTION
     mov x21, xzr
     mrs x0, tpidr_el1
     ldr x1, [x0, #88]
@@ -2195,7 +2195,7 @@ reschedule_irq:
     mov x0, sp
     mrs x1, tpidr_el1
     ldr x1, [x1, #0]
-    bl flyology_m5_interrupt_dispatch
+    bl flyology_kernel_interrupt_dispatch
     mov x21, x0
 6:
 #endif
@@ -2205,7 +2205,7 @@ reschedule_irq:
     cbz x1, frame_state_fatal
     sub x1, x1, #1
     str x1, [x0, #112]
-#ifdef FLYOLOGY_M5
+#ifdef FLYOLOGY_PREEMPTION
     cbz x21, 7f
     mov x0, x21
     b flyology_context_restore_from_interrupt
@@ -2270,7 +2270,7 @@ vector_table:
     .balign 128
 .endm
     vector exception_fatal
-#ifdef FLYOLOGY_M2
+#ifdef FLYOLOGY_INTERRUPTS
     vector reschedule_irq
 #else
     vector exception_fatal
@@ -2278,7 +2278,7 @@ vector_table:
     vector exception_fatal
     vector exception_fatal
     vector exception_fatal
-#ifdef FLYOLOGY_M2
+#ifdef FLYOLOGY_INTERRUPTS
     vector reschedule_irq
 #else
     vector exception_fatal
@@ -2300,85 +2300,85 @@ vector_table:
 
 .section .rodata
 .balign 16
-m2_simd_canary:
+interrupt_simd_canary:
 .quad 0x0123456789abcdef, 0xfedcba9876543210
 .quad 0x55aa55aa33cc33cc, 0xaa55aa55cc33cc33
 online_prefix: .asciz "FLYOLOGY:CORE:ONLINE:"
 ada_pass:      .asciz "FLYOLOGY:ADA:MAIN:PASS\n"
 ada_elaboration_pass: .asciz "FLYOLOGY:ADA:ELABORATION:PASS\n"
-m1_pass:       .asciz "FLYOLOGY:M1:PASS\n"
-exception_pass:.asciz "FLYOLOGY:M4:EXCEPTION:PASS\n"
-exception_detail:.asciz "FLYOLOGY:M4:EXCEPTION:DETAIL:"
-#ifdef FLYOLOGY_M2
-m2_core_prefix: .asciz "FLYOLOGY:M2:CORE:"
-m2_core_suffix: .asciz ":SUBSTRATE:PASS\n"
-m2_frame_suffix: .asciz ":INTERRUPT_FRAME:PASS\n"
-m2_epoch_suffix: .asciz ":REQUEST_EPOCH:PASS\n"
-m2_parallel_suffix: .asciz ":PARALLEL:PASS\n"
-m2_deferred_suffix: .asciz ":DEFERRED_REQUEST:PASS\n"
-m2_sgi_suffix: .asciz ":RESCHEDULE_SGI:PASS\n"
-m2_timer_suffix: .asciz ":TIMER:PASS\n"
-m2_pass:       .asciz "FLYOLOGY:M2:PASS\n"
-m3_boot_pass:  .asciz "FLYOLOGY:M3:BOOT_SUBSTRATE:PASS\n"
-m3_ordinary_pass: .asciz "FLYOLOGY:M3:ORDINARY_TASKS:PASS\n"
-m3_specific_pass: .asciz "FLYOLOGY:M3:SPECIFIC_CPU:PASS\n"
-m3_parallel_pass: .asciz "FLYOLOGY:M3:AUTO_PARALLEL:PASS\n"
-m3_auto_master_pass: .asciz "FLYOLOGY:M3:AUTO_MASTER:PASS\n"
-m4_reclamation_pass: .asciz "FLYOLOGY:M4:RECLAMATION:PASS\n"
-m3_master_pass: .asciz "FLYOLOGY:M3:NESTED_MASTER:PASS\n"
-m3_stack_pass: .asciz "FLYOLOGY:M3:TASK_STACKS:PASS\n"
-m4_delay_pass: .asciz "FLYOLOGY:M4:DELAYS:PASS\n"
-m4_absolute_delay_pass: .asciz "FLYOLOGY:M4:ABSOLUTE_DELAY:PASS\n"
-m4_protected_pass: .asciz "FLYOLOGY:M4:PROTECTED:PASS\n"
-m4_protected_entry_pass: .asciz "FLYOLOGY:M4:PROTECTED_ENTRY:PASS\n"
-m4_finalization_pass: .asciz "FLYOLOGY:M4:FINALIZATION:PASS\n"
-m4_rendezvous_pass: .asciz "FLYOLOGY:M4:RENDEZVOUS:PASS\n"
-m4_exceptional_sync_pass: .asciz "FLYOLOGY:M4:EXCEPTIONAL_SYNC:PASS\n"
-m4_exceptional_protected_immediate_pass: .asciz "FLYOLOGY:M4:EXCEPTIONAL_PROTECTED_IMMEDIATE:PASS\n"
-m4_exceptional_protected_queued_pass: .asciz "FLYOLOGY:M4:EXCEPTIONAL_PROTECTED_QUEUED:PASS\n"
-m4_exception_abort_protected_pass: .asciz "FLYOLOGY:M4:EXCEPTION_ABORT_PROTECTED:PASS\n"
-m4_exceptional_rendezvous_pass: .asciz "FLYOLOGY:M4:EXCEPTIONAL_RENDEZVOUS:PASS\n"
-m4_exception_abort_pass: .asciz "FLYOLOGY:M4:EXCEPTION_ABORT:PASS\n"
-m4_unactivated_cleanup_pass: .asciz "FLYOLOGY:M4:UNACTIVATED_CLEANUP:PASS\n"
-m4_allocator_pass: .asciz "FLYOLOGY:M4:ALLOCATOR_TARGET:PASS\n"
-m4_priority_pass: .asciz "FLYOLOGY:M4:DYNAMIC_PRIORITY:PASS\n"
-m4_ceiling_pass: .asciz "FLYOLOGY:M4:CEILING:PASS\n"
-m4_conditional_pass: .asciz "FLYOLOGY:M4:CONDITIONAL_ENTRY:PASS\n"
-m4_timed_entry_pass: .asciz "FLYOLOGY:M4:TIMED_ENTRY:PASS\n"
-m4_dynamic_task_pass: .asciz "FLYOLOGY:M4:DYNAMIC_TASK:PASS\n"
-m4_free_task_pass: .asciz "FLYOLOGY:M4:FREE_TASK:PASS\n"
-m4_free_wait_pass: .asciz "FLYOLOGY:M4:FREE_TASK_WAIT:PASS\n"
-m4_free_abort_race_pass: .asciz "FLYOLOGY:M4:FREE_TASK_ABORT_RACE:PASS\n"
-m4_selective_wait_pass: .asciz "FLYOLOGY:M4:SELECTIVE_WAIT:PASS\n"
-m4_terminate_alternative_pass: .asciz "FLYOLOGY:M4:TERMINATE_ALTERNATIVE:PASS\n"
-m4_abort_pass: .asciz "FLYOLOGY:M4:ABORT:PASS\n"
-m4_multi_abort_pass: .asciz "FLYOLOGY:M4:MULTI_ABORT:PASS\n"
-m4_dependent_abort_pass: .asciz "FLYOLOGY:M4:DEPENDENT_ABORT:PASS\n"
-m4_abort_rendezvous_pass: .asciz "FLYOLOGY:M4:ABORT_RENDEZVOUS:PASS\n"
-m4_abort_timeout_pass: .asciz "FLYOLOGY:M4:ABORT_TIMEOUT:PASS\n"
-m4_abort_accepted_pass: .asciz "FLYOLOGY:M4:ABORT_ACCEPTED:PASS\n"
-m4_abort_protected_pass: .asciz "FLYOLOGY:M4:ABORT_PROTECTED:PASS\n"
-m4_collision_stress_pass: .asciz "FLYOLOGY:M4:COLLISION_STRESS:PASS\n"
-m5_fifo_preemption_pass: .asciz "FLYOLOGY:M5:FIFO_PREEMPTION:PASS\n"
-m5_round_robin_pass: .asciz "FLYOLOGY:M5:ROUND_ROBIN:PASS\n"
-m5_remote_preemption_pass: .asciz "FLYOLOGY:M5:REMOTE_PREEMPTION:PASS\n"
-m5_all_core_preemption_pass: .asciz "FLYOLOGY:M5:ALL_CORE_PREEMPTION:PASS\n"
-m5_fifo_no_rotation_pass: .asciz "FLYOLOGY:M5:FIFO_NO_ROTATION:PASS\n"
-m5_priority_requeue_pass: .asciz "FLYOLOGY:M5:PRIORITY_REQUEUE:PASS\n"
-m5_nonblocking_ingress_pass: .asciz "FLYOLOGY:M5:NONBLOCKING_INGRESS:PASS\n"
-#ifdef FLYOLOGY_M6
-m6_layout_pass: .asciz "FLYOLOGY:M6:DOMAIN_LAYOUT:PASS\n"
-m6_query_pass: .asciz "FLYOLOGY:M6:STANDARD_QUERIES:PASS\n"
-m6_inheritance_pass: .asciz "FLYOLOGY:M6:DOMAIN_INHERITANCE:PASS\n"
-m6_heterogeneous_pass: .asciz "FLYOLOGY:M6:HETEROGENEOUS_POLICY:PASS\n"
-m6_all_core_pass: .asciz "FLYOLOGY:M6:ALL_CORE_PREEMPTION:PASS\n"
-m6_all_core_start_failure: .asciz "FLYOLOGY:FAIL:M6_ALL_CORE_START\n"
-m6_all_core_done_failure: .asciz "FLYOLOGY:FAIL:M6_ALL_CORE_DONE\n"
+boot_pass:       .asciz "FLYOLOGY:BOOT:PASS\n"
+exception_pass:.asciz "FLYOLOGY:RTS:EXCEPTION:PASS\n"
+exception_detail:.asciz "FLYOLOGY:RTS:EXCEPTION:DETAIL:"
+#ifdef FLYOLOGY_INTERRUPTS
+interrupt_core_prefix: .asciz "FLYOLOGY:INTERRUPTS:CORE:"
+interrupt_core_suffix: .asciz ":SUBSTRATE:PASS\n"
+interrupt_frame_suffix: .asciz ":INTERRUPT_FRAME:PASS\n"
+interrupt_epoch_suffix: .asciz ":REQUEST_EPOCH:PASS\n"
+interrupt_parallel_suffix: .asciz ":PARALLEL:PASS\n"
+interrupt_deferred_suffix: .asciz ":DEFERRED_REQUEST:PASS\n"
+interrupt_sgi_suffix: .asciz ":RESCHEDULE_SGI:PASS\n"
+interrupt_timer_suffix: .asciz ":TIMER:PASS\n"
+interrupt_pass:       .asciz "FLYOLOGY:INTERRUPTS:PASS\n"
+tasking_boot_pass:  .asciz "FLYOLOGY:TASKING:BOOT_SUBSTRATE:PASS\n"
+tasking_ordinary_pass: .asciz "FLYOLOGY:TASKING:ORDINARY_TASKS:PASS\n"
+tasking_specific_pass: .asciz "FLYOLOGY:TASKING:SPECIFIC_CPU:PASS\n"
+tasking_parallel_pass: .asciz "FLYOLOGY:TASKING:AUTO_PARALLEL:PASS\n"
+tasking_auto_master_pass: .asciz "FLYOLOGY:TASKING:AUTO_MASTER:PASS\n"
+rts_reclamation_pass: .asciz "FLYOLOGY:RTS:RECLAMATION:PASS\n"
+tasking_master_pass: .asciz "FLYOLOGY:TASKING:NESTED_MASTER:PASS\n"
+tasking_stack_pass: .asciz "FLYOLOGY:TASKING:TASK_STACKS:PASS\n"
+rts_delay_pass: .asciz "FLYOLOGY:RTS:DELAYS:PASS\n"
+rts_absolute_delay_pass: .asciz "FLYOLOGY:RTS:ABSOLUTE_DELAY:PASS\n"
+rts_protected_pass: .asciz "FLYOLOGY:RTS:PROTECTED:PASS\n"
+rts_protected_entry_pass: .asciz "FLYOLOGY:RTS:PROTECTED_ENTRY:PASS\n"
+rts_finalization_pass: .asciz "FLYOLOGY:RTS:FINALIZATION:PASS\n"
+rts_rendezvous_pass: .asciz "FLYOLOGY:RTS:RENDEZVOUS:PASS\n"
+rts_exceptional_sync_pass: .asciz "FLYOLOGY:RTS:EXCEPTIONAL_SYNC:PASS\n"
+rts_exceptional_protected_immediate_pass: .asciz "FLYOLOGY:RTS:EXCEPTIONAL_PROTECTED_IMMEDIATE:PASS\n"
+rts_exceptional_protected_queued_pass: .asciz "FLYOLOGY:RTS:EXCEPTIONAL_PROTECTED_QUEUED:PASS\n"
+rts_exception_abort_protected_pass: .asciz "FLYOLOGY:RTS:EXCEPTION_ABORT_PROTECTED:PASS\n"
+rts_exceptional_rendezvous_pass: .asciz "FLYOLOGY:RTS:EXCEPTIONAL_RENDEZVOUS:PASS\n"
+rts_exception_abort_pass: .asciz "FLYOLOGY:RTS:EXCEPTION_ABORT:PASS\n"
+rts_unactivated_cleanup_pass: .asciz "FLYOLOGY:RTS:UNACTIVATED_CLEANUP:PASS\n"
+rts_allocator_pass: .asciz "FLYOLOGY:RTS:ALLOCATOR_TARGET:PASS\n"
+rts_priority_pass: .asciz "FLYOLOGY:RTS:DYNAMIC_PRIORITY:PASS\n"
+rts_ceiling_pass: .asciz "FLYOLOGY:RTS:CEILING:PASS\n"
+rts_conditional_pass: .asciz "FLYOLOGY:RTS:CONDITIONAL_ENTRY:PASS\n"
+rts_timed_entry_pass: .asciz "FLYOLOGY:RTS:TIMED_ENTRY:PASS\n"
+rts_dynamic_task_pass: .asciz "FLYOLOGY:RTS:DYNAMIC_TASK:PASS\n"
+rts_free_task_pass: .asciz "FLYOLOGY:RTS:FREE_TASK:PASS\n"
+rts_free_wait_pass: .asciz "FLYOLOGY:RTS:FREE_TASK_WAIT:PASS\n"
+rts_free_abort_race_pass: .asciz "FLYOLOGY:RTS:FREE_TASK_ABORT_RACE:PASS\n"
+rts_selective_wait_pass: .asciz "FLYOLOGY:RTS:SELECTIVE_WAIT:PASS\n"
+rts_terminate_alternative_pass: .asciz "FLYOLOGY:RTS:TERMINATE_ALTERNATIVE:PASS\n"
+rts_abort_pass: .asciz "FLYOLOGY:RTS:ABORT:PASS\n"
+rts_multi_abort_pass: .asciz "FLYOLOGY:RTS:MULTI_ABORT:PASS\n"
+rts_dependent_abort_pass: .asciz "FLYOLOGY:RTS:DEPENDENT_ABORT:PASS\n"
+rts_abort_rendezvous_pass: .asciz "FLYOLOGY:RTS:ABORT_RENDEZVOUS:PASS\n"
+rts_abort_timeout_pass: .asciz "FLYOLOGY:RTS:ABORT_TIMEOUT:PASS\n"
+rts_abort_accepted_pass: .asciz "FLYOLOGY:RTS:ABORT_ACCEPTED:PASS\n"
+rts_abort_protected_pass: .asciz "FLYOLOGY:RTS:ABORT_PROTECTED:PASS\n"
+rts_collision_stress_pass: .asciz "FLYOLOGY:RTS:COLLISION_STRESS:PASS\n"
+preemption_fifo_preemption_pass: .asciz "FLYOLOGY:PREEMPTION:FIFO_PREEMPTION:PASS\n"
+preemption_round_robin_pass: .asciz "FLYOLOGY:PREEMPTION:ROUND_ROBIN:PASS\n"
+preemption_remote_preemption_pass: .asciz "FLYOLOGY:PREEMPTION:REMOTE_PREEMPTION:PASS\n"
+preemption_all_core_preemption_pass: .asciz "FLYOLOGY:PREEMPTION:ALL_CORE_PREEMPTION:PASS\n"
+preemption_fifo_no_rotation_pass: .asciz "FLYOLOGY:PREEMPTION:FIFO_NO_ROTATION:PASS\n"
+preemption_priority_requeue_pass: .asciz "FLYOLOGY:PREEMPTION:PRIORITY_REQUEUE:PASS\n"
+preemption_nonblocking_ingress_pass: .asciz "FLYOLOGY:PREEMPTION:NONBLOCKING_INGRESS:PASS\n"
+#ifdef FLYOLOGY_DOMAINS
+domain_layout_pass: .asciz "FLYOLOGY:DOMAINS:DOMAIN_LAYOUT:PASS\n"
+domain_query_pass: .asciz "FLYOLOGY:DOMAINS:STANDARD_QUERIES:PASS\n"
+domain_inheritance_pass: .asciz "FLYOLOGY:DOMAINS:DOMAIN_INHERITANCE:PASS\n"
+domain_heterogeneous_pass: .asciz "FLYOLOGY:DOMAINS:HETEROGENEOUS_POLICY:PASS\n"
+domain_all_core_pass: .asciz "FLYOLOGY:DOMAINS:ALL_CORE_PREEMPTION:PASS\n"
+domain_all_core_start_failure: .asciz "FLYOLOGY:FAIL:DOMAINS_ALL_CORE_START\n"
+domain_all_core_done_failure: .asciz "FLYOLOGY:FAIL:DOMAINS_ALL_CORE_DONE\n"
 #endif
-m5_canary_status_failure: .asciz "FLYOLOGY:FAIL:AARCH64_CANARY_STATUS\n"
-m5_canary_gpr_failure: .asciz "FLYOLOGY:FAIL:AARCH64_CANARY_GPR\n"
-m5_canary_simd_failure: .asciz "FLYOLOGY:FAIL:AARCH64_CANARY_SIMD\n"
-m5_canary_fp_failure: .asciz "FLYOLOGY:FAIL:AARCH64_CANARY_FP\n"
+preemption_canary_status_failure: .asciz "FLYOLOGY:FAIL:AARCH64_CANARY_STATUS\n"
+preemption_canary_gpr_failure: .asciz "FLYOLOGY:FAIL:AARCH64_CANARY_GPR\n"
+preemption_canary_simd_failure: .asciz "FLYOLOGY:FAIL:AARCH64_CANARY_SIMD\n"
+preemption_canary_fp_failure: .asciz "FLYOLOGY:FAIL:AARCH64_CANARY_FP\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:AARCH64_BOOT\n"
 exception_marker: .asciz "FLYOLOGY:FAIL:AARCH64_EXCEPTION\n"
@@ -2393,15 +2393,15 @@ digits:        .ascii "0123"
 .balign 4
 serial_lock: .skip 4
 online_count: .skip 4
-#ifdef FLYOLOGY_M2
-m2_complete_count: .skip 4
-m2_idle_ready_count: .skip 4
-m2_task_barrier_count: .skip 4
+#ifdef FLYOLOGY_INTERRUPTS
+interrupt_complete_count: .skip 4
+interrupt_idle_ready_count: .skip 4
+interrupt_task_barrier_count: .skip 4
 cpu_count: .skip 4
 rts_lock: .skip 4
-#ifdef FLYOLOGY_M3
+#ifdef FLYOLOGY_TASKING
 dispatcher_ready_count: .skip 4
-m3_parallel_barrier_count: .skip 4
+tasking_parallel_barrier_count: .skip 4
 #endif
 #endif
 .balign 8
@@ -2420,7 +2420,7 @@ uart_l1: .skip 4096
 uart_l2: .skip 4096
 .balign 16
 core_stacks: .skip MAX_CORES * (1 << STACK_SHIFT)
-#ifdef FLYOLOGY_M2
+#ifdef FLYOLOGY_INTERRUPTS
 .balign 16
 exception_stacks: .skip MAX_CORES * (1 << EXCEPTION_STACK_SHIFT)
 #endif

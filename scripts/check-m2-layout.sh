@@ -153,7 +153,8 @@ flyology_task_start'
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
         -c "src/platform/$architecture/entry.S" \
         -o "$output_directory/interrupt-entry.o" \
-        -DFLYOLOGY_M2 -ffreestanding -fno-stack-protector -fno-pic -fno-pie \
+        -DFLYOLOGY_INTERRUPTS -ffreestanding -fno-stack-protector \
+        -fno-pic -fno-pie \
         $architecture_flags
     scripts/toolchain.sh exec "$architecture" "$target-objcopy" \
         --dump-section \

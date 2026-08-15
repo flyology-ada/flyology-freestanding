@@ -13,6 +13,7 @@ test -f "$repository/tests/target/scenarios/flyology_conformance.adb"
 test -f "$repository/tests/target/scenarios/flyology-conformance-tasking.adb"
 test -f "$repository/tests/target/scenarios/flyology-conformance-observations.adb"
 test -x "$repository/scripts/build-image.sh"
+test -x "$repository/scripts/inspect-image.sh"
 test -x "$repository/scripts/run-product.sh"
 test -x "$repository/scripts/verify-product-runtime.sh"
 
@@ -75,6 +76,18 @@ if rg -n '^procedure Flyology_M[0-9]' \
     exit 1
 fi
 
+if rg -n 'FLYOLOGY_M[0-9]|flyology_m[0-9]|FLYOLOGY:M[0-9]:|\bm[0-9]_' \
+    "$repository/src" "$repository/config" \
+    "$repository/tests/target" \
+    "$repository/scripts/build-image.sh" \
+    "$repository/scripts/build-product.sh" \
+    "$repository/scripts/inspect-image.sh" \
+    "$repository/scripts/run-image.sh" \
+    "$repository/scripts/run-product.sh" >/dev/null; then
+    echo 'milestone identifier found in the current product surface' >&2
+    exit 1
+fi
+
 test -f "$repository/src/kernel/flyology-kernel.adb"
 test -f "$repository/src/rts/flyology-rts.adb"
 test -f "$repository/src/gnarl/s-tassta.adb"
@@ -91,7 +104,8 @@ test ! -e "$repository/runtime/m4"
 test ! -e "$repository/runtime/m5"
 test ! -e "$repository/runtime/m6"
 test ! -e "$repository/runtime"
-test -f "$repository/tests/legacy/checkpoints/m2/flyology_m2.adb"
+test -f \
+    "$repository/tests/legacy/checkpoints/m2/flyology_interrupt_checkpoint.adb"
 test -f "$repository/config/restrictions/product.adc"
 test -f "$repository/config/scheduler/fifo/flyology-scheduler_configuration.ads"
 test -f "$repository/config/domains/on/flyology-domain_configuration.ads"

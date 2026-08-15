@@ -51,12 +51,12 @@ package body Flyology.M2_Runtime is
    procedure Report_Pass (Core_Value : System.Address)
    with Import,
         Convention    => C,
-        External_Name => "flyology_m2_report_pass";
+        External_Name => "flyology_interrupts_report_pass";
 
    procedure Report_Failure
    with Import,
         Convention    => C,
-        External_Name => "flyology_m2_report_failure";
+        External_Name => "flyology_conformance_report_failure";
 
    procedure Enter_Kernel
    with Import,
@@ -71,37 +71,37 @@ package body Flyology.M2_Runtime is
    procedure Wait_For_Timer_Request
    with Import,
         Convention    => C,
-        External_Name => "flyology_m2_wait_for_timer_request";
+        External_Name => "flyology_interrupts_wait_for_timer_request";
 
    function Acknowledge_Requests return System.Address
    with Import,
         Convention    => C,
-        External_Name => "flyology_m2_acknowledge_requests";
+        External_Name => "flyology_interrupts_acknowledge_requests";
 
    procedure Parallel_Task_Barrier
    with Import,
         Convention    => C,
-        External_Name => "flyology_m2_parallel_task_barrier";
+        External_Name => "flyology_interrupts_parallel_task_barrier";
 
    procedure Arm_Deferred_Timer
    with Import,
         Convention    => C,
-        External_Name => "flyology_m2_arm_deferred_timer";
+        External_Name => "flyology_interrupts_arm_deferred_timer";
 
    function Consume_Deferred return System.Address
    with Import,
         Convention    => C,
-        External_Name => "flyology_m2_consume_deferred";
+        External_Name => "flyology_interrupts_consume_deferred";
 
    procedure Disable_Dispatch
    with Import,
         Convention    => C,
-        External_Name => "flyology_m2_disable_dispatch";
+        External_Name => "flyology_platform_disable_dispatch";
 
    procedure Enable_Dispatch
    with Import,
         Convention    => C,
-        External_Name => "flyology_m2_enable_dispatch";
+        External_Name => "flyology_platform_enable_dispatch";
 
    procedure Fail is
    begin

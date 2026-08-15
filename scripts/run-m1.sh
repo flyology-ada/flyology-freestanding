@@ -128,7 +128,7 @@ if test "$mode" = last-chance; then
         aarch64) marker='FLYOLOGY:LAST_CHANCE:AARCH64' ;;
     esac
     test "$(count_marker "$marker")" -eq 1
-    test "$(count_marker 'FLYOLOGY:M1:PASS')" -eq 0
+    test "$(count_marker 'FLYOLOGY:BOOT:PASS')" -eq 0
     test "$(count_marker 'FLYOLOGY:ADA:MAIN:PASS')" -eq 0
     test "$(count_marker 'FLYOLOGY:FAIL:')" -eq 0
     test "$(count_marker 'PANIC:')" -eq 0
@@ -141,7 +141,7 @@ if test "$mode" = last-chance; then
         grep -E '[[:space:]]flyology_last_chance_probe$' >/dev/null
 else
     test "$(count_marker 'FLYOLOGY:ADA:MAIN:PASS')" -eq 1
-    test "$(count_marker 'FLYOLOGY:M1:PASS')" -eq 1
+    test "$(count_marker 'FLYOLOGY:BOOT:PASS')" -eq 1
     test "$(count_marker 'FLYOLOGY:FAIL:')" -eq 0
     test "$(count_marker 'PANIC:')" -eq 0
 
@@ -153,4 +153,4 @@ else
     test "$(count_marker 'FLYOLOGY:CORE:ONLINE:')" -eq "$cpu_count"
 fi
 
-echo "FLYOLOGY:M1:TEST:PASS:$architecture:SMP$cpu_count:$mode"
+echo "FLYOLOGY:BOOT:TEST:PASS:$architecture:SMP$cpu_count:$mode"

@@ -2,7 +2,7 @@
 
 with Flyology.M2_Runtime;
 
-procedure Flyology_M2 is
+procedure Flyology_Interrupt_Checkpoint is
 begin
    Flyology.M2_Runtime.Initialize;
-end Flyology_M2;
+end Flyology_Interrupt_Checkpoint;

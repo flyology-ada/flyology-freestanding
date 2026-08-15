@@ -12,12 +12,12 @@ case "$architecture" in
     *) echo "unsupported architecture: $architecture" >&2; exit 64 ;;
 esac
 
-FLYOLOGY_M5=1 \
-FLYOLOGY_M6=1 \
+FLYOLOGY_PREEMPTION=1 \
+FLYOLOGY_DOMAINS=1 \
 FLYOLOGY_PRODUCT_CONFIG=config/scheduler/fifo.adc \
-FLYOLOGY_M5_CONFIG_DIR=config/scheduler/fifo \
-FLYOLOGY_M6_CONFIG_DIR=config/domains/on \
-FLYOLOGY_M6_TEST_CONFIG_DIR=tests/target/config/domains/on \
+FLYOLOGY_SCHEDULER_CONFIG_DIR=config/scheduler/fifo \
+FLYOLOGY_DOMAIN_CONFIG_DIR=config/domains/on \
+FLYOLOGY_CONFORMANCE_CONFIG_DIR=tests/target/config/domains/on \
 FLYOLOGY_BINDER_FLAGS=-T0 \
 FLYOLOGY_IMAGE_OUTPUT_ROOT="${FLYOLOGY_M6_OUTPUT_ROOT:-build/m6}" \
     scripts/build-image.sh "$architecture"

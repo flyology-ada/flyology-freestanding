@@ -20,15 +20,15 @@ package body Flyology.Conformance.Tasking is
 
    procedure Report_Failure
    with Import, Convention => C,
-        External_Name => "flyology_m2_report_failure";
+        External_Name => "flyology_conformance_report_failure";
 
    procedure Report_Free_Wait_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_free_wait_pass";
+        External_Name => "flyology_conformance_report_free_wait_pass";
 
    procedure Report_Free_Abort_Race_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_free_abort_race_pass";
+        External_Name => "flyology_conformance_report_free_abort_race_pass";
 
    type Done_Array is array (Positive range 1 .. 4) of Boolean
      with Atomic_Components;
@@ -1256,150 +1256,150 @@ package body Flyology.Conformance.Tasking is
 
    procedure Report_Ordinary_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m3_report_ordinary_pass";
+        External_Name => "flyology_conformance_report_ordinary_pass";
 
    procedure Report_Specific_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m3_report_specific_pass";
+        External_Name => "flyology_conformance_report_specific_pass";
 
    procedure Report_Parallel_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m3_report_parallel_pass";
+        External_Name => "flyology_conformance_report_parallel_pass";
 
    procedure Report_Auto_Master_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m3_report_auto_master_pass";
+        External_Name => "flyology_conformance_report_auto_master_pass";
 
    procedure Report_Reclamation_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_reclamation_pass";
+        External_Name => "flyology_conformance_report_reclamation_pass";
 
    procedure Report_Delay_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_delay_pass";
+        External_Name => "flyology_conformance_report_delay_pass";
 
    procedure Report_Absolute_Delay_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_absolute_delay_pass";
+        External_Name => "flyology_conformance_report_absolute_delay_pass";
 
    procedure Report_Protected_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_protected_pass";
+        External_Name => "flyology_conformance_report_protected_pass";
 
    procedure Report_Protected_Entry_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_protected_entry_pass";
+        External_Name => "flyology_conformance_report_protected_entry_pass";
 
    procedure Report_Rendezvous_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_rendezvous_pass";
+        External_Name => "flyology_conformance_report_rendezvous_pass";
 
    procedure Report_Exceptional_Sync_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_exceptional_sync_pass";
+        External_Name => "flyology_conformance_report_exceptional_sync_pass";
 
    procedure Report_Exceptional_Protected_Immediate_Pass
    with Import, Convention => C,
         External_Name =>
-          "flyology_m4_report_exceptional_protected_immediate_pass";
+          "flyology_conformance_report_exceptional_protected_immediate_pass";
 
    procedure Report_Exceptional_Protected_Queued_Pass
    with Import, Convention => C,
         External_Name =>
-          "flyology_m4_report_exceptional_protected_queued_pass";
+          "flyology_conformance_report_exceptional_protected_queued_pass";
 
    procedure Report_Exception_Abort_Protected_Pass
    with Import, Convention => C,
         External_Name =>
-          "flyology_m4_report_exception_abort_protected_pass";
+          "flyology_conformance_report_exception_abort_protected_pass";
 
    procedure Report_Exceptional_Rendezvous_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_exceptional_rendezvous_pass";
+        External_Name => "flyology_conformance_report_exceptional_rendezvous_pass";
 
    procedure Report_Exception_Abort_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_exception_abort_pass";
+        External_Name => "flyology_conformance_report_exception_abort_pass";
 
    procedure Report_Unactivated_Cleanup_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_unactivated_cleanup_pass";
+        External_Name => "flyology_conformance_report_unactivated_cleanup_pass";
 
    procedure Report_Allocator_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_allocator_pass";
+        External_Name => "flyology_conformance_report_allocator_pass";
 
    procedure Report_Priority_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_priority_pass";
+        External_Name => "flyology_conformance_report_priority_pass";
 
    procedure Report_Ceiling_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_ceiling_pass";
+        External_Name => "flyology_conformance_report_ceiling_pass";
 
    procedure Report_Conditional_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_conditional_pass";
+        External_Name => "flyology_conformance_report_conditional_pass";
 
    procedure Report_Timed_Entry_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_timed_entry_pass";
+        External_Name => "flyology_conformance_report_timed_entry_pass";
 
    procedure Report_Dynamic_Task_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_dynamic_task_pass";
+        External_Name => "flyology_conformance_report_dynamic_task_pass";
 
    procedure Report_Free_Task_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_free_task_pass";
+        External_Name => "flyology_conformance_report_free_task_pass";
 
    procedure Report_Selective_Wait_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_selective_wait_pass";
+        External_Name => "flyology_conformance_report_selective_wait_pass";
 
    procedure Report_Terminate_Alternative_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_terminate_alternative_pass";
+        External_Name => "flyology_conformance_report_terminate_alternative_pass";
 
    procedure Report_Abort_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_abort_pass";
+        External_Name => "flyology_conformance_report_abort_pass";
 
    procedure Report_Multi_Abort_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_multi_abort_pass";
+        External_Name => "flyology_conformance_report_multi_abort_pass";
 
    procedure Report_Dependent_Abort_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_dependent_abort_pass";
+        External_Name => "flyology_conformance_report_dependent_abort_pass";
 
    procedure Report_Abort_Rendezvous_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_abort_rendezvous_pass";
+        External_Name => "flyology_conformance_report_abort_rendezvous_pass";
 
    procedure Report_Abort_Timeout_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_abort_timeout_pass";
+        External_Name => "flyology_conformance_report_abort_timeout_pass";
 
    procedure Report_Abort_Accepted_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_abort_accepted_pass";
+        External_Name => "flyology_conformance_report_abort_accepted_pass";
 
    procedure Report_Abort_Protected_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_abort_protected_pass";
+        External_Name => "flyology_conformance_report_abort_protected_pass";
 
    procedure Report_Collision_Stress_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m4_report_collision_stress_pass";
+        External_Name => "flyology_conformance_report_collision_stress_pass";
 
    procedure Report_Master_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m3_report_master_pass";
+        External_Name => "flyology_conformance_report_master_pass";
 
    procedure Report_Stack_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m3_report_stack_pass";
+        External_Name => "flyology_conformance_report_stack_pass";
 
    procedure Check_Identity
      (Observed : Ada.Task_Identification.Task_Id;
@@ -1873,8 +1873,8 @@ package body Flyology.Conformance.Tasking is
          then
             Report_Failure;
          end if;
-         --  In cooperative M4 the worker cannot resume between Open and the
-         --  abort.  M5 may preempt at either boundary, so the worker may
+         --  In cooperative RTS the worker cannot resume between Open and the
+         --  abort.  preemption may preempt at either boundary, so the worker may
          --  catch the transferred exception, and may even finish, before the
          --  abort becomes effective.
          Protected_Gate.Open;

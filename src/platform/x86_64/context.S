@@ -201,7 +201,7 @@ flyology_context_capture_full:
 flyology_context_restore_from_interrupt:
     /*
      * IST entry installs a null SS in 64-bit mode.  A normal IRETQ restores
-     * the interrupted selector, but M5 deliberately abandons that frame when
+     * the interrupted selector, but preemption deliberately abandons that frame when
      * it hands control to the dispatcher.  Re-establish the private data
      * selector before resuming ordinary context-switch code so the next
      * interrupt captures the canonical SS expected by the full-frame ABI.

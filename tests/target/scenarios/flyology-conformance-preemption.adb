@@ -75,43 +75,43 @@ package body Flyology.Conformance.Preemption is
 
    procedure Report_Failure
    with Import, Convention => C,
-        External_Name => "flyology_m2_report_failure";
+        External_Name => "flyology_conformance_report_failure";
 
    procedure Report_FIFO_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m5_report_fifo_preemption_pass";
+        External_Name => "flyology_conformance_report_fifo_preemption_pass";
 
    procedure Report_Round_Robin_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m5_report_round_robin_pass";
+        External_Name => "flyology_conformance_report_round_robin_pass";
 
    procedure Report_Remote_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m5_report_remote_preemption_pass";
+        External_Name => "flyology_conformance_report_remote_preemption_pass";
 
    procedure Report_All_Core_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m5_report_all_core_preemption_pass";
+        External_Name => "flyology_conformance_report_all_core_preemption_pass";
 
    procedure Report_FIFO_No_Rotation_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m5_report_fifo_no_rotation_pass";
+        External_Name => "flyology_conformance_report_fifo_no_rotation_pass";
 
    procedure Report_Priority_Requeue_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m5_report_priority_requeue_pass";
+        External_Name => "flyology_conformance_report_priority_requeue_pass";
 
    procedure Report_Nonblocking_Ingress_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m5_report_nonblocking_ingress_pass";
+        External_Name => "flyology_conformance_report_nonblocking_ingress_pass";
 
    function Retry_Count return System.Address
    with Import, Convention => C,
-        External_Name => "flyology_m5_retry_count";
+        External_Name => "flyology_platform_retry_count";
 
    procedure Check_Full_Context (Completion_Flag : System.Address)
    with Import, Convention => C,
-        External_Name => "flyology_m5_preemption_canary";
+        External_Name => "flyology_conformance_preemption_canary";
 
    task type FIFO_Low_Task with CPU => 1, Priority => 5;
    task type FIFO_High_Task with CPU => 1, Priority => 10;

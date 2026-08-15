@@ -162,7 +162,7 @@ package body Flyology.RTS is
 
    function Boot_CPU_Count return System.Address
    with Import, Convention => C,
-        External_Name => "flyology_m3_boot_cpu_count";
+        External_Name => "flyology_platform_boot_cpu_count";
 
    procedure Enter_Kernel
    with Import, Convention => C, External_Name => "flyology_rts_lock_acquire";
@@ -171,14 +171,14 @@ package body Flyology.RTS is
    with Import, Convention => C, External_Name => "flyology_rts_lock_release";
 
    procedure Kick_Core (Core : System.Address)
-   with Import, Convention => C, External_Name => "flyology_m3_kick_core";
+   with Import, Convention => C, External_Name => "flyology_platform_kick_core";
 
    procedure Parallel_Barrier (Phase : System.Address)
    with Import, Convention => C,
-        External_Name => "flyology_m3_parallel_barrier";
+        External_Name => "flyology_conformance_parallel_barrier";
 
    procedure Report_Failure
-   with Import, Convention => C, External_Name => "flyology_m2_report_failure";
+   with Import, Convention => C, External_Name => "flyology_conformance_report_failure";
 
    procedure Raise_Tasking_Error (Location : System.Address; Line : Integer)
    with Import, Convention => C,

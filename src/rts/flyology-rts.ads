@@ -102,7 +102,7 @@ package Flyology.RTS is
 
    procedure Core_Initialize (CPU_Count : System.Address)
    with Export, Convention => C,
-        External_Name => "flyology_m3_core_initialize";
+        External_Name => "flyology_rts_initialize";
 
    procedure Task_Start (Task_Address : System.Address)
    with Export, Convention => C,

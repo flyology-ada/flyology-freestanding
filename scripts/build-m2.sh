@@ -25,7 +25,7 @@ esac
 output_directory="build/m2/$architecture"
 mkdir -p "$output_directory"
 rm -f "$output_directory"/*.ali "$output_directory"/*.o \
-      "$output_directory"/b~flyology_m2.ad? \
+      "$output_directory"/b~flyology_interrupt_checkpoint.ad? \
       "$output_directory/flyology-m2.elf"
 
 export LC_ALL=C
@@ -74,7 +74,7 @@ compile_ada tests/legacy/checkpoints/m2/flyology-m2_runtime.adb \
     flyology-m2_runtime.o
 compile_ada src/bootstrap/flyology-binder_support.adb \
     flyology-binder_support.o
-compile_ada tests/legacy/checkpoints/m2/flyology_m2.adb flyology_m2.o
+compile_ada tests/legacy/checkpoints/m2/flyology_interrupt_checkpoint.adb flyology_interrupt_checkpoint.o
 
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" \
@@ -82,15 +82,15 @@ scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     -I../../../src/bootstrap -I../../../src/primitives \
     -I../../../tests/legacy/checkpoints/m2 \
     -I../../../src/platform/"$architecture" \
-    -I. flyology_m2.ali
+    -I. flyology_interrupt_checkpoint.ali
 
-compile_ada "$output_directory/b~flyology_m2.adb" b~flyology_m2.o generated
+compile_ada "$output_directory/b~flyology_interrupt_checkpoint.adb" b~flyology_interrupt_checkpoint.o generated
 
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
     -c "src/platform/$architecture/entry.S" \
     -o "$output_directory/m2_entry.o" \
-    -DFLYOLOGY_M2 -ffreestanding -fno-stack-protector -fno-pic -fno-pie \
+    -DFLYOLOGY_INTERRUPTS -ffreestanding -fno-stack-protector -fno-pic -fno-pie \
     $architecture_flags
 
 # shellcheck disable=SC2086
@@ -122,8 +122,8 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/context.o" \
     "$output_directory/memory.o" \
     "$output_directory/limine_requests.o" \
-    "$output_directory/b~flyology_m2.o" \
-    "$output_directory/flyology_m2.o" \
+    "$output_directory/b~flyology_interrupt_checkpoint.o" \
+    "$output_directory/flyology_interrupt_checkpoint.o" \
     "$output_directory/flyology-m2_runtime.o" \
     "$output_directory/flyology-platform.o" \
     "$output_directory/flyology-architecture_context.o" \

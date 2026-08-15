@@ -16,39 +16,39 @@ package body Flyology.Conformance.Domains is
 
    procedure Report_Failure
    with Import, Convention => C,
-        External_Name => "flyology_m2_report_failure";
+        External_Name => "flyology_conformance_report_failure";
 
    procedure Report_Layout_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m6_report_layout_pass";
+        External_Name => "flyology_conformance_report_layout_pass";
 
    procedure Report_Query_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m6_report_query_pass";
+        External_Name => "flyology_conformance_report_query_pass";
 
    procedure Report_Inheritance_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m6_report_inheritance_pass";
+        External_Name => "flyology_conformance_report_inheritance_pass";
 
    procedure Report_Heterogeneous_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m6_report_heterogeneous_pass";
+        External_Name => "flyology_conformance_report_heterogeneous_pass";
 
    procedure Report_All_Core_Pass
    with Import, Convention => C,
-        External_Name => "flyology_m6_report_all_core_pass";
+        External_Name => "flyology_conformance_report_all_core_pass";
 
    procedure Report_All_Core_Start_Failure
    with Import, Convention => C,
-        External_Name => "flyology_m6_report_all_core_start_failure";
+        External_Name => "flyology_conformance_report_all_core_start_failure";
 
    procedure Report_All_Core_Done_Failure
    with Import, Convention => C,
-        External_Name => "flyology_m6_report_all_core_done_failure";
+        External_Name => "flyology_conformance_report_all_core_done_failure";
 
    procedure Check_Full_Context (Completion_Flag : System.Address)
    with Import, Convention => C,
-        External_Name => "flyology_m5_preemption_canary";
+        External_Name => "flyology_conformance_preemption_canary";
 
    function Build_Secondary return Domains.Dispatching_Domain is
    begin

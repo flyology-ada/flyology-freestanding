@@ -110,23 +110,23 @@ count_marker() {
 }
 
 test "$(count_marker 'FLYOLOGY:ADA:MAIN:PASS')" -eq 1
-test "$(count_marker 'FLYOLOGY:M2:PASS')" -eq 1
+test "$(count_marker 'FLYOLOGY:INTERRUPTS:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:FAIL:')" -eq 0
 test "$(count_marker 'PANIC:')" -eq 0
 
 core=0
 while test "$core" -lt "$cpu_count"; do
     test "$(count_marker "FLYOLOGY:CORE:ONLINE:$core")" -eq 1
-    test "$(count_marker "FLYOLOGY:M2:CORE:$core:SUBSTRATE:PASS")" -eq 1
+    test "$(count_marker "FLYOLOGY:INTERRUPTS:CORE:$core:SUBSTRATE:PASS")" -eq 1
     if test "$architecture" = x86_64; then
-        test "$(count_marker "FLYOLOGY:M2:CORE:$core:IDT_TRANSITION:PASS")" -eq 1
+        test "$(count_marker "FLYOLOGY:INTERRUPTS:CORE:$core:IDT_TRANSITION:PASS")" -eq 1
     fi
-    test "$(count_marker "FLYOLOGY:M2:CORE:$core:INTERRUPT_FRAME:PASS")" -eq 1
-    test "$(count_marker "FLYOLOGY:M2:CORE:$core:REQUEST_EPOCH:PASS")" -eq 1
-    test "$(count_marker "FLYOLOGY:M2:CORE:$core:PARALLEL:PASS")" -eq 1
-    test "$(count_marker "FLYOLOGY:M2:CORE:$core:DEFERRED_REQUEST:PASS")" -eq 1
-    test "$(count_marker "FLYOLOGY:M2:CORE:$core:$reschedule_suffix:PASS")" -eq 1
-    test "$(count_marker "FLYOLOGY:M2:CORE:$core:TIMER:PASS")" -eq 1
+    test "$(count_marker "FLYOLOGY:INTERRUPTS:CORE:$core:INTERRUPT_FRAME:PASS")" -eq 1
+    test "$(count_marker "FLYOLOGY:INTERRUPTS:CORE:$core:REQUEST_EPOCH:PASS")" -eq 1
+    test "$(count_marker "FLYOLOGY:INTERRUPTS:CORE:$core:PARALLEL:PASS")" -eq 1
+    test "$(count_marker "FLYOLOGY:INTERRUPTS:CORE:$core:DEFERRED_REQUEST:PASS")" -eq 1
+    test "$(count_marker "FLYOLOGY:INTERRUPTS:CORE:$core:$reschedule_suffix:PASS")" -eq 1
+    test "$(count_marker "FLYOLOGY:INTERRUPTS:CORE:$core:TIMER:PASS")" -eq 1
     core=$((core + 1))
 done
 test "$(count_marker 'FLYOLOGY:CORE:ONLINE:')" -eq "$cpu_count"
@@ -141,4 +141,4 @@ test "$(count_marker ':DEFERRED_REQUEST:PASS')" -eq "$cpu_count"
 test "$(count_marker ":$reschedule_suffix:PASS")" -eq "$cpu_count"
 test "$(count_marker ':TIMER:PASS')" -eq "$cpu_count"
 
-echo "FLYOLOGY:M2:TEST:PASS:$architecture:SMP$cpu_count"
+echo "FLYOLOGY:INTERRUPTS:TEST:PASS:$architecture:SMP$cpu_count"

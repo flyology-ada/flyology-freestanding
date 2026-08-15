@@ -55,7 +55,7 @@ package Flyology.Platform is
      (Core  : System.Address;
       Probe : System.Address) return System.Address
    with Import, Convention => C,
-        External_Name => "flyology_m5_validate_environment_stack";
+        External_Name => "flyology_conformance_validate_environment_stack";
 
    procedure Switch_To_Full
      (Outgoing : access Context;
@@ -65,23 +65,23 @@ package Flyology.Platform is
 
    function Read_Clock return Tick
    with Import, Convention => C,
-        External_Name => "flyology_m4_read_clock";
+        External_Name => "flyology_platform_read_clock";
 
    --  Raw foreign value.  Task_Core validates it before conversion to the
    --  constrained proof-domain frequency type.
    function Clock_Frequency return System.Address
    with Import, Convention => C,
-        External_Name => "flyology_m4_clock_frequency";
+        External_Name => "flyology_platform_clock_frequency";
 
    procedure Program_Timer (Deadline : Tick)
    with Import, Convention => C,
-        External_Name => "flyology_m4_program_timer";
+        External_Name => "flyology_platform_program_timer";
 
    procedure Cancel_Timer
    with Import, Convention => C,
-        External_Name => "flyology_m4_cancel_timer";
+        External_Name => "flyology_platform_cancel_timer";
 
    procedure Retry_Interrupt
    with Import, Convention => C,
-        External_Name => "flyology_m5_retry_interrupt";
+        External_Name => "flyology_platform_retry_interrupt";
 end Flyology.Platform;
