@@ -2,15 +2,10 @@
 
 ## Status
 
-In progress. Commit `87a4d9d050520dedb1e1a244193e386ded8464bf`
-closed the responsibility naming, clean-room inventory, deterministic-library,
-formal, reproducibility, and runtime-matrix slices. A subsequent completion
-audit found that the freestanding target still reconstructed its source/object
-graph procedurally in `scripts/build-image.sh`; only the deterministic primitive
-library was expressed as a GPR project. The current target-project slice fixes
-that structural defect, but this review remains open until the exact committed
-tree has completed the full reproducibility/runtime matrix and the remaining
-monolith/subtraction audit is dispositioned.
+Complete for the product-structure capability. The reviewed implementation is
+commit `3e34545eefee1abfd682e05c407291cef0732763`, Git tree
+`e19830fafe52c24915e115060b5be8bc50ab7ad1`. The closing review/roadmap commit
+changes documentation only.
 
 Maintained product code is indexed by responsibility: deterministic primitives,
 one concurrent kernel, GNARL semantic glue, compiler facades, narrow foreign ABI
@@ -19,11 +14,11 @@ configuration, clean-room evidence, and verification entry points use capability
 names. Numbered development-stage identifiers are absent from maintained paths,
 content, product symbols, structured markers, artifacts, and profiles.
 
-The earlier evidence below remains valid for its reviewed commit, but it is not
-final product-structure closure. The current work adds the target GPR graph and
-removes the duplicated shell Ada graph. Closure still requires a fresh exact-tree
-review/gate matrix and a final census of the large kernel/RTS and quarantined
-checkpoint responsibilities.
+Git history intentionally retains the chronological filenames used by the
+earlier spikes so review hashes and clean-room provenance remain auditable. The
+maintained Git tree, working tree, generated product paths, content, symbols,
+markers, and profiles contain no numbered development-stage names. Rewriting
+history is not part of the product surface and would invalidate those records.
 
 ## Reviewed structure
 
@@ -72,12 +67,11 @@ advice or an intellectual-property warranty.
 
 ## Exact-tree gates
 
-All commands below completed successfully after commit
-`87a4d9d050520dedb1e1a244193e386ded8464bf` and before this review file was
-created.
+All commands below completed successfully on the reviewed implementation commit
+and tree identified above.
 
 - `alr build --release` built `libflyology_primitives.a` with SHA-256
-  `0af8eaa0259e3b2ffb3d9d865b061802110ac87b3bb28f5662e78b2888b22be1`.
+  `36ba618da57f0b22b9b659f7bce26a8824603a01d7c3e2d16e32b230e4801914`.
 - `scripts/verify-formal-models.sh` ended in
   `FLYOLOGY:FORMAL_MODELS:PASS`: GNATprove FSF 16.1.0 proved 476/476 checks at
   level 2; the tasking, synchronization, preemption, and domain host models
@@ -91,6 +85,10 @@ created.
   bounded QEMU cells: x86-64 `q35` and AArch64 `virt`, each profile at SMP1 and
   SMP4. Every runner rejected failure/panic markers and required its causal
   capability markers.
+- The newly project-owned exception-boundary probe built on both targets and
+  passed x86-64/AArch64 SMP1/SMP4 before its integration into the authoritative
+  synchronization gate. The full tasking products then passed inspection,
+  unwind validation, and both CPU counts on each architecture.
 
 Pinned target compilers reported GNAT-FSF 15.3.0. Both QEMU binaries reported
 10.2.0. Coverage remains the fixed emulated-machine contracts, not physical
@@ -98,14 +96,14 @@ hardware or hosted CI.
 
 | Architecture | Profile | ELF SHA-256 | FAT SHA-256 |
 | --- | --- | --- | --- |
-| x86-64 | tasking | `5b118eaa58cdddf6955bea7bf28eaf56d0c5ca21873332e6a00ee559e8e234a4` | `587e974b519b32cbc6086f4b072acf44b5811983fec448c0ae33690d1c2cbfa7` |
-| x86-64 | preemptive-fifo | `a8fd0c95cb71b788df32f4d99269c84794cfa8dcccac8ebfc6520e6e73aa93f5` | `57bd2622928ee20d668477bcff7000b3085daf2d68494df632e83645543adc99` |
-| x86-64 | preemptive-round-robin | `d5caa90ca4852848882bf9d0ec7af380fcb41c8bc00fb16f5dc1b194d20bbe26` | `18e91f55cfd0585154330616de7f9dd7ca1524f2cdc56cd87c1c26d55bc21652` |
-| x86-64 | domains | `46a283fb74cfffd047b9cafa8bc59524a2f54cb9c0a85809336bf8c8cce12229` | `4ecffa58b33e7baf888b41c1aaaf85206e844a67dab99e5bb1e161dc749dcb88` |
-| AArch64 | tasking | `84a305cde94460734456f234e0ed92c95e2d25564c21e0f8dfeb5e145a0145bb` | `12fee95740bf2c5b8013e4340e7c46304d3ab09ff82e9aaa21b75898081f4dbe` |
-| AArch64 | preemptive-fifo | `f08b4dd6432d1f4735e51e055d4a002fbafaa9ec2fd608a4c721ab1f919bf8f5` | `7c46e0e43da77f293295beb15ba47e90de4e137bcd31c6d72edad35451aaef71` |
-| AArch64 | preemptive-round-robin | `022b32766842910310d5d48dc66f6d3c03ebdcad51d189c6cc353d35b4ed50e2` | `2f8b6f8c2936a0936a481d7a6c4701fda7199d9b2efea528ed0ebb99d09ba1f5` |
-| AArch64 | domains | `dc0520a2967ccba01b7677c04dd2384ab5eb06bb821190783dde95de557c3275` | `bff798979dcadda80640b35000ce334d665b5ec7fc24f54b598810b56cc52711` |
+| x86-64 | tasking | `0cd01b8e2a9b77b194c44a7c78fb87d15a3b533e7cfea9dcf3d9a208d9f3a101` | `425e3ee665acbb7f10f764eb0eacdcf62cef3a76f35732f0b10e9bb56c4fc0ab` |
+| x86-64 | preemptive-fifo | `44e006629f7a528b82dc2cb22c84899a6727459a2f917366e62c0141ab0b42c3` | `be59d8463680f2521464cdb44baeff89693871b0ee2e4ede37a0aa51f68462f0` |
+| x86-64 | preemptive-round-robin | `c200ada177bb1605cb22c25ff780988ddc4271dd64034f52ad83e5e45865de45` | `c45042dbaf2909c2b739d1d7f46b4483be0cdd62ff271ebc0452a1c2194c039a` |
+| x86-64 | domains | `05adc78a9e0f8c2b6dce2f8c8d4957fac71dc870281b6121ca1d92fac3306d4e` | `983af068c6e442a8cb28689e72503031b66fa4d4c35e1c8b3b5af5cdd9ce6dba` |
+| AArch64 | tasking | `379ca8b1bb8e820a99e63c8a8d050e4d08698d96002bb65c1afebb98b4f7ad77` | `871eb089cd32212baa5c5f85395c9a1d7d1fb71d3a3e27f4a5141ae42d1587e8` |
+| AArch64 | preemptive-fifo | `ae97e2691c16331241ae0f9110dbf815fba7e1d9d088e316557ffa6711889a32` | `336afe05ee17e7bdc150c06b2000870a49f1e1fb720aa81e65930cae842560a3` |
+| AArch64 | preemptive-round-robin | `cde497f4488d0c82975ec7f25cbe883fdd6b735a38c95b573fcff755292ecb4e` | `ea2ebbdd7ab80f8c27d243841793e543f79b60c027ed3ba5b3232aa9c63f0ced` |
+| AArch64 | domains | `5b9dca32a73d9c32043ba594e0f825650c1b0db1609def0483b43b1b722e44e2` | `60e25f99a329a26ad979dc01ba61d72683075fd58b6d750ae2bbd27ec12a6b13` |
 
 ## Findings and dispositions
 
@@ -170,6 +168,7 @@ task lifecycle and master cleanup share one implementation file.
   hardware, other firmware, other compiler releases, and broader Ada semantics
   remain separate work.
 
-The target-project blocker is resolved. Product-structure completion remains
-open pending exact-tree aggregate evidence and the final responsibility/subtraction
-audit described above.
+The target-project blocker and final responsibility/subtraction audit are
+resolved. Product structure is complete for the bounded first-release runtime;
+the residual limits above remain explicit product limits rather than hidden
+closure work.
