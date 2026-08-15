@@ -26,6 +26,8 @@ until its build, proof, review, and QEMU evidence is recorded.
 - `docs/primitives.md` — responsibility catalog and boundary of the reusable
   deterministic primitive library.
 - `docs/build.md` — Alire primitive-library and freestanding image builds.
+- `docs/scheduling.md` — source-selected initial policy and checked live
+  global/domain/CPU policy changes.
 - `src/kernel/` — the single concurrent task-state, ready-queue, dispatcher,
   timer, and context-transfer authority (`Flyology.Kernel`).
 - `src/rts/` — GNARL lifecycle and language-semantic glue (`Flyology.RTS`).

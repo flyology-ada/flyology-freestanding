@@ -5,6 +5,7 @@ with Flyology.Ceiling_Model;
 with Flyology.Domain_Model;
 with Flyology.Preemption_Model;
 with Flyology.Priority_Queue_Model;
+with Flyology.Scheduling_Configuration_Model;
 with Flyology.Timer_Model;
 with Flyology.Wait_Arbitration_Model;
 
@@ -14,8 +15,12 @@ package body Flyology.Kernel is
    package Domains renames Flyology.Domain_Model;
    package Preemption renames Flyology.Preemption_Model;
    package Scheduler renames Flyology.Priority_Queue_Model;
+   package Scheduling renames Flyology.Scheduling_Configuration_Model;
    package Timers renames Flyology.Timer_Model;
    package Waits renames Flyology.Wait_Arbitration_Model;
+   pragma Compile_Time_Error
+     (Scheduling.Max_Cores /= Max_Cores,
+      "scheduling configuration and kernel core capacities differ");
    use type Dispatcher.Task_Ref;
    use type Dispatcher.Task_Slot;
    use type Dispatcher.Task_State;
@@ -42,6 +47,7 @@ package body Flyology.Kernel is
    use type Preemption.Policy_Kind;
    use type Preemption.Preemption_Cause;
    use type Preemption.Clock.Tick;
+   use type Scheduling.Change_Status;
    use type System.Address;
 
    Dispatcher_Stack_Size : constant := 16 * 1_024;
@@ -85,8 +91,12 @@ package body Flyology.Kernel is
    type Boolean_Domain_Array is array (Domain_Number) of Boolean;
    type Policy_Domain_Array is
      array (Domain_Number) of Preemption.Policy_Kind;
-   type Quantum_Domain_Array is
-     array (Domain_Number) of Preemption.Clock.Tick;
+   type Policy_Core_Array is
+     array (Core_Number) of Preemption.Policy_Kind;
+   type Quantum_Core_Array is
+     array (Core_Number) of Preemption.Clock.Tick;
+   type Slice_Core_Array is
+     array (Core_Number) of Preemption.Binder_Time_Slice;
 
    Dispatcher_Stacks   : Dispatcher_Stack_Array;
    Task_Stacks         : Task_Stack_Array;
@@ -108,7 +118,10 @@ package body Flyology.Kernel is
      [System_Domain => True, others => False];
    Domain_Policies     : Policy_Domain_Array :=
      [others => Preemption.FIFO_Within_Priorities];
-   Domain_Quanta       : Quantum_Domain_Array := [others => 0];
+   Core_Policies       : Policy_Core_Array :=
+     [others => Preemption.FIFO_Within_Priorities];
+   Core_Quanta         : Quantum_Core_Array := [others => 0];
+   Core_Slices         : Slice_Core_Array := [others => 0];
    Policy_Configured   : Boolean := False;
 
    procedure Enter_Kernel
@@ -199,10 +212,10 @@ package body Flyology.Kernel is
    end Apply;
 
    function Policy_For (Core : Core_Number) return Preemption.Policy_Kind is
-     (Domain_Policies (Core_Domains (Core)));
+     (Core_Policies (Core));
 
    function Quantum_For (Core : Core_Number) return Preemption.Clock.Tick is
-     (Domain_Quanta (Core_Domains (Core)));
+     (Core_Quanta (Core));
 
    procedure Initialize (CPU_Count : Positive) is
    begin
@@ -219,7 +232,9 @@ package body Flyology.Kernel is
       Core_Domains := [others => System_Domain];
       Domain_Used := [System_Domain => True, others => False];
       Domain_Policies := [others => Preemption.FIFO_Within_Priorities];
-      Domain_Quanta := [others => 0];
+      Core_Policies := [others => Preemption.FIFO_Within_Priorities];
+      Core_Quanta := [others => 0];
+      Core_Slices := [others => 0];
       Policy_Configured := False;
    end Initialize;
 
@@ -227,6 +242,24 @@ package body Flyology.Kernel is
       procedure Configure_Dispatching
         (Policy : Dispatching_Policy;
          Slice  : Binder_Time_Slice);
+      procedure Change_Global_Policy_Locked
+        (Policy   : Dispatching_Policy;
+         Slice    : Binder_Time_Slice;
+         Affected : out Core_Set);
+      procedure Change_Domain_Policy_Locked
+        (Cores    : Core_Set;
+         Policy   : Dispatching_Policy;
+         Slice    : Binder_Time_Slice;
+         Affected : out Core_Set);
+      procedure Change_Core_Policy_Locked
+        (Core     : Core_Number;
+         Policy   : Dispatching_Policy;
+         Slice    : Binder_Time_Slice;
+         Affected : out Core_Set);
+      function Policy_Of_Core_Locked
+        (Core : Core_Number) return Dispatching_Policy;
+      function Slice_Of_Core_Locked
+        (Core : Core_Number) return Binder_Time_Slice;
       procedure Try_Create_Domain_Locked
         (Cores   : Core_Set;
          Policy  : Dispatching_Policy;
@@ -235,6 +268,8 @@ package body Flyology.Kernel is
          Created : out Boolean);
       function Domain_Is_Used_Locked
         (Domain : Domain_Number) return Boolean;
+      function Domain_Policy_Locked
+        (Domain : Domain_Number) return Dispatching_Policy;
       function Domain_Cores_Locked
         (Domain : Domain_Number) return Core_Set;
       function Domain_Of_Core_Locked
@@ -250,6 +285,34 @@ package body Flyology.Kernel is
       Slice  : Binder_Time_Slice)
    renames Domain_Operations.Configure_Dispatching;
 
+   procedure Change_Global_Policy_Locked
+     (Policy   : Dispatching_Policy;
+      Slice    : Binder_Time_Slice;
+      Affected : out Core_Set)
+   renames Domain_Operations.Change_Global_Policy_Locked;
+
+   procedure Change_Domain_Policy_Locked
+     (Cores    : Core_Set;
+      Policy   : Dispatching_Policy;
+      Slice    : Binder_Time_Slice;
+      Affected : out Core_Set)
+   renames Domain_Operations.Change_Domain_Policy_Locked;
+
+   procedure Change_Core_Policy_Locked
+     (Core     : Core_Number;
+      Policy   : Dispatching_Policy;
+      Slice    : Binder_Time_Slice;
+      Affected : out Core_Set)
+   renames Domain_Operations.Change_Core_Policy_Locked;
+
+   function Policy_Of_Core_Locked
+     (Core : Core_Number) return Dispatching_Policy
+   renames Domain_Operations.Policy_Of_Core_Locked;
+
+   function Slice_Of_Core_Locked
+     (Core : Core_Number) return Binder_Time_Slice
+   renames Domain_Operations.Slice_Of_Core_Locked;
+
    procedure Try_Create_Domain_Locked
      (Cores   : Core_Set;
       Policy  : Dispatching_Policy;
@@ -260,6 +323,10 @@ package body Flyology.Kernel is
 
    function Domain_Is_Used_Locked (Domain : Domain_Number) return Boolean
    renames Domain_Operations.Domain_Is_Used_Locked;
+
+   function Domain_Policy_Locked
+     (Domain : Domain_Number) return Dispatching_Policy
+   renames Domain_Operations.Domain_Policy_Locked;
 
    function Domain_Cores_Locked (Domain : Domain_Number) return Core_Set
    renames Domain_Operations.Domain_Cores_Locked;

@@ -15,4 +15,4 @@ output=$(build/host-preemption-policy/bin/preemption_policy_tests)
 printf '%s\n' "$output"
 
 test "$output" = \
-    'FLYOLOGY:PREEMPTION:POLICY_MODEL:PASS:EDGES 611:HASH 4221926451382466817'
+    'FLYOLOGY:PREEMPTION:POLICY_MODEL:PASS:EDGES 2531:HASH 11691030413894487372'

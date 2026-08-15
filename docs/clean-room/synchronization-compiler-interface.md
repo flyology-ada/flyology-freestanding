@@ -686,7 +686,7 @@ pinned hash. Every completion phase is checked for legal normal/exceptional
 completion, consumption, identity-presence, and abort-before-transferred-
 exception delivery invariants. The gate pins both
 the edge count and serialized-state hash so an accidental search reduction
-fails. The current serialized GNATprove 16.1 gate reports all 537 generated
+fails. The current serialized GNATprove 16.1 gate reports all 543 generated
 checks proved across the
 SPARK-analyzed deterministic primitive units, including the exact allocator
 state engine. The data-only `Task_Primitives` token package is analyzed, but the

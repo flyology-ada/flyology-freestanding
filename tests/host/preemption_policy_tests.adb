@@ -5,12 +5,14 @@ with Flyology.Clock_Model;
 with Flyology.Dispatcher_Model;
 with Flyology.Preemption_Model;
 with Flyology.Priority_Queue_Model;
+with Flyology.Scheduling_Configuration_Model;
 
 procedure Preemption_Policy_Tests is
    package Clock renames Flyology.Clock_Model;
    package Dispatcher renames Flyology.Dispatcher_Model;
    package Preemption renames Flyology.Preemption_Model;
    package Ready_Queues renames Flyology.Priority_Queue_Model;
+   package Live renames Flyology.Scheduling_Configuration_Model;
 
    use type Clock.Tick;
    use type Dispatcher.Priority;
@@ -19,6 +21,8 @@ procedure Preemption_Policy_Tests is
    use type Preemption.Preemption_Cause;
    use type Ready_Queues.Enqueue_Status;
    use type Ready_Queues.Requeue_Status;
+   use type Live.Change_Status;
+   use type Live.Configuration_State;
 
    type Hash_Word is mod 2 ** 64;
    Hash  : Hash_Word := 16#CBF29CE484222325#;
@@ -230,11 +234,82 @@ procedure Preemption_Policy_Tests is
       end;
    end Check_Ready_Queue_Positions;
 
+   procedure Check_Live_Configuration is
+      Rate : constant Clock.Frequency := 1_000_000_000;
+      Slices : constant array (Positive range <>) of
+        Preemption.Binder_Time_Slice := [0, 1, 10_000];
+   begin
+      for Core_Count in Live.Core_Count loop
+         declare
+            Before : constant Live.Configuration_State :=
+              (Cores => Core_Count, others => <>);
+         begin
+            pragma Assert (Live.Valid (Before, Rate));
+            for Mask in Natural range 0 .. 2 ** Live.Max_Cores - 1 loop
+               declare
+                  Targets : Live.Core_Set := [others => False];
+               begin
+                  for Core in Live.Core_Number loop
+                     Targets (Core) := (Mask / (2 ** Core)) mod 2 = 1;
+                  end loop;
+                  for Policy in Preemption.Policy_Kind loop
+                     for Slice of Slices loop
+                        declare
+                           Result : constant Live.Change_Result :=
+                             Live.Try_Change
+                               (Before, Targets, Policy, Slice, Rate);
+                           Expected : constant Boolean :=
+                             Live.Can_Change
+                               (Before, Targets, Policy, Slice, Rate);
+                        begin
+                           pragma Assert
+                             ((Result.Status = Live.Changed) = Expected);
+                           pragma Assert (Live.Valid (Result.State, Rate));
+                           if Expected then
+                              for Core in Live.Core_Number loop
+                                 pragma Assert
+                                   (Result.State.Policies (Core) =
+                                      (if Targets (Core)
+                                       then Policy
+                                       else Before.Policies (Core)));
+                                 pragma Assert
+                                   (Result.State.Slices (Core) =
+                                      (if Targets (Core)
+                                       then Slice
+                                       else Before.Slices (Core)));
+                              end loop;
+                           else
+                              pragma Assert (Result.State = Before);
+                           end if;
+                           Count
+                             (50_000 + 1_000 * Core_Count
+                              + 100 * Mask
+                              + 10 * Preemption.Policy_Kind'Pos (Policy)
+                              + Live.Change_Status'Pos (Result.Status));
+                           for Core in Live.Core_Number loop
+                              Count
+                                (60_000
+                                 + 10_000 * Core
+                                 + 1_000 *
+                                   Preemption.Policy_Kind'Pos
+                                     (Result.State.Policies (Core))
+                                 + Integer (Result.State.Slices (Core) mod 997));
+                           end loop;
+                        end;
+                     end loop;
+                  end loop;
+               end;
+            end loop;
+         end;
+      end loop;
+   end Check_Live_Configuration;
+
 begin
    Check_Configuration;
    Check_Budgets;
    Check_Decisions;
    Check_Ready_Queue_Positions;
+   Check_Live_Configuration;
    Ada.Text_IO.Put_Line
      ("FLYOLOGY:PREEMPTION:POLICY_MODEL:PASS:EDGES" & Natural'Image (Edges) &
         ":HASH" & Hash_Word'Image (Hash));

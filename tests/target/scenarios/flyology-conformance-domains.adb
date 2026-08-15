@@ -1,15 +1,19 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Ada.Task_Identification;
+with Flyology.Console;
+with Flyology.Scheduling;
 with System;
 with System.Multiprocessors;
 with System.Multiprocessors.Dispatching_Domains;
 
 package body Flyology.Conformance.Domains is
    package Domains renames System.Multiprocessors.Dispatching_Domains;
+   package Scheduling renames Flyology.Scheduling;
    package Tasks renames Ada.Task_Identification;
 
    use type System.Multiprocessors.CPU_Range;
+   use type Scheduling.Policy_Kind;
 
    Spin_Limit : constant := 50_000_000;
    Threshold  : constant := 10_000;
@@ -74,6 +78,12 @@ package body Flyology.Conformance.Domains is
    RR_Second_Count : Natural := 0 with Atomic;
    RR_First_Done   : Boolean := False with Atomic;
    RR_Second_Done  : Boolean := False with Atomic;
+
+   Live_First_Started : Boolean := False with Atomic;
+   Live_First_Count   : Natural := 0 with Atomic;
+   Live_Second_Count  : Natural := 0 with Atomic;
+   Live_First_Done    : Boolean := False with Atomic;
+   Live_Second_Done   : Boolean := False with Atomic;
 
    type Core_Flags is array (Positive range 1 .. 4) of Boolean
      with Atomic_Components;
@@ -149,6 +159,17 @@ package body Flyology.Conformance.Domains is
      with Dispatching_Domain => Secondary_Domain,
           CPU                => Assigned_CPU,
           Priority           => 10;
+
+   task type Live_First_Task
+     (Assigned_CPU : System.Multiprocessors.CPU_Range)
+     with CPU => Assigned_CPU, Priority => 5;
+   task type Live_Second_Task
+     (Assigned_CPU : System.Multiprocessors.CPU_Range)
+     with CPU => Assigned_CPU, Priority => 5;
+   task type Live_Controller_Task
+     (Assigned_CPU : System.Multiprocessors.CPU_Range;
+      Target_CPU   : System.Multiprocessors.CPU_Range)
+     with CPU => Assigned_CPU, Priority => 10;
 
    task body Query_Task is
       Domain : constant Domains.Dispatching_Domain :=
@@ -281,6 +302,52 @@ package body Flyology.Conformance.Domains is
       Run_Coordinator (Positive (Assigned_CPU));
    end Secondary_Coordinator_Task;
 
+   task body Live_First_Task is
+   begin
+      Live_First_Started := True;
+      for Iteration in 1 .. Spin_Limit loop
+         Live_First_Count := Iteration;
+         exit when Live_First_Count >= Threshold
+           and then Live_Second_Count >= Threshold;
+      end loop;
+      if Live_First_Count < Threshold or else Live_Second_Count < Threshold
+      then
+         Report_Failure;
+      end if;
+      Live_First_Done := True;
+   end Live_First_Task;
+
+   task body Live_Second_Task is
+   begin
+      for Iteration in 1 .. Spin_Limit loop
+         Live_Second_Count := Iteration;
+         exit when Live_First_Count >= Threshold
+           and then Live_Second_Count >= Threshold;
+      end loop;
+      if Live_First_Count < Threshold or else Live_Second_Count < Threshold
+      then
+         Report_Failure;
+      end if;
+      Live_Second_Done := True;
+   end Live_Second_Task;
+
+   task body Live_Controller_Task is
+   begin
+      for Attempt in 1 .. 1_000 loop
+         exit when Live_First_Started;
+         delay 0.001;
+      end loop;
+      if not Live_First_Started then
+         Report_Failure;
+      end if;
+      delay 0.010;
+      if Live_Second_Count /= 0 then
+         Report_Failure;
+      end if;
+      Scheduling.Set_CPU_Policy
+        (Target_CPU, Scheduling.Round_Robin (2_000));
+   end Live_Controller_Task;
+
    procedure Check_Layout is
       System_Domain : constant Domains.Dispatching_Domain :=
         Domains.Get_Dispatching_Domain;
@@ -367,6 +434,107 @@ package body Flyology.Conformance.Domains is
       Report_All_Core_Pass;
    end Check_All_Core_Preemption;
 
+   procedure Check_Live_Policies is
+      System_Domain : constant Domains.Dispatching_Domain :=
+        Domains.Get_Dispatching_Domain;
+
+      procedure Require
+        (CPU      : System.Multiprocessors.CPU;
+         Policy   : Scheduling.Policy_Kind;
+         Quantum  : Natural)
+      is
+         Configuration : constant Scheduling.Policy_Configuration :=
+           Scheduling.Policy_Of (CPU);
+      begin
+         if Configuration.Policy /= Policy
+           or else Natural (Configuration.Quantum) /= Quantum
+         then
+            Report_Failure;
+         end if;
+      end Require;
+
+      procedure Check_Execution is
+         Target : constant System.Multiprocessors.CPU_Range :=
+           (if System.Multiprocessors.Number_Of_CPUs = 4 then 2 else 1);
+         Controller_CPU : constant System.Multiprocessors.CPU_Range := 1;
+
+         procedure Execute is
+            First      : Live_First_Task (Target);
+            Second     : Live_Second_Task (Target);
+            Controller : Live_Controller_Task (Controller_CPU, Target);
+         begin
+            null;
+         end Execute;
+      begin
+         Live_First_Started := False;
+         Live_First_Count := 0;
+         Live_Second_Count := 0;
+         Live_First_Done := False;
+         Live_Second_Done := False;
+         Execute;
+         if not Live_First_Done or else not Live_Second_Done then
+            Report_Failure;
+         end if;
+         Require
+           (Target, Scheduling.Round_Robin_Within_Priorities, 2_000);
+         Flyology.Console.Put_Line
+           ("FLYOLOGY:SCHEDULING:LIVE_EXECUTION:PASS");
+      end Check_Execution;
+   begin
+      begin
+         Scheduling.Set_Global_Policy
+           ((Policy  => Scheduling.FIFO_Within_Priorities,
+             Quantum => 1));
+         Report_Failure;
+      exception
+         when Scheduling.Scheduling_Error => null;
+      end;
+      if System.Multiprocessors.Number_Of_CPUs = 4 then
+         Require (1, Scheduling.FIFO_Within_Priorities, 0);
+         Require
+           (3, Scheduling.Round_Robin_Within_Priorities,
+            Scheduling.Default_Round_Robin_Quantum);
+
+         Check_Execution;
+
+         Require (1, Scheduling.FIFO_Within_Priorities, 0);
+         Require (2, Scheduling.Round_Robin_Within_Priorities, 2_000);
+         Require
+           (3, Scheduling.Round_Robin_Within_Priorities,
+            Scheduling.Default_Round_Robin_Quantum);
+
+         Scheduling.Set_Domain_Policy
+           (System_Domain, Scheduling.Round_Robin (3_000));
+         Require (1, Scheduling.Round_Robin_Within_Priorities, 3_000);
+         Require (2, Scheduling.Round_Robin_Within_Priorities, 3_000);
+         Require
+           (3, Scheduling.Round_Robin_Within_Priorities,
+            Scheduling.Default_Round_Robin_Quantum);
+
+         Scheduling.Set_Domain_Policy (Secondary_Domain, Scheduling.FIFO);
+         Require (3, Scheduling.FIFO_Within_Priorities, 0);
+         Require (4, Scheduling.FIFO_Within_Priorities, 0);
+
+         Scheduling.Set_Global_Policy (Scheduling.FIFO);
+         for CPU in System.Multiprocessors.CPU range 1 .. 4 loop
+            Require (CPU, Scheduling.FIFO_Within_Priorities, 0);
+         end loop;
+
+         Scheduling.Set_Domain_Policy (System_Domain, Scheduling.FIFO);
+         Scheduling.Set_Domain_Policy
+           (Secondary_Domain, Scheduling.Round_Robin);
+      else
+         Check_Execution;
+         Require (1, Scheduling.Round_Robin_Within_Priorities, 2_000);
+         Scheduling.Set_Domain_Policy (System_Domain, Scheduling.FIFO);
+         Require (1, Scheduling.FIFO_Within_Priorities, 0);
+         Scheduling.Set_Global_Policy (Scheduling.Round_Robin (3_000));
+         Require (1, Scheduling.Round_Robin_Within_Priorities, 3_000);
+         Scheduling.Set_Global_Policy (Scheduling.FIFO);
+      end if;
+      Flyology.Console.Put_Line ("FLYOLOGY:SCHEDULING:LIVE_POLICY:PASS");
+   end Check_Live_Policies;
+
    procedure Run is
    begin
       Check_Layout;
@@ -387,5 +555,6 @@ package body Flyology.Conformance.Domains is
          Check_Heterogeneous_Policies;
          Check_All_Core_Preemption;
       end if;
+      Check_Live_Policies;
    end Run;
 end Flyology.Conformance.Domains;

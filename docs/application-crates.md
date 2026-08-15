@@ -73,6 +73,12 @@ action, environment variable, or shell profile. Round robin is selected with
 `Round_Robin_Within_Priorities`; when GNAT leaves its quantum unspecified,
 Flyology uses a documented 10 ms default.
 
+After startup, applications may use `Flyology.Scheduling` to replace the live
+global, dispatching-domain, or individual-CPU policy. This does not rewrite the
+binder value: the pragma supplies the safe pre-elaboration default, while the
+runtime API performs synchronized changes after the application exists. See
+[`scheduling.md`](scheduling.md) for the typed API and replacement rules.
+
 `alr build` builds both supported architectures by default. The output is
 deliberately shallow:
 

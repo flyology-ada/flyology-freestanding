@@ -12,20 +12,22 @@ Domains == {SystemDomain, SecondaryDomain}
 Policies == {"FIFO", "RoundRobin"}
 Phases == {"Absent", "Ready", "Running"}
 
-VARIABLES domainCreated, coreDomain, taskDomain, homeCore, phase,
-          current, ready, rotations
+VARIABLES domainCreated, coreDomain, domainPolicy, corePolicy,
+          taskDomain, homeCore, phase, current, ready, rotations
 
-vars == <<domainCreated, coreDomain, taskDomain, homeCore, phase,
-          current, ready, rotations>>
+vars == <<domainCreated, coreDomain, domainPolicy, corePolicy,
+          taskDomain, homeCore, phase, current, ready, rotations>>
 
 QueueSet(q) == {q[i] : i \in 1..Len(q)}
 Occurrences(q, task) == Cardinality({i \in 1..Len(q) : q[i] = task})
-Policy(domain) == IF domain = SystemDomain THEN "FIFO" ELSE "RoundRobin"
-
 Init ==
     /\ MaxRotations \in Nat \ {0}
     /\ domainCreated = FALSE
     /\ coreDomain = [core \in Cores |-> SystemDomain]
+    /\ domainPolicy = [domain \in Domains |->
+                          IF domain = SystemDomain THEN "FIFO"
+                          ELSE "RoundRobin"]
+    /\ corePolicy = [core \in Cores |-> "FIFO"]
     /\ taskDomain = [task \in Tasks |->
                          IF task = Env THEN SystemDomain ELSE NoDomain]
     /\ homeCore = [task \in Tasks |-> IF task = Env THEN C1 ELSE NoCore]
@@ -46,7 +48,46 @@ CreateSecondary(selected) ==
     /\ coreDomain' =
          [core \in Cores |->
             IF core \in selected THEN SecondaryDomain ELSE coreDomain[core]]
-    /\ UNCHANGED <<taskDomain, homeCore, phase, current, ready, rotations>>
+    /\ corePolicy' =
+         [core \in Cores |->
+            IF core \in selected THEN domainPolicy[SecondaryDomain]
+            ELSE corePolicy[core]]
+    /\ rotations' =
+         [core \in Cores |-> IF core \in selected THEN 0 ELSE rotations[core]]
+    /\ UNCHANGED <<domainPolicy, taskDomain, homeCore, phase, current, ready>>
+
+ChangeGlobalPolicy(policy) ==
+    /\ policy \in Policies
+    /\ domainPolicy' =
+         [domain \in Domains |->
+            IF domain = SystemDomain \/ domainCreated
+            THEN policy ELSE domainPolicy[domain]]
+    /\ corePolicy' = [core \in Cores |-> policy]
+    /\ rotations' = [core \in Cores |-> 0]
+    /\ UNCHANGED <<domainCreated, coreDomain, taskDomain, homeCore,
+                   phase, current, ready>>
+
+ChangeDomainPolicy(domain, policy) ==
+    /\ domain \in Domains
+    /\ policy \in Policies
+    /\ domain = SystemDomain \/ domainCreated
+    /\ domainPolicy' = [domainPolicy EXCEPT ![domain] = policy]
+    /\ corePolicy' =
+         [core \in Cores |->
+            IF coreDomain[core] = domain THEN policy ELSE corePolicy[core]]
+    /\ rotations' =
+         [core \in Cores |->
+            IF coreDomain[core] = domain THEN 0 ELSE rotations[core]]
+    /\ UNCHANGED <<domainCreated, coreDomain, taskDomain, homeCore,
+                   phase, current, ready>>
+
+ChangeCorePolicy(core, policy) ==
+    /\ core \in Cores
+    /\ policy \in Policies
+    /\ corePolicy' = [corePolicy EXCEPT ![core] = policy]
+    /\ rotations' = [rotations EXCEPT ![core] = 0]
+    /\ UNCHANGED <<domainCreated, coreDomain, domainPolicy,
+                   taskDomain, homeCore, phase, current, ready>>
 
 Admit(task, explicit, requestedDomain, requestedCore, chosenCore) ==
     LET selectedDomain ==
@@ -64,7 +105,8 @@ Admit(task, explicit, requestedDomain, requestedCore, chosenCore) ==
         /\ homeCore' = [homeCore EXCEPT ![task] = chosenCore]
         /\ phase' = [phase EXCEPT ![task] = "Ready"]
         /\ ready' = [ready EXCEPT ![chosenCore] = Append(@, task)]
-        /\ UNCHANGED <<domainCreated, coreDomain, current, rotations>>
+        /\ UNCHANGED <<domainCreated, coreDomain, domainPolicy, corePolicy,
+                       current, rotations>>
 
 Dispatch(core) ==
     LET task == Head(ready[core])
@@ -77,14 +119,14 @@ Dispatch(core) ==
         /\ current' = [current EXCEPT ![core] = task]
         /\ phase' = [phase EXCEPT ![task] = "Running"]
         /\ ready' = [ready EXCEPT ![core] = Tail(@)]
-        /\ UNCHANGED <<domainCreated, coreDomain, taskDomain, homeCore,
-                       rotations>>
+        /\ UNCHANGED <<domainCreated, coreDomain, domainPolicy, corePolicy,
+                       taskDomain, homeCore, rotations>>
 
 RoundRobinRotate(core) ==
     LET outgoing == current[core]
         incoming == Head(ready[core])
     IN  /\ core \in Cores
-        /\ Policy(coreDomain[core]) = "RoundRobin"
+        /\ corePolicy[core] = "RoundRobin"
         /\ outgoing \in Tasks
         /\ ready[core] /= <<>>
         /\ rotations[core] < MaxRotations
@@ -101,10 +143,16 @@ RoundRobinRotate(core) ==
         /\ ready' = [ready EXCEPT
                         ![core] = Append(Tail(@), outgoing)]
         /\ rotations' = [rotations EXCEPT ![core] = @ + 1]
-        /\ UNCHANGED <<domainCreated, coreDomain, taskDomain, homeCore>>
+        /\ UNCHANGED <<domainCreated, coreDomain, domainPolicy, corePolicy,
+                       taskDomain, homeCore>>
 
 Next ==
     \/ \E selected \in SUBSET Cores : CreateSecondary(selected)
+    \/ \E policy \in Policies : ChangeGlobalPolicy(policy)
+    \/ \E domain \in Domains, policy \in Policies :
+          ChangeDomainPolicy(domain, policy)
+    \/ \E core \in Cores, policy \in Policies :
+          ChangeCorePolicy(core, policy)
     \/ \E task \in Workers, explicit \in BOOLEAN,
           requestedDomain \in Domains,
           requestedCore \in Cores \cup {NoCore}, chosenCore \in Cores :
@@ -117,6 +165,8 @@ Spec == Init /\ [][Next]_vars
 TypeOK ==
     /\ domainCreated \in BOOLEAN
     /\ coreDomain \in [Cores -> Domains]
+    /\ domainPolicy \in [Domains -> Policies]
+    /\ corePolicy \in [Cores -> Policies]
     /\ taskDomain \in [Tasks -> Domains \cup {NoDomain}]
     /\ homeCore \in [Tasks -> Cores \cup {NoCore}]
     /\ phase \in [Tasks -> Phases]
@@ -129,8 +179,7 @@ SystemNeverEmpty == \E core \in Cores : coreDomain[core] = SystemDomain
 SecondaryCreationIsMonotonic ==
     ~domainCreated => \A core \in Cores : coreDomain[core] = SystemDomain
 
-CorePolicyIsDomainPolicy ==
-    \A core \in Cores : Policy(coreDomain[core]) \in Policies
+EffectivePolicyKnown == \A core \in Cores : corePolicy[core] \in Policies
 
 UniqueReady ==
     /\ \A core \in Cores, task \in Tasks : Occurrences(ready[core], task) <= 1
@@ -173,10 +222,10 @@ AbsentHasNoOwnership ==
 
 FIFODoesNotRotate ==
     \A core \in Cores :
-        Policy(coreDomain[core]) = "FIFO" => rotations[core] = 0
+        corePolicy[core] = "FIFO" => rotations[core] = 0
 
 Safety == TypeOK /\ SystemNeverEmpty /\ SecondaryCreationIsMonotonic
-          /\ CorePolicyIsDomainPolicy /\ UniqueReady /\ ReadyIsolation
+          /\ EffectivePolicyKnown /\ UniqueReady /\ ReadyIsolation
           /\ ReadyIffQueued /\ RunningIsolation /\ RunningIffCurrent
           /\ UniqueCurrent /\ AbsentHasNoOwnership /\ FIFODoesNotRotate
 

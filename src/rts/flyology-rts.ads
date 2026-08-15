@@ -8,6 +8,10 @@ package Flyology.RTS is
    type Task_List is array (Positive range <>) of Task_Id;
    subtype Domain_CPU is Positive range 1 .. 4;
    type Domain_CPU_Set is array (Domain_CPU) of Boolean;
+   type Scheduling_Policy is
+     (FIFO_Within_Priorities,
+      Round_Robin_Within_Priorities);
+   subtype Scheduling_Quantum_Microseconds is Natural range 0 .. Integer'Last;
 
    procedure Create_Task
      (Body_Procedure : System.Tasking.Task_Procedure_Access;
@@ -57,6 +61,21 @@ package Flyology.RTS is
    procedure Freeze_Domains;
    function Task_Domain (Item : Task_Id) return Natural;
    function Assigned_CPU (Item : Task_Id) return Natural;
+   procedure Set_Global_Scheduling_Policy
+     (Policy  : Scheduling_Policy;
+      Quantum : Scheduling_Quantum_Microseconds);
+   procedure Set_Domain_Scheduling_Policy
+     (Set     : Domain_CPU_Set;
+      Policy  : Scheduling_Policy;
+      Quantum : Scheduling_Quantum_Microseconds);
+   procedure Set_CPU_Scheduling_Policy
+     (CPU     : Domain_CPU;
+      Policy  : Scheduling_Policy;
+      Quantum : Scheduling_Quantum_Microseconds);
+   procedure Get_CPU_Scheduling_Configuration
+     (CPU     : Domain_CPU;
+      Policy  : out Scheduling_Policy;
+      Quantum : out Scheduling_Quantum_Microseconds);
    function Validate_Current_Stack (Probe : System.Address) return Boolean;
    procedure Delay_For (Interval : Duration);
    procedure Delay_Until (Deadline : Long_Long_Integer);

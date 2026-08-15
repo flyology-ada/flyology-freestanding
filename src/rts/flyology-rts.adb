@@ -51,6 +51,7 @@ package body Flyology.RTS is
    use type Termination.Dependent_Phase;
    use type Core.Timer_Cancel_Status;
    use type Core.Wait_Token;
+   use type Core.Dispatching_Policy;
 
    Max_Cores   : constant := Core.Max_Cores;
    Max_Tasks   : constant := System.Tasking.Max_Tasks;
@@ -312,6 +313,21 @@ package body Flyology.RTS is
       function Domain_CPUs (Identifier : Natural) return Domain_CPU_Set;
       function Task_Domain (Item : Task_Id) return Natural;
       function Assigned_CPU (Item : Task_Id) return Natural;
+      procedure Set_Global_Scheduling_Policy
+        (Policy  : Scheduling_Policy;
+         Quantum : Scheduling_Quantum_Microseconds);
+      procedure Set_Domain_Scheduling_Policy
+        (Set     : Domain_CPU_Set;
+         Policy  : Scheduling_Policy;
+         Quantum : Scheduling_Quantum_Microseconds);
+      procedure Set_CPU_Scheduling_Policy
+        (CPU     : Domain_CPU;
+         Policy  : Scheduling_Policy;
+         Quantum : Scheduling_Quantum_Microseconds);
+      procedure Get_CPU_Scheduling_Configuration
+        (CPU     : Domain_CPU;
+         Policy  : out Scheduling_Policy;
+         Quantum : out Scheduling_Quantum_Microseconds);
    end Domain_Operations;
 
    package body Domain_Operations is separate;
@@ -337,6 +353,29 @@ package body Flyology.RTS is
 
    function Assigned_CPU (Item : Task_Id) return Natural
    renames Domain_Operations.Assigned_CPU;
+
+   procedure Set_Global_Scheduling_Policy
+     (Policy  : Scheduling_Policy;
+      Quantum : Scheduling_Quantum_Microseconds)
+   renames Domain_Operations.Set_Global_Scheduling_Policy;
+
+   procedure Set_Domain_Scheduling_Policy
+     (Set     : Domain_CPU_Set;
+      Policy  : Scheduling_Policy;
+      Quantum : Scheduling_Quantum_Microseconds)
+   renames Domain_Operations.Set_Domain_Scheduling_Policy;
+
+   procedure Set_CPU_Scheduling_Policy
+     (CPU     : Domain_CPU;
+      Policy  : Scheduling_Policy;
+      Quantum : Scheduling_Quantum_Microseconds)
+   renames Domain_Operations.Set_CPU_Scheduling_Policy;
+
+   procedure Get_CPU_Scheduling_Configuration
+     (CPU     : Domain_CPU;
+      Policy  : out Scheduling_Policy;
+      Quantum : out Scheduling_Quantum_Microseconds)
+   renames Domain_Operations.Get_CPU_Scheduling_Configuration;
 
    procedure Try_All_Closed_Masters_Locked
      (Kicks : in out Boolean_Core_Array);

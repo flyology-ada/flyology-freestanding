@@ -226,6 +226,14 @@ if test "$profile" = domains; then
         system__secondary_stack__ss_allocate \
         flyology__rts__register_domain_alias flyology__rts__create_domain \
         flyology__kernel__try_create_domain_locked \
+        flyology__scheduling__set_global_policy \
+        flyology__scheduling__set_domain_policy \
+        flyology__scheduling__set_cpu_policy \
+        flyology__scheduling__policy_of \
+        flyology__kernel__change_global_policy_locked \
+        flyology__kernel__change_domain_policy_locked \
+        flyology__kernel__change_core_policy_locked \
+        flyology__scheduling_configuration_model__try_change \
         flyology__kernel__activate_locked \
         flyology__domain_model__valid flyology__domain_model__try_create \
         flyology__domain_model__place flyology__domain_model__try_admit; do
@@ -237,6 +245,10 @@ if test "$profile" = domains; then
         printf '%s\n' "$strings_output" | \
             grep -F "FLYOLOGY:DOMAINS:$marker:PASS" >/dev/null
     done
+    printf '%s\n' "$strings_output" | \
+        grep -F 'FLYOLOGY:SCHEDULING:LIVE_POLICY:PASS' >/dev/null
+    printf '%s\n' "$strings_output" | \
+        grep -F 'FLYOLOGY:SCHEDULING:LIVE_EXECUTION:PASS' >/dev/null
     grep -F '__gnat_freeze_dispatching_domains' "$binder" >/dev/null
 fi
 

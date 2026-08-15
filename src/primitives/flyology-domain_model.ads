@@ -86,7 +86,6 @@ is
    function Domain_Table_Valid (State : Domain_State) return Boolean
    is
      (State.Domains (0).Used
-      and then State.Domains (0).Policy = FIFO_Within_Priorities
       and then State.Domain_Count <= State.CPUs
       and then
         (for all Domain in Domain_Id =>

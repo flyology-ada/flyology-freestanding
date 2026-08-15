@@ -67,7 +67,9 @@ package body Domain_Operations is
          Result.Domains (Domains.Domain_Id (Domain)).Used :=
            Core.Domain_Is_Used_Locked (Domain);
          Result.Domains (Domains.Domain_Id (Domain)).Policy :=
-           (if Domain = Core.System_Domain
+           (if not Core.Domain_Is_Used_Locked (Domain)
+            or else Core.Domain_Policy_Locked (Domain) =
+              Core.FIFO_Within_Priorities
             then Domains.FIFO_Within_Priorities
             else Domains.Round_Robin_Within_Priorities);
          if Core.Domain_Is_Used_Locked (Domain) then
@@ -195,4 +197,116 @@ package body Domain_Operations is
       Leave_Kernel;
       return Natural (Result) + 1;
    end Assigned_CPU;
+
+   function Core_Policy (Policy : Scheduling_Policy) return
+     Core.Dispatching_Policy
+   is
+     (case Policy is
+         when FIFO_Within_Priorities => Core.FIFO_Within_Priorities,
+         when Round_Robin_Within_Priorities =>
+           Core.Round_Robin_Within_Priorities);
+
+   procedure Validate_Quantum
+     (Policy  : Scheduling_Policy;
+      Quantum : Scheduling_Quantum_Microseconds)
+   is
+   begin
+      if (Policy = FIFO_Within_Priorities and then Quantum /= 0)
+        or else
+          (Policy = Round_Robin_Within_Priorities and then Quantum = 0)
+      then
+         Stop;
+      end if;
+   end Validate_Quantum;
+
+   procedure Kick_Affected (Affected : Core.Core_Set) is
+   begin
+      for Dense in Core_Number loop
+         if Affected (Dense) then
+            Kick_Core (System.Address (Dense));
+         end if;
+      end loop;
+   end Kick_Affected;
+
+   procedure Set_Global_Scheduling_Policy
+     (Policy  : Scheduling_Policy;
+      Quantum : Scheduling_Quantum_Microseconds)
+   is
+      Affected : Core.Core_Set;
+   begin
+      Validate_Quantum (Policy, Quantum);
+      Enter_Kernel;
+      Core.Change_Global_Policy_Locked
+        (Core_Policy (Policy), Core.Binder_Time_Slice (Quantum), Affected);
+      Leave_Kernel;
+      Kick_Affected (Affected);
+   end Set_Global_Scheduling_Policy;
+
+   procedure Set_Domain_Scheduling_Policy
+     (Set     : Domain_CPU_Set;
+      Policy  : Scheduling_Policy;
+      Quantum : Scheduling_Quantum_Microseconds)
+   is
+      Cores    : Core.Core_Set := [others => False];
+      Affected : Core.Core_Set;
+   begin
+      Validate_Quantum (Policy, Quantum);
+      for CPU in Domain_CPU loop
+         if Set (CPU) then
+            if CPU > Core.CPU_Count then
+               Stop;
+            end if;
+            Cores (Core.Core_Number (CPU - 1)) := True;
+         end if;
+      end loop;
+      Enter_Kernel;
+      Core.Change_Domain_Policy_Locked
+        (Cores, Core_Policy (Policy), Core.Binder_Time_Slice (Quantum),
+         Affected);
+      Leave_Kernel;
+      Kick_Affected (Affected);
+   end Set_Domain_Scheduling_Policy;
+
+   procedure Set_CPU_Scheduling_Policy
+     (CPU     : Domain_CPU;
+      Policy  : Scheduling_Policy;
+      Quantum : Scheduling_Quantum_Microseconds)
+   is
+      Affected : Core.Core_Set;
+   begin
+      Validate_Quantum (Policy, Quantum);
+      if CPU > Core.CPU_Count then
+         Stop;
+      end if;
+      Enter_Kernel;
+      Core.Change_Core_Policy_Locked
+        (Core.Core_Number (CPU - 1), Core_Policy (Policy),
+         Core.Binder_Time_Slice (Quantum), Affected);
+      Leave_Kernel;
+      Kick_Affected (Affected);
+   end Set_CPU_Scheduling_Policy;
+
+   procedure Get_CPU_Scheduling_Configuration
+     (CPU     : Domain_CPU;
+      Policy  : out Scheduling_Policy;
+      Quantum : out Scheduling_Quantum_Microseconds)
+   is
+      Core_Policy_Value : Core.Dispatching_Policy;
+      Core_Slice_Value  : Core.Binder_Time_Slice;
+   begin
+      if CPU > Core.CPU_Count then
+         Stop;
+      end if;
+      Enter_Kernel;
+      Core_Policy_Value :=
+        Core.Policy_Of_Core_Locked (Core.Core_Number (CPU - 1));
+      Core_Slice_Value :=
+        Core.Slice_Of_Core_Locked (Core.Core_Number (CPU - 1));
+      Leave_Kernel;
+      Policy :=
+        (if Core_Policy_Value = Core.FIFO_Within_Priorities
+         then FIFO_Within_Priorities
+         else Round_Robin_Within_Priorities);
+      Quantum := Scheduling_Quantum_Microseconds (Core_Slice_Value);
+   end Get_CPU_Scheduling_Configuration;
 end Domain_Operations;

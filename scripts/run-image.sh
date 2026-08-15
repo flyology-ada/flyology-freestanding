@@ -127,6 +127,8 @@ case "$profile" in
     domains)
         test "$(count_marker 'FLYOLOGY:DOMAINS:DOMAIN_LAYOUT:PASS')" -eq 1
         test "$(count_marker 'FLYOLOGY:DOMAINS:STANDARD_QUERIES:PASS')" -eq 1
+        test "$(count_marker 'FLYOLOGY:SCHEDULING:LIVE_POLICY:PASS')" -eq 1
+        test "$(count_marker 'FLYOLOGY:SCHEDULING:LIVE_EXECUTION:PASS')" -eq 1
         if test "$cpu_count" -eq 4; then
             test "$(count_marker 'FLYOLOGY:DOMAINS:DOMAIN_INHERITANCE:PASS')" -eq 1
             test "$(count_marker 'FLYOLOGY:DOMAINS:HETEROGENEOUS_POLICY:PASS')" -eq 1

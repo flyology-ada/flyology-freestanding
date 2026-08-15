@@ -57,8 +57,10 @@ allocator/reclamation claim.
 The first bounded product configuration creates one secondary domain over Ada
 CPUs 3 and 4, leaving CPUs 1 and 2 in the system domain. The system domain uses
 FIFO-within-priorities and the secondary domain uses round robin. That policy
-mapping is internal immutable runtime configuration; applications still create
-and assign tasks only through the standard Ada domain type and task aspect.
+mapping is the initial runtime configuration; applications still create and
+assign tasks only through the standard Ada domain type and task aspect. The
+original `Flyology.Scheduling` extension may later replace a domain's default
+and effective per-core policies without changing membership or placement.
 The ordinary-Ada gate checks both implicit inheritance into the secondary
 domain and an explicit `System_Dispatching_Domain` override by a child whose
 activator belongs to that secondary domain.
@@ -72,8 +74,9 @@ The authoritative dispatching-domain capability gate combines three deliberately
 evidence. GNATprove proves the deterministic domain transition kernel and its
 exact frame conditions. The bounded Ada host model checks representative
 creation and admission sequences. TLC explores domain creation, inheritance,
-specific and automatic placement, dispatch, and round-robin rotation across
-5,408 distinct states. None of those checks proves concurrent `Flyology.Kernel`,
+specific and automatic placement, dispatch, global/domain/core live-policy
+replacement, and round-robin rotation across 683,040 distinct states. None of
+those checks proves concurrent `Flyology.Kernel`,
 compiler-facing facade, secondary-stack implementation, architecture context
 handoff, or hardware. Those boundaries are instead checked by both-target
 compiler probes, ELF/layout inspection, and bounded QEMU execution.

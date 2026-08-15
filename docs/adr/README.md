@@ -13,3 +13,4 @@ ADRs are numbered, immutable once accepted except for status links, and supersed
 - [ADR-0009: Task-owned interrupt continuations and atomic dispatcher handoff](0009-interrupt-preemption-handoff.md) — accepted.
 - [ADR-0010: Productize the runtime around capabilities](0010-productize-the-runtime.md) — accepted.
 - [ADR-0011: Source-selected initial scheduling](0011-source-selected-initial-scheduling.md) — accepted.
+- [ADR-0012: Atomic live scheduling policy](0012-live-scheduling-policy.md) — accepted.

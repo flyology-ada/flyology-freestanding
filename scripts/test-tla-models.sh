@@ -61,6 +61,6 @@ run_model() {
 
 run_model SchedulerPreemptionRoundRobin SchedulerPreemption 1202689 165888 no
 run_model SchedulerPreemptionFIFO SchedulerPreemption 1171969 165888 no
-run_model SchedulingDomains SchedulingDomains 57399 5408 yes
+run_model SchedulingDomains SchedulingDomains 17035809 683040 yes
 run_model WaitArbitration WaitArbitration 5839 1513 yes
 echo 'FLYOLOGY:TLA:PASS'

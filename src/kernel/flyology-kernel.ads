@@ -50,6 +50,24 @@ package Flyology.Kernel is
    procedure Configure_Dispatching
      (Policy : Dispatching_Policy;
       Slice  : Binder_Time_Slice);
+   procedure Change_Global_Policy_Locked
+     (Policy   : Dispatching_Policy;
+      Slice    : Binder_Time_Slice;
+      Affected : out Core_Set);
+   procedure Change_Domain_Policy_Locked
+     (Cores    : Core_Set;
+      Policy   : Dispatching_Policy;
+      Slice    : Binder_Time_Slice;
+      Affected : out Core_Set);
+   procedure Change_Core_Policy_Locked
+     (Core     : Core_Number;
+      Policy   : Dispatching_Policy;
+      Slice    : Binder_Time_Slice;
+      Affected : out Core_Set);
+   function Policy_Of_Core_Locked
+     (Core : Core_Number) return Dispatching_Policy;
+   function Slice_Of_Core_Locked
+     (Core : Core_Number) return Binder_Time_Slice;
    procedure Try_Create_Domain_Locked
      (Cores  : Core_Set;
       Policy : Dispatching_Policy;
@@ -57,6 +75,8 @@ package Flyology.Kernel is
       Domain : out Domain_Number;
       Created : out Boolean);
    function Domain_Is_Used_Locked (Domain : Domain_Number) return Boolean;
+   function Domain_Policy_Locked
+     (Domain : Domain_Number) return Dispatching_Policy;
    function Domain_Cores_Locked (Domain : Domain_Number) return Core_Set;
    function Domain_Of_Core_Locked (Core : Core_Number) return Domain_Number;
    function Domain_Of_Task_Locked (Reference : Task_Ref) return Domain_Number;

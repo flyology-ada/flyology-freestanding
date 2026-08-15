@@ -9,8 +9,12 @@ src/primitives/flyology-priority_queue_model.ads
 src/primitives/flyology-priority_queue_model.adb
 src/primitives/flyology-preemption_model.ads
 src/primitives/flyology-preemption_model.adb
+src/primitives/flyology-scheduling_configuration_model.ads
+src/primitives/flyology-scheduling_configuration_model.adb
 src/kernel/flyology-kernel.ads
 src/kernel/flyology-kernel.adb
+src/application/flyology-scheduling.ads
+src/application/flyology-scheduling.adb
 config/scheduler/fifo.adc
 config/scheduler/round_robin.adc
 probes/preemption/policy_fifo_source_probe.adb
