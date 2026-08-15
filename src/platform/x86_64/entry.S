@@ -195,8 +195,10 @@ scan_done:
 #endif
 #endif
 #ifdef FLYOLOGY_TASKING
+#ifdef FLYOLOGY_TEST_OBSERVATIONS
     lea ada_elaboration_pass(%rip), %rdi
     call serial_puts_locked
+#endif
 #endif
 #ifdef FLYOLOGY_INTERRUPTS
 #ifndef FLYOLOGY_TASKING
@@ -215,8 +217,10 @@ scan_done:
     call serial_puts_locked
 #endif
 
+#if !defined(FLYOLOGY_TASKING) || defined(FLYOLOGY_TEST_OBSERVATIONS)
     xor %edi, %edi
     call print_online
+#endif
     mov bsp_record(%rip), %rax
     movq $1, 40(%rax)
     lock incl online_count(%rip)
@@ -261,10 +265,12 @@ wait_interrupts_complete:
     jne wait_interrupts_complete
     sti
     call _ada_flyology_launcher
+#ifdef FLYOLOGY_TEST_OBSERVATIONS
     lea ada_pass(%rip), %rdi
     call serial_puts_locked
     lea tasking_boot_pass(%rip), %rdi
     call serial_puts_locked
+#endif
     call adafinal
     cli
     call flyology_kernel_environment_complete
@@ -305,8 +311,10 @@ ap_entry:
     rdmsr
     cmp 16(%rbx), %eax
     jne fatal
+#if !defined(FLYOLOGY_TASKING) || defined(FLYOLOGY_TEST_OBSERVATIONS)
     mov 0(%rbx), %edi
     call print_online
+#endif
     movq $1, 40(%rbx)
     lock incl online_count(%rip)
 #ifdef FLYOLOGY_INTERRUPTS
@@ -1281,8 +1289,12 @@ flyology_conformance_report_protected_entry_pass:
 .global flyology_conformance_report_finalization_pass
 .type flyology_conformance_report_finalization_pass, @function
 flyology_conformance_report_finalization_pass:
+#ifdef FLYOLOGY_TEST_OBSERVATIONS
     lea rts_finalization_pass(%rip), %rdi
     jmp serial_puts_locked
+#else
+    ret
+#endif
 
 .global flyology_conformance_report_rendezvous_pass
 .type flyology_conformance_report_rendezvous_pass, @function
@@ -2033,6 +2045,7 @@ flyology_rts_lock_release:
     ret
 #endif
 
+#if !defined(FLYOLOGY_TASKING) || defined(FLYOLOGY_TEST_OBSERVATIONS)
 .type print_online, @function
 print_online:
     push %rbx
@@ -2048,6 +2061,7 @@ print_online:
     call serial_lock_release
     pop %rbx
     ret
+#endif
 
 .type serial_init, @function
 serial_init:

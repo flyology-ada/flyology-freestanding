@@ -200,8 +200,10 @@ scan_done:
 #endif
 #endif
 #ifdef FLYOLOGY_TASKING
+#ifdef FLYOLOGY_TEST_OBSERVATIONS
     address x0, ada_elaboration_pass
     bl serial_puts_locked
+#endif
 #endif
 #ifdef FLYOLOGY_INTERRUPTS
 #ifndef FLYOLOGY_TASKING
@@ -224,8 +226,10 @@ scan_done:
     bl initialize_gic_distributor
 #endif
 
+#if !defined(FLYOLOGY_TASKING) || defined(FLYOLOGY_TEST_OBSERVATIONS)
     mov x0, xzr
     bl print_online
+#endif
     address x0, bsp_record
     ldr x0, [x0]
     add x0, x0, #40
@@ -286,10 +290,12 @@ wait_interrupts_complete:
     msr daifclr, #2
     isb
     bl _ada_flyology_launcher
+#ifdef FLYOLOGY_TEST_OBSERVATIONS
     address x0, ada_pass
     bl serial_puts_locked
     address x0, tasking_boot_pass
     bl serial_puts_locked
+#endif
     bl adafinal
     msr daifset, #2
     bl flyology_kernel_environment_complete
@@ -349,8 +355,10 @@ ap_entry:
     mov sp, x1
     mov x29, xzr
     mov x30, xzr
+#if !defined(FLYOLOGY_TASKING) || defined(FLYOLOGY_TEST_OBSERVATIONS)
     mov x0, x20
     bl print_online
+#endif
     add x0, x19, #40
     mov w1, #1
     stlr w1, [x0]
@@ -1042,8 +1050,12 @@ flyology_conformance_report_protected_entry_pass:
 .global flyology_conformance_report_finalization_pass
 .type flyology_conformance_report_finalization_pass, %function
 flyology_conformance_report_finalization_pass:
+#ifdef FLYOLOGY_TEST_OBSERVATIONS
     address x0, rts_finalization_pass
     b serial_puts_locked
+#else
+    ret
+#endif
 
 .global flyology_conformance_report_rendezvous_pass
 .type flyology_conformance_report_rendezvous_pass, %function
@@ -1889,6 +1901,7 @@ activate_uart_mapping:
     isb
     ret
 
+#if !defined(FLYOLOGY_TASKING) || defined(FLYOLOGY_TEST_OBSERVATIONS)
 .type print_online, %function
 print_online:
     stp x29, x30, [sp, #-32]!
@@ -1907,6 +1920,7 @@ print_online:
     ldr x19, [sp, #16]
     ldp x29, x30, [sp], #32
     ret
+#endif
 
 .type serial_init, %function
 serial_init:

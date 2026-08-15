@@ -18,7 +18,10 @@ The command produces:
 
 Each image boots through Limine, prints exactly one line for every `(core,
 worker)` pair, waits for all tasks to terminate, prints `OK`, finalizes the
-application, and enters the platform idle/halt path.
+application, and enters the platform idle/halt path. Runtime conformance
+`PASS`/core-online observations are disabled in ordinary application builds;
+the serial console therefore contains application output rather than test-gate
+telemetry. Fatal runtime diagnostics remain enabled.
 
 Each architecture directory also contains `flyology.elf`, `uefi-code.fd`, and
 `uefi-vars-template.fd`. The `.fd` files are the validated TianoCore/EDK II

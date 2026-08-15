@@ -52,6 +52,18 @@ aspect, and routes every complete output line through a printer-task rendezvous.
 Its enclosing Ada master waits for every worker and the printer before emitting
 the final `OK`.
 
+Application images omit conformance observations such as core-online and
+elaboration/tasking `PASS` markers by default. Application console output and
+fatal `FLYOLOGY:FAIL`/`PANIC` diagnostics remain enabled. For a temporary
+runtime-observation build, opt in explicitly:
+
+```sh
+FLYOLOGY_TEST_OBSERVATIONS=1 alr build
+```
+
+Repository conformance images enable this switch independently because their
+serial markers are machine-checked test evidence, not a product logging API.
+
 `alr build` builds both supported architectures by default. The output is
 deliberately shallow:
 

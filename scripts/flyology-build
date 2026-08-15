@@ -7,6 +7,11 @@ application_directory=${FLYOLOGY_APPLICATION_DIR:-$application_root/src}
 application_unit=${FLYOLOGY_APPLICATION_UNIT:-}
 output_root=${FLYOLOGY_OUTPUT_ROOT:-$application_root/build}
 profile=${FLYOLOGY_PROFILE:-tasking}
+test_observations=${FLYOLOGY_TEST_OBSERVATIONS:-0}
+case "$test_observations" in
+    0|1) ;;
+    *) echo "unsupported test-observation setting: $test_observations" >&2; exit 64 ;;
+esac
 
 usage() {
     cat >&2 <<'EOF'
@@ -56,6 +61,7 @@ for architecture in "$@"; do
         cd "$runtime_root"
         FLYOLOGY_APPLICATION_DIR="$application_directory" \
         FLYOLOGY_APPLICATION_UNIT="$application_unit" \
+        FLYOLOGY_TEST_OBSERVATIONS="$test_observations" \
         FLYOLOGY_FLAT_OUTPUT=1 \
         FLYOLOGY_PRODUCT_OUTPUT_ROOT="$output_root" \
             scripts/build-product.sh "$architecture" "$profile"

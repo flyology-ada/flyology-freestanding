@@ -27,6 +27,12 @@ output_directory="$output_root/$architecture"
 product_config=${FLYOLOGY_PRODUCT_CONFIG:-config/restrictions/product.adc}
 binder_flags=${FLYOLOGY_BINDER_FLAGS:-}
 assembly_defines='-DFLYOLOGY_INTERRUPTS -DFLYOLOGY_TASKING -DFLYOLOGY_EXCEPTIONS'
+test_observations=${FLYOLOGY_TEST_OBSERVATIONS:-1}
+case "$test_observations" in
+    0) ;;
+    1) assembly_defines="$assembly_defines -DFLYOLOGY_TEST_OBSERVATIONS" ;;
+    *) echo "unsupported test-observation setting: $test_observations" >&2; exit 64 ;;
+esac
 scheduler_config_dir=${FLYOLOGY_SCHEDULER_CONFIG_DIR:-config/scheduler/off}
 domain_config_dir=${FLYOLOGY_DOMAIN_CONFIG_DIR:-config/domains/off}
 conformance_config_dir=${FLYOLOGY_CONFORMANCE_CONFIG_DIR:-tests/target/config/domains/off}

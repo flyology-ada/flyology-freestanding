@@ -28,6 +28,12 @@ grep -F 'FLYOLOGY_QEMU_GUI="$gui"' \
     "$repository/scripts/flyology-run" >/dev/null
 grep -F 'if test "$gui" = 0; then' \
     "$repository/scripts/run-uefi-image.sh" >/dev/null
+grep -F 'test_observations=${FLYOLOGY_TEST_OBSERVATIONS:-0}' \
+    "$repository/scripts/flyology-build" >/dev/null
+grep -F 'test_observations=${FLYOLOGY_TEST_OBSERVATIONS:-1}' \
+    "$repository/scripts/build-image.sh" >/dev/null
+grep -F -- '-DFLYOLOGY_TEST_OBSERVATIONS' \
+    "$repository/scripts/build-image.sh" >/dev/null
 
 grep -F 'name = "flyology_barebones"' "$manifest" >/dev/null
 grep -F 'project-files = ["flyology.gpr"]' "$manifest" >/dev/null

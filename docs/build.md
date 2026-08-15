@@ -108,6 +108,12 @@ adjacent because it belongs to the emulated machine, not to the guest disk.
 file for each run. The complete contract and example are in
 [`docs/application-crates.md`](application-crates.md).
 
+Consumer builds set `FLYOLOGY_TEST_OBSERVATIONS=0` by default, suppressing
+machine-readable conformance `PASS` and core-online telemetry while preserving
+application output and fatal diagnostics. Repository conformance builds keep
+the observation define enabled. A consumer may opt in for a diagnostic build
+by exporting `FLYOLOGY_TEST_OBSERVATIONS=1` before `alr build`.
+
 Each capability profile records the same target project and cross-toolchain
 configuration in `config/profiles.toml`, then configures one
 `scripts/build-image.sh` composition builder. Capability verification scripts

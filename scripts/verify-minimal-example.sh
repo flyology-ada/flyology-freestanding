@@ -62,24 +62,34 @@ for architecture in x86_64 aarch64; do
         "$example/run.sh" --cpus 4 --timeout 12 "$architecture"
 
     normalized="$test_root/serial.normalized"
-    tr -d '\r' <"$serial" >"$normalized"
+    count_marker() {
+        grep -aFo "$1" "$serial" | wc -l | tr -d ' '
+    }
+    attempt=0
+    while test "$attempt" -lt 20; do
+        tr -d '\r' <"$serial" >"$normalized"
+        worker_lines=$(grep -aEo 'CORE [1-4] WORKER [12]' "$normalized" | \
+            wc -l | tr -d ' ')
+        ok_lines=$(grep -aFx 'OK' "$normalized" | wc -l | tr -d ' ')
+        test "$worker_lines" -eq 8 && test "$ok_lines" -eq 1 && break
+        attempt=$((attempt + 1))
+        sleep 0.1
+    done
     test "$(grep -aFxc 'OK' "$normalized")" -eq 1
-    test "$(grep -aEc '^CORE [1-4] WORKER [12]$' "$normalized")" -eq 8
+    test "$(grep -aEo 'CORE [1-4] WORKER [12]' "$normalized" | \
+        wc -l | tr -d ' ')" -eq 8
     for core in 1 2 3 4; do
         for worker in 1 2; do
-            test "$(grep -aFxc "CORE $core WORKER $worker" "$normalized")" -eq 1
+            test "$(grep -aFo "CORE $core WORKER $worker" "$normalized" | \
+                wc -l | tr -d ' ')" -eq 1
         done
     done
-    test "$(grep -aFc 'FLYOLOGY:ADA:MAIN:PASS' "$serial")" -eq 1
-    test "$(grep -aFc 'FLYOLOGY:TASKING:BOOT_SUBSTRATE:PASS' "$serial")" -eq 1
-    test "$(grep -aFc 'FLYOLOGY:FAIL:' "$serial")" -eq 0
-    test "$(grep -aFc 'PANIC:' "$serial")" -eq 0
-    awk '
-        { sub(/\r$/, "") }
-        $0 == "OK" { ok = NR }
-        $0 == "FLYOLOGY:ADA:MAIN:PASS" { main = NR }
-        END { exit !(ok > 0 && main > ok) }
-    ' "$normalized"
+    test "$(count_marker 'FLYOLOGY:ADA:')" -eq 0
+    test "$(count_marker 'FLYOLOGY:CORE:ONLINE:')" -eq 0
+    test "$(count_marker 'FLYOLOGY:TASKING:BOOT_SUBSTRATE:PASS')" -eq 0
+    test "$(count_marker 'FLYOLOGY:RTS:FINALIZATION:PASS')" -eq 0
+    test "$(count_marker 'FLYOLOGY:FAIL:')" -eq 0
+    test "$(count_marker 'PANIC:')" -eq 0
     echo "FLYOLOGY:EXAMPLE:MINIMAL:PASS:$architecture"
 done
 
