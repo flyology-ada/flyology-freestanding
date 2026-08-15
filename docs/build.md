@@ -50,6 +50,11 @@ is adjacent. The builder uses the pinned per-target Alire workspaces, explicit
 GNAT binder step, target linker script, external `libgcc` unwinder, and pinned
 Limine/firmware image construction.
 
+The current conformance image main and ordinary-Ada behavioral scenarios live
+under `tests/target/scenarios/`. They are linked test clients of the runtime, not
+runtime library sources. Structured serial markers therefore describe a scenario
+assertion and do not enlarge the product API.
+
 During this migration slice the profile entry point delegates compilation to
 the reviewed milestone builders. `scripts/verify-product-build.sh` builds the
 `domains` image through both paths for both targets and requires identical ELF

@@ -27,6 +27,7 @@ until its build, proof, review, and QEMU evidence is recorded.
 - `scripts/` — authoritative build, test, proof, and reproducibility entry points (introduced during M0).
 - `runtime/` — original runtime/platform implementation (introduced incrementally).
 - `runtime/bootstrap/` — original minimal compiler-compatibility runtime used by early milestones.
+- `tests/target/scenarios/` — ordinary-Ada conformance image and behavioral workloads.
 
 Milestone-named runtime and script paths are transitional. They remain supported
 only while capability-based Alire/GPR projects and gates are introduced and

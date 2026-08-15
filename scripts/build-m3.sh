@@ -60,6 +60,7 @@ compile_ada() {
         -nostdinc -Iruntime/bootstrap -Iruntime/core -Iruntime/m3 \
         -I"$m5_config_dir" -Iruntime/m5 \
         -I"$m6_config_dir" -Iruntime/m6 \
+        -Itests/target/scenarios \
         -I"arch/$architecture" -I"$output_directory" \
         $style_flags -gnatw.X -gnatw.i -gnato \
         -gnatec="$product_config" \
@@ -133,18 +134,18 @@ compile_ada runtime/m3/s-soflin.adb s-soflin.o yes
 compile_ada runtime/m3/a-taside.adb a-taside.o yes
 compile_ada runtime/m3/a-taidco.adb a-taidco.o yes
 compile_ada runtime/m3/a-dynpri.adb a-dynpri.o yes
-compile_ada runtime/m3/flyology-m3_demo.adb flyology-m3_demo.o
-compile_ada runtime/m5/flyology-m5_demo.adb flyology-m5_demo.o
+compile_ada tests/target/scenarios/flyology-m3_demo.adb flyology-m3_demo.o
+compile_ada tests/target/scenarios/flyology-m5_demo.adb flyology-m5_demo.o
 if test "${FLYOLOGY_M6:-0}" = 1; then
     compile_ada runtime/m6/a-taidfl.adb a-taidfl.o yes
     compile_ada runtime/m6/s-mudido.adb s-mudido.o yes
-    compile_ada runtime/m6/flyology-m6_demo.adb flyology-m6_demo.o
+    compile_ada tests/target/scenarios/flyology-m6_demo.adb flyology-m6_demo.o
     m6_link_objects="$output_directory/flyology-m6_demo.o \
 $output_directory/s-mudido.o $output_directory/a-taidfl.o"
 fi
 compile_ada runtime/bootstrap/flyology-binder_support.adb \
     flyology-binder_support.o
-compile_ada runtime/m3/flyology_m3.adb flyology_m3.o
+compile_ada tests/target/scenarios/flyology_m3.adb flyology_m3.o
 
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" -nostdinc -nostdlib -n -minimal \

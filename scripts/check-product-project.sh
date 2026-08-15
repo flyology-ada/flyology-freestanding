@@ -9,6 +9,7 @@ test -f "$manifest"
 test -f "$repository/flyology.gpr"
 test -f "$repository/gpr/flyology_primitives.gpr"
 test -f "$profiles"
+test -f "$repository/tests/target/scenarios/flyology_m3.adb"
 
 grep -F 'name = "flyology_barebones"' "$manifest" >/dev/null
 grep -F 'project-files = ["flyology.gpr"]' "$manifest" >/dev/null
@@ -36,5 +37,12 @@ done
 for profile in $profile_names; do
     grep -F "    $profile)" "$repository/scripts/build-product.sh" >/dev/null
 done
+
+if find "$repository/runtime" -type f \
+    \( -name 'flyology-m*_demo.ads' -o -name 'flyology-m*_demo.adb' \
+       -o -name 'flyology_m3.adb' \) -print | grep .; then
+    echo 'target conformance scenario found under runtime/' >&2
+    exit 1
+fi
 
 echo 'FLYOLOGY:PRODUCT:PROJECT:PASS'
