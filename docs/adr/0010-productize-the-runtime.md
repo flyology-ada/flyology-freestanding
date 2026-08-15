@@ -72,12 +72,14 @@ numbered development-stage identifiers are rejected by repository hygiene.
 
 A root Alire crate and aggregate GPR project are the supported host-library
 entry point. They build the deterministic `src/primitives/` packages as
-`libflyology_primitives.a`. Freestanding images use the pinned cross workspaces
-and an explicit composition builder because compiler predefined units, binder
-generation, architecture linker scripts, firmware, and FAT-image construction
-are part of the checked target ABI. That builder consumes responsibility-owned
-source roots and emits the stable `flyology.elf` product; it is not a second
-runtime implementation graph.
+`libflyology_primitives.a`. Freestanding Ada compilation is owned separately by
+`gpr/flyology_image.gpr`, using the relocatable no-installed-runtime compiler
+protocol in `gpr/flyology_cross.cgpr` and concrete compiler paths from the
+pinned cross workspaces. The composition shell retains compiler binder
+generation, architecture assembly/C, linker scripts, pinned `libgcc`, firmware,
+and FAT-image construction because those operations are part of the checked
+target ABI. It consumes project-produced Ada objects and is not a second source
+or runtime implementation graph.
 
 The reusable library is intentionally the deterministic primitive layer. The
 concurrent kernel, GNARL/RTS facade, foreign ABI, and platform objects are
@@ -111,6 +113,8 @@ Obsolete experimental scaffolding follows a proof-grade subtraction protocol:
    gates and stable product profiles.
 8. Quarantine bootstrap/interrupt experiments under `tests/legacy/checkpoints/`
    and reject them from supported product source paths.
+9. Replace the procedural Ada source/object graph with a target GPR project and
+   a relocatable freestanding compiler configuration.
 
 Each slice was committed independently. A failed differential gate stopped the
 reorganization; it was not papered over by weakening an existing test.

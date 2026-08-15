@@ -5,11 +5,12 @@
 In progress. Commit `87a4d9d050520dedb1e1a244193e386ded8464bf`
 closed the responsibility naming, clean-room inventory, deterministic-library,
 formal, reproducibility, and runtime-matrix slices. A subsequent completion
-audit found that the freestanding target still reconstructs its source/object
+audit found that the freestanding target still reconstructed its source/object
 graph procedurally in `scripts/build-image.sh`; only the deterministic primitive
-library is expressed as a GPR project. That does not satisfy the explicit goal
-of a real Alire/GPR product build structure, so the earlier closure decision is
-withdrawn rather than narrowed around the work already completed.
+library was expressed as a GPR project. The current target-project slice fixes
+that structural defect, but this review remains open until the exact committed
+tree has completed the full reproducibility/runtime matrix and the remaining
+monolith/subtraction audit is dispositioned.
 
 Maintained product code is indexed by responsibility: deterministic primitives,
 one concurrent kernel, GNARL semantic glue, compiler facades, narrow foreign ABI
@@ -18,10 +19,11 @@ configuration, clean-room evidence, and verification entry points use capability
 names. Numbered development-stage identifiers are absent from maintained paths,
 content, product symbols, structured markers, artifacts, and profiles.
 
-The evidence below remains valid for the reviewed commit, but it is not final
-product-structure closure. Closure additionally requires a target GPR graph
-consumed by the image build, removal of the duplicated shell source graph, and a
-fresh exact-tree review/gate matrix.
+The earlier evidence below remains valid for its reviewed commit, but it is not
+final product-structure closure. The current work adds the target GPR graph and
+removes the duplicated shell Ada graph. Closure still requires a fresh exact-tree
+review/gate matrix and a final census of the large kernel/RTS and quarantined
+checkpoint responsibilities.
 
 ## Reviewed structure
 
@@ -127,13 +129,14 @@ not because they are alternate product builds.
 
 ### Blocker — the freestanding source graph remains explicit shell
 
-Disposition: open. Compiler predefined-unit ordering, target binder generation,
-architecture assembly, custom linker scripts, pinned `libgcc`, firmware, and
-FAT-image construction remain legitimate explicit target ABI steps. However,
-the current builder also owns the Ada/C/assembly source inventory and object
-graph. A target GPR project must become authoritative for compilation/source
-ownership while the shell retains only binder/link/image orchestration that GPR
-cannot honestly express for this freestanding runtime.
+Disposition: fixed in the current target-project slice. `gpr/flyology_image.gpr`
+owns the selected source roots, ordinary-Ada main, and assembly-exported
+validation roots; GPRbuild discovers the remaining Ada dependency closure.
+`gpr/flyology_cross.cgpr` describes the compiler protocol without inventing an
+installed runtime or embedding local tool paths. The shell produces a sorted
+response file from project objects and retains only binder, assembly/C, raw
+linker, `libgcc`, firmware, and FAT-image orchestration. Repository hygiene
+rejects reintroduction of a shell `compile_ada` source graph.
 
 ### Medium — compatibility checkpoint applications remain tracked
 
@@ -157,4 +160,6 @@ code is old.
   hardware, other firmware, other compiler releases, and broader Ada semantics
   remain separate work.
 
-The open target-project blocker prevents product-structure completion.
+The target-project blocker is resolved. Product-structure completion remains
+open pending exact-tree aggregate evidence and the final responsibility/subtraction
+audit described above.

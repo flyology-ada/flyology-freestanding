@@ -8,6 +8,8 @@ profiles="$repository/config/profiles.toml"
 test -f "$manifest"
 test -f "$repository/flyology.gpr"
 test -f "$repository/gpr/flyology_primitives.gpr"
+test -f "$repository/gpr/flyology_image.gpr"
+test -f "$repository/gpr/flyology_cross.cgpr"
 test -f "$profiles"
 test -f "$repository/tests/target/scenarios/flyology_conformance.adb"
 test -f "$repository/tests/target/scenarios/flyology-conformance-tasking.adb"
@@ -23,6 +25,15 @@ grep -F 'for Project_Files use ("gpr/flyology_primitives.gpr");' \
     "$repository/flyology.gpr" >/dev/null
 grep -F 'for Library_Name use "flyology_primitives";' \
     "$repository/gpr/flyology_primitives.gpr" >/dev/null
+grep -F 'for Main use' "$repository/gpr/flyology_image.gpr" >/dev/null
+grep -F '"flyology_conformance.adb"' \
+    "$repository/gpr/flyology_image.gpr" >/dev/null
+grep -F '"flyology-validation.adb"' \
+    "$repository/gpr/flyology_image.gpr" >/dev/null
+grep -F '"flyology-boot_validation.adb"' \
+    "$repository/gpr/flyology_image.gpr" >/dev/null
+grep -F 'for Driver ("Ada") use Ada_Driver;' \
+    "$repository/gpr/flyology_cross.cgpr" >/dev/null
 
 profile_names=$(awk -F ' *= *' '$1 == "name" {
     gsub(/^"|"$/, "", $2)
@@ -39,6 +50,27 @@ for builder in $(awk -F ' *= *' '$1 == "image_builder" {
 }' "$profiles" | sort -u); do
     test -x "$repository/$builder"
 done
+
+for project in $(awk -F ' *= *' '$1 == "image_project" || \
+    $1 == "toolchain_config" {
+    gsub(/^"|"$/, "", $2)
+    print $2
+}' "$profiles" | sort -u); do
+    test -f "$repository/$project"
+done
+
+test "$(awk -F ' *= *' '$1 == "image_project" { print $2 }' \
+    "$profiles" | sort -u)" = '"gpr/flyology_image.gpr"'
+test "$(awk -F ' *= *' '$1 == "toolchain_config" { print $2 }' \
+    "$profiles" | sort -u)" = '"gpr/flyology_cross.cgpr"'
+
+grep -F 'gprbuild -c -p -P gpr/flyology_image.gpr' \
+    "$repository/scripts/build-image.sh" >/dev/null
+if rg -n 'compile_ada|compile_ada[[:space:]]+src/' \
+    "$repository/scripts/build-image.sh" >/dev/null; then
+    echo 'shell builder duplicates the Ada project source graph' >&2
+    exit 1
+fi
 
 for profile in $profile_names; do
     grep -F "    $profile)" "$repository/scripts/build-product.sh" >/dev/null

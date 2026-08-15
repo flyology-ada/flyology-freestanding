@@ -72,6 +72,23 @@ are tracked. Reproducible hashes may cover normalized output; raw addresses,
 timestamps, temporary paths, and target-specific noise must not be accepted as
 semantic evidence.
 
+## Product project boundary
+
+`gpr/flyology_image.gpr` is the authoritative Ada compilation graph for the
+freestanding conformance image. Its source directories make compiler-facing
+units discoverable, but directory membership is not clean-room evidence and
+does not enlarge any interface claim. The exact implementation inventory named
+by each manifest entry remains authoritative for that claim.
+
+The project roots the ordinary-Ada conformance main and the two Flyology
+validation bodies exported to platform entry assembly. Every compiler facade
+and semantic implementation object is otherwise selected through an Ada
+dependency from those roots and the chosen configuration view. The separate
+`gpr/flyology_cross.cgpr` describes only the no-installed-runtime compiler
+protocol; it supplies no GNAT runtime sources, libraries, or semantic behavior.
+Concrete tool paths come from the pinned Alire workspaces and are not recorded
+as source inputs.
+
 ## Compiler upgrades
 
 A compiler upgrade creates a new evidence baseline. It requires:
@@ -98,3 +115,8 @@ tracked source file. The inventories prevent a broad directory reference from
 silently expanding a clean-room claim when an unrelated compiler facade is
 added. Generated symbol/relocation inventories remain enforced by the cited
 probe and final-image inspection scripts.
+
+`scripts/check-product-project.sh` independently verifies that every supported
+profile names the same target project and compiler configuration, and rejects a
+second procedural Ada source graph in the image shell builder. This is a build
+ownership check, not compiler-interface evidence or a semantic proof.

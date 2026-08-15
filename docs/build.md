@@ -53,13 +53,36 @@ is adjacent. The builder uses the pinned per-target Alire workspaces, explicit
 GNAT binder step, target linker script, external `libgcc` unwinder, and pinned
 Limine/firmware image construction.
 
+Ada compilation is owned by `gpr/flyology_image.gpr`. Its source directories
+are the responsibility-owned runtime roots plus exactly one selected scheduler,
+domain, and conformance configuration view. The project has three compilation
+roots: the ordinary-Ada conformance main and the two validation package bodies
+whose exported subprograms are called directly by platform entry assembly.
+GPRbuild discovers every other Ada unit from dependencies; the shell builder
+does not carry a second Ada source or object list.
+
+The cross compilers intentionally ship without an installed default Ada
+runtime. `gpr/flyology_cross.cgpr` therefore describes the unit-based compiler
+protocol without naming a runtime directory. `scripts/toolchain.sh` supplies
+the concrete compiler, archiver, and indexer paths from the pinned Alire
+workspace as external project values. The configuration file is relocatable
+and contains no developer-machine toolchain path.
+
+After GPR compilation, `scripts/build-image.sh` generates a sorted response file
+from the project objects. It still performs the explicit GNAT binder step,
+compiles the generated binder body, compiles the narrow assembly/C platform and
+ABI objects, invokes the architecture linker script with pinned `libgcc`, and
+constructs the Limine FAT image. Those are freestanding ABI and image-composition
+responsibilities; they are not an alternate Ada build graph.
+
 The current conformance image main and ordinary-Ada behavioral scenarios live
 under `tests/target/scenarios/`. They are linked test clients of the runtime, not
 runtime library sources. Structured serial markers therefore describe a scenario
 assertion and do not enlarge the product API.
 
-The capability entry point configures one `scripts/build-image.sh` composition
-builder directly. Capability verification scripts consume the same builder;
-there is no parallel numbered-stage product build graph.
+Each capability profile records the same target project and cross-toolchain
+configuration in `config/profiles.toml`, then configures one
+`scripts/build-image.sh` composition builder. Capability verification scripts
+consume that same path; there is no parallel product graph.
 `scripts/verify-product-build.sh` rebuilds every profile in two independent
 output roots for both targets and requires identical ELF and FAT SHA-256 values.

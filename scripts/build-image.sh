@@ -33,7 +33,6 @@ conformance_config_dir=${FLYOLOGY_CONFORMANCE_CONFIG_DIR:-tests/target/config/do
 if test "${FLYOLOGY_PREEMPTION:-0}" = 1; then
     assembly_defines="$assembly_defines -DFLYOLOGY_PREEMPTION"
 fi
-domain_link_objects=
 if test "${FLYOLOGY_DOMAINS:-0}" = 1; then
     assembly_defines="$assembly_defines -DFLYOLOGY_DOMAINS"
 fi
@@ -41,136 +40,82 @@ mkdir -p "$output_directory"
 rm -f "$output_directory"/*.ali "$output_directory"/*.o \
       "$output_directory"/b~flyology_conformance.ad? \
       "$output_directory/flyology.elf"
+output_directory=$(CDPATH= cd -- "$output_directory" && pwd)
+
+absolute_path() {
+    case "$1" in
+        /*) printf '%s\n' "$1" ;;
+        *) printf '%s/%s\n' "$repository" "$1" ;;
+    esac
+}
+
+scheduler_config_directory=$(absolute_path "$scheduler_config_dir")
+domain_config_directory=$(absolute_path "$domain_config_dir")
+conformance_config_directory=$(absolute_path "$conformance_config_dir")
+product_config_file=$(absolute_path "$product_config")
 
 export LC_ALL=C
 export SOURCE_DATE_EPOCH=1786502400
 
-compile_ada() {
-    source=$1
-    object=$2
-    runtime_mode=${3:-no}
-    case "$runtime_mode" in
-        yes) style_flags='-gnatg -gnat2022 -gnatwa -gnatwe' ;;
-        generated) style_flags='-gnat2022 -gnatws' ;;
-        no) style_flags='-gnat2022 -gnatwa -gnatwe' ;;
-        *) echo "invalid Ada compile mode: $runtime_mode" >&2; exit 64 ;;
-    esac
-    # shellcheck disable=SC2086
-    scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-        -c "$source" -o "$output_directory/$object" \
-        -nostdinc -Isrc/bootstrap -Isrc/primitives -Isrc/kernel -Isrc/rts \
-        -Isrc/gnarl \
-        -I"$scheduler_config_dir" \
-        -I"$domain_config_dir" \
-        -I"$conformance_config_dir" \
-        -Itests/target/scenarios \
-        -I"src/platform/$architecture" -I"$output_directory" \
-        $style_flags -gnatw.X -gnatw.i -gnato \
-        -gnatec="$product_config" \
-        -ffunction-sections -fdata-sections \
-        -fno-stack-protector -fno-pic -fno-pie $architecture_flags
-}
+#  The GPR project owns the complete Ada dependency closure.  The shell keeps
+#  only the compiler path supplied by the pinned Alire environment and the
+#  external configuration views selected for this image.
+scripts/toolchain.sh exec "$architecture" sh -c '
+    target=$1
+    architecture=$2
+    object_directory=$3
+    scheduler_directory=$4
+    domain_directory=$5
+    conformance_directory=$6
+    product_config=$7
+    driver=$(command -v "$target-gcc")
+    archiver=$(command -v "$target-ar")
+    archive_indexer=$(command -v "$target-ranlib")
+    exec gprbuild -c -p -P gpr/flyology_image.gpr \
+        --config=gpr/flyology_cross.cgpr \
+        -XFLYOLOGY_TARGET="$target" \
+        -XFLYOLOGY_ADA_DRIVER="$driver" \
+        -XFLYOLOGY_ARCHIVER="$archiver" \
+        -XFLYOLOGY_ARCHIVE_INDEXER="$archive_indexer" \
+        -XFLYOLOGY_ARCHITECTURE="$architecture" \
+        -XFLYOLOGY_OBJECT_DIR="$object_directory" \
+        -XFLYOLOGY_SCHEDULER_CONFIG_DIR="$scheduler_directory" \
+        -XFLYOLOGY_DOMAIN_CONFIG_DIR="$domain_directory" \
+        -XFLYOLOGY_CONFORMANCE_CONFIG_DIR="$conformance_directory" \
+        -XFLYOLOGY_PRODUCT_CONFIG="$product_config"
+' sh "$target" "$architecture" "$output_directory" \
+    "$scheduler_config_directory" "$domain_config_directory" \
+    "$conformance_config_directory" "$product_config_file"
 
-compile_ada src/bootstrap/system.ads system.o yes
-compile_ada src/bootstrap/s-stalib.adb s-stalib.o yes
-compile_ada src/gnarl/ada.ads ada.o yes
-compile_ada src/gnarl/s-stoele.ads s-stoele.o yes
-compile_ada src/gnarl/s-secsta.adb s-secsta.o yes
-compile_ada src/gnarl/a-tags.adb a-tags.o yes
-compile_ada src/gnarl/s-finroo.adb s-finroo.o yes
-compile_ada src/gnarl/a-finali.adb a-finali.o yes
-compile_ada src/gnarl/a-calend.ads a-calend.o yes
-compile_ada src/gnarl/a-caldel.adb a-caldel.o yes
-compile_ada src/gnarl/a-reatim.adb a-reatim.o yes
-compile_ada src/gnarl/a-retide.adb a-retide.o yes
-compile_ada src/gnarl/a-except.adb a-except.o yes
-compile_ada src/gnarl/s-parame.ads s-parame.o yes
-compile_ada src/gnarl/s-tasinf.ads s-tasinf.o yes
-compile_ada src/gnarl/s-taskin.adb s-taskin.o yes
-compile_ada src/gnarl/s-finpri.adb s-finpri.o yes
-compile_ada src/gnarl/s-taprob.adb s-taprob.o yes
-compile_ada src/gnarl/s-tpoben.adb s-tpoben.o yes
-compile_ada src/gnarl/s-tpobop.adb s-tpobop.o yes
-compile_ada src/gnarl/s-tasren.adb s-tasren.o yes
-compile_ada src/primitives/flyology.ads flyology.o
-compile_ada "$scheduler_config_dir/flyology-scheduler_configuration.ads" \
-    flyology-scheduler_configuration.o
-compile_ada "$domain_config_dir/flyology-domain_configuration.ads" \
-    flyology-domain_configuration.o
-compile_ada "$conformance_config_dir/flyology-conformance_profile.adb" \
-    flyology-conformance_profile.o
-compile_ada src/primitives/flyology-validation.adb flyology-validation.o
-compile_ada src/primitives/flyology-boot_validation.adb flyology-boot_validation.o
-compile_ada src/primitives/flyology-dispatcher_model.adb \
-    flyology-dispatcher_model.o
-compile_ada src/primitives/flyology-domain_model.adb flyology-domain_model.o
-compile_ada src/primitives/flyology-task_primitives.ads \
-    flyology-task_primitives.o
-compile_ada src/primitives/flyology-clock_model.adb flyology-clock_model.o
-compile_ada src/primitives/flyology-exceptional_completion_model.adb \
-    flyology-exceptional_completion_model.o
-compile_ada src/primitives/flyology-abort_closure_model.adb \
-    flyology-abort_closure_model.o
-compile_ada src/primitives/flyology-termination_model.adb \
-    flyology-termination_model.o
-compile_ada src/primitives/flyology-timer_model.adb flyology-timer_model.o
-compile_ada src/primitives/flyology-ceiling_model.adb flyology-ceiling_model.o
-compile_ada src/primitives/flyology-priority_queue_model.adb \
-    flyology-priority_queue_model.o
-compile_ada src/primitives/flyology-preemption_model.adb \
-    flyology-preemption_model.o
-compile_ada src/primitives/flyology-wait_arbitration_model.adb \
-    flyology-wait_arbitration_model.o
-compile_ada src/primitives/flyology-wait_queue_model.adb \
-    flyology-wait_queue_model.o
-compile_ada "src/platform/$architecture/flyology-architecture_context.ads" \
-    flyology-architecture_context.o
-compile_ada "src/platform/$architecture/flyology-interrupt_frames.ads" \
-    flyology-interrupt_frames.o
-compile_ada "src/platform/$architecture/flyology-platform.adb" \
-    flyology-platform.o
-compile_ada src/kernel/flyology-kernel.adb flyology-kernel.o generated
-compile_ada src/rts/flyology-rts.adb flyology-rts.o generated
-compile_ada src/gnarl/s-multip.adb s-multip.o yes
-compile_ada src/gnarl/s-tassta.adb s-tassta.o yes
-compile_ada src/gnarl/s-soflin.adb s-soflin.o yes
-compile_ada src/gnarl/a-taside.adb a-taside.o yes
-compile_ada src/gnarl/a-taidco.adb a-taidco.o yes
-compile_ada src/gnarl/a-dynpri.adb a-dynpri.o yes
-compile_ada tests/target/scenarios/flyology-conformance.ads \
-    flyology-conformance.o
-compile_ada tests/target/scenarios/flyology-conformance-observations.adb \
-    flyology-conformance-observations.o
-compile_ada tests/target/scenarios/flyology-conformance-tasking.adb \
-    flyology-conformance-tasking.o
-compile_ada tests/target/scenarios/flyology-conformance-preemption.adb \
-    flyology-conformance-preemption.o
-if test "${FLYOLOGY_DOMAINS:-0}" = 1; then
-    compile_ada src/gnarl/a-taidfl.adb a-taidfl.o yes
-    compile_ada src/gnarl/s-mudido.adb s-mudido.o yes
-    compile_ada tests/target/scenarios/flyology-conformance-domains.adb \
-        flyology-conformance-domains.o
-    domain_link_objects="$output_directory/flyology-conformance-domains.o \
-$output_directory/s-mudido.o $output_directory/a-taidfl.o"
-fi
-compile_ada src/bootstrap/flyology-binder_support.adb \
-    flyology-binder_support.o
-compile_ada tests/target/scenarios/flyology_conformance.adb \
-    flyology_conformance.o
+ada_objects_file="$output_directory/ada-objects.list"
+find "$output_directory" -maxdepth 1 -type f -name '*.o' -print | \
+    LC_ALL=C sort >"$ada_objects_file"
 
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" -nostdinc -nostdlib -n -minimal \
     -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
     -I"$repository/src/kernel" -I"$repository/src/rts" \
-    -I"$repository/src/gnarl" -I"$repository/$scheduler_config_dir" \
-    -I"$repository/$domain_config_dir" \
-    -I"$repository/$conformance_config_dir" \
+    -I"$repository/src/gnarl" -I"$scheduler_config_directory" \
+    -I"$domain_config_directory" \
+    -I"$conformance_config_directory" \
     -I"$repository/tests/target/scenarios" \
     -I"$repository/src/platform/$architecture" \
     -I. $binder_flags flyology_conformance.ali
 
-compile_ada "$output_directory/b~flyology_conformance.adb" \
-    b~flyology_conformance.o generated
+#  Binder output is generated after the project build and is the only Ada
+#  source compiled outside the project dependency graph.
+# shellcheck disable=SC2086
+scripts/toolchain.sh exec "$architecture" "$target-gcc" \
+    -c "$output_directory/b~flyology_conformance.adb" \
+    -o "$output_directory/b~flyology_conformance.o" \
+    -nostdinc -Isrc/bootstrap -Isrc/primitives -Isrc/kernel -Isrc/rts \
+    -Isrc/gnarl -I"$scheduler_config_directory" \
+    -I"$domain_config_directory" -I"$conformance_config_directory" \
+    -Itests/target/scenarios \
+    -I"src/platform/$architecture" -I"$output_directory" \
+    -gnat2022 -gnatws -gnatw.X -gnatw.i -gnato \
+    -gnatec="$product_config_file" -ffunction-sections -fdata-sections \
+    -fno-stack-protector -fno-pic -fno-pie $architecture_flags
 
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
@@ -220,63 +165,7 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/exception_runtime.o" \
     "$output_directory/allocator_runtime.o" \
     "$output_directory/b~flyology_conformance.o" \
-    "$output_directory/flyology_conformance.o" \
-    "$output_directory/flyology-scheduler_configuration.o" \
-    "$output_directory/flyology-domain_configuration.o" \
-    "$output_directory/flyology-conformance_profile.o" \
-    $domain_link_objects \
-    "$output_directory/flyology-conformance.o" \
-    "$output_directory/flyology-conformance-observations.o" \
-    "$output_directory/flyology-conformance-tasking.o" \
-    "$output_directory/flyology-conformance-preemption.o" \
-    "$output_directory/a-taside.o" \
-    "$output_directory/a-taidco.o" \
-    "$output_directory/a-dynpri.o" \
-    "$output_directory/s-soflin.o" \
-    "$output_directory/s-tassta.o" \
-    "$output_directory/s-multip.o" \
-    "$output_directory/flyology-rts.o" \
-    "$output_directory/flyology-kernel.o" \
-    "$output_directory/flyology-domain_model.o" \
-    "$output_directory/flyology-task_primitives.o" \
-    "$output_directory/flyology-clock_model.o" \
-    "$output_directory/flyology-exceptional_completion_model.o" \
-    "$output_directory/flyology-abort_closure_model.o" \
-    "$output_directory/flyology-termination_model.o" \
-    "$output_directory/flyology-timer_model.o" \
-    "$output_directory/flyology-ceiling_model.o" \
-    "$output_directory/flyology-priority_queue_model.o" \
-    "$output_directory/flyology-preemption_model.o" \
-    "$output_directory/flyology-wait_arbitration_model.o" \
-    "$output_directory/flyology-wait_queue_model.o" \
-    "$output_directory/flyology-dispatcher_model.o" \
-    "$output_directory/s-taskin.o" \
-    "$output_directory/s-taprob.o" \
-    "$output_directory/s-tpoben.o" \
-    "$output_directory/s-tpobop.o" \
-    "$output_directory/s-tasren.o" \
-    "$output_directory/s-finpri.o" \
-    "$output_directory/s-tasinf.o" \
-    "$output_directory/s-parame.o" \
-    "$output_directory/a-reatim.o" \
-    "$output_directory/a-retide.o" \
-    "$output_directory/a-caldel.o" \
-    "$output_directory/a-calend.o" \
-    "$output_directory/a-finali.o" \
-    "$output_directory/s-finroo.o" \
-    "$output_directory/a-tags.o" \
-    "$output_directory/s-secsta.o" \
-    "$output_directory/s-stoele.o" \
-    "$output_directory/ada.o" \
-    "$output_directory/a-except.o" \
-    "$output_directory/flyology-platform.o" \
-    "$output_directory/flyology-architecture_context.o" \
-    "$output_directory/flyology-binder_support.o" \
-    "$output_directory/flyology-boot_validation.o" \
-    "$output_directory/flyology-validation.o" \
-    "$output_directory/flyology.o" \
-    "$output_directory/s-stalib.o" \
-    "$output_directory/system.o" \
+    @"$ada_objects_file" \
     --start-group "$libgcc" --end-group
 
 test -z "$(scripts/toolchain.sh exec "$architecture" \

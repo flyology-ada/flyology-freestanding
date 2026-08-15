@@ -41,6 +41,8 @@ until its build, proof, review, and QEMU evidence is recorded.
   Limine request, and linker implementations.
 - `config/` — named restriction, scheduler-policy, scheduling-domain, and
   product capability selections; configuration is not runtime state.
+- `gpr/` — the host primitive-library project, freestanding Ada image project,
+  and relocatable no-installed-runtime cross-toolchain configuration.
 - `scripts/` — authoritative build, test, proof, and reproducibility entry points.
 - `tests/legacy/checkpoints/` — quarantined bootstrap and interrupt-substrate
   checkpoint applications,
@@ -48,16 +50,17 @@ until its build, proof, review, and QEMU evidence is recorded.
   profiles.
 - `tests/target/scenarios/` — ordinary-Ada conformance image and behavioral workloads.
 
-Product profiles compose the responsibility-owned sources through
-`build-image.sh`; capability gates use the same build, run, and inspection
-entrypoints.
+Product profiles select configuration views for `gpr/flyology_image.gpr`.
+`build-image.sh` orchestrates its Ada objects with the explicit binder,
+platform assembly/C, linker, and boot-media steps; capability gates use the same
+build, run, and inspection entry points.
 
 ## Authoritative gates
 
 - `alr build` builds the host-side `libflyology_primitives.a` from the
   deterministic Ada/SPARK kernel packages. Freestanding images are composed by
   `scripts/build-product.sh ARCH PROFILE` using the pinned per-target Alire
-  workspaces and explicit binder/link/image steps.
+  workspaces, the target GPR project, and explicit binder/link/image steps.
 - `scripts/verify-product-build.sh` rebuilds all four product profiles in two
   independent output roots for both targets and requires identical ELF and
   FAT-image hashes.
