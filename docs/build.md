@@ -58,9 +58,7 @@ under `tests/target/scenarios/`. They are linked test clients of the runtime, no
 runtime library sources. Structured serial markers therefore describe a scenario
 assertion and do not enlarge the product API.
 
-During this migration slice the profile entry point delegates compilation to
-the reviewed milestone builders. `scripts/verify-product-build.sh` builds the
-`domains` image through both paths for both targets and requires identical ELF
-and FAT SHA-256 values. Later slices move compilation ownership into component
-GPR projects; the differential gate remains until the historical builders are
-quarantined and removed.
+The capability entry point configures one `scripts/build-image.sh` composition
+builder directly; milestone wrappers are compatibility clients only.
+`scripts/verify-product-build.sh` rebuilds every profile in two independent
+output roots for both targets and requires identical ELF and FAT SHA-256 values.

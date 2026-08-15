@@ -28,7 +28,7 @@ case "$gate_tag" in
     *[!A-Za-z0-9_.-]*) echo "invalid M5 test tag: $gate_tag" >&2; exit 64 ;;
 esac
 test_tag="m5-$policy-$gate_tag"
-output_root="$output_base/$policy"
+output_root=${FLYOLOGY_M5_IMAGE_ROOT:-"$output_base/$policy"}
 
 FLYOLOGY_M3_OUTPUT_ROOT="$output_root" \
 FLYOLOGY_M3_TEST_TAG="$test_tag" \

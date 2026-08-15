@@ -11,8 +11,8 @@ scripts/probe-m3-interface.sh
 scripts/probe-m4-interface.sh
 scripts/check-m2-layout.sh
 scripts/verify-m3-reproducible.sh
-scripts/build-m3.sh x86_64 >/dev/null
-scripts/build-m3.sh aarch64 >/dev/null
+FLYOLOGY_IMAGE_OUTPUT_ROOT=build/m3 scripts/build-image.sh x86_64 >/dev/null
+FLYOLOGY_IMAGE_OUTPUT_ROOT=build/m3 scripts/build-image.sh aarch64 >/dev/null
 scripts/inspect-m3.sh x86_64
 scripts/inspect-m3.sh aarch64
 scripts/check-m4-unwind.sh x86_64

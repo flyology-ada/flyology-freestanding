@@ -12,6 +12,9 @@ test -f "$profiles"
 test -f "$repository/tests/target/scenarios/flyology_m3.adb"
 test -f "$repository/tests/target/scenarios/flyology-conformance-tasking.adb"
 test -f "$repository/tests/target/scenarios/flyology-conformance-observations.adb"
+test -x "$repository/scripts/build-image.sh"
+test -x "$repository/scripts/run-product.sh"
+test -x "$repository/scripts/verify-product-runtime.sh"
 
 grep -F 'name = "flyology_barebones"' "$manifest" >/dev/null
 grep -F 'project-files = ["flyology.gpr"]' "$manifest" >/dev/null
@@ -29,7 +32,7 @@ preemptive-fifo
 preemptive-round-robin
 domains'
 
-for builder in $(awk -F ' *= *' '$1 == "legacy_builder" {
+for builder in $(awk -F ' *= *' '$1 == "image_builder" {
     gsub(/^"|"$/, "", $2)
     print $2
 }' "$profiles" | sort -u); do

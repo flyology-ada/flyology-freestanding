@@ -22,7 +22,7 @@ case "$architecture" in
     *) echo "unsupported architecture: $architecture" >&2; exit 64 ;;
 esac
 
-output_root=${FLYOLOGY_M3_OUTPUT_ROOT:-build/m3}
+output_root=${FLYOLOGY_IMAGE_OUTPUT_ROOT:-${FLYOLOGY_M3_OUTPUT_ROOT:-build/image}}
 output_directory="$output_root/$architecture"
 product_config=${FLYOLOGY_PRODUCT_CONFIG:-config/restrictions/product.adc}
 binder_flags=${FLYOLOGY_BINDER_FLAGS:-}

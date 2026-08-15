@@ -45,9 +45,9 @@ until its build, proof, review, and QEMU evidence is recorded.
   profiles.
 - `tests/target/scenarios/` — ordinary-Ada conformance image and behavioral workloads.
 
-Milestone-named runtime and script paths are transitional. They remain supported
-only while capability-based Alire/GPR projects and gates are introduced and
-differentially verified; they do not define permanent product layers.
+Milestone-named scripts are transitional compatibility gates only. Product
+profiles compose the responsibility-owned sources through `build-image.sh` and
+do not treat milestones as architectural layers.
 
 ## Authoritative gates
 
@@ -55,9 +55,11 @@ differentially verified; they do not define permanent product layers.
   deterministic Ada/SPARK kernel packages. Freestanding images are composed by
   `scripts/build-product.sh ARCH PROFILE` using the pinned per-target Alire
   workspaces and explicit binder/link/image steps.
-- `scripts/verify-product-build.sh` differentially rebuilds the `domains`
-  product profile through the capability and historical build entry points for
-  both targets and requires identical ELF and FAT-image hashes.
+- `scripts/verify-product-build.sh` rebuilds all four product profiles in two
+  independent output roots for both targets and requires identical ELF and
+  FAT-image hashes.
+- `scripts/verify-product-runtime.sh` builds and runs all four product profiles
+  on x86-64 and AArch64 at SMP1 and SMP4 through the capability entry points.
 
 - `scripts/verify-m0.sh` builds and inspects the M0 ELF probes.
 - `scripts/verify-m1.sh` builds both Limine images, boots each at one and four CPUs, and boots both injected last-chance variants.

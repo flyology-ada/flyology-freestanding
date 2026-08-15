@@ -27,5 +27,5 @@ FLYOLOGY_M5=1 \
 FLYOLOGY_PRODUCT_CONFIG=$config \
 FLYOLOGY_M5_CONFIG_DIR=$config_dir \
 FLYOLOGY_BINDER_FLAGS=$binder_flags \
-FLYOLOGY_M3_OUTPUT_ROOT="$output_base/$policy" \
-    scripts/build-m3.sh "$architecture"
+FLYOLOGY_IMAGE_OUTPUT_ROOT="$output_base/$policy" \
+    scripts/build-image.sh "$architecture"
