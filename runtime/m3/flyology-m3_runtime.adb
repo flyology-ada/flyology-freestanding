@@ -4,10 +4,11 @@ with Ada.Exceptions;
 with Flyology.Abort_Closure_Model;
 with Flyology.Clock_Model;
 with Flyology.Dispatcher_Model;
+with Flyology.Domain_Model;
 with Flyology.Exceptional_Completion_Model;
 with Flyology.Binder_Support;
 with Flyology.M5_Configuration;
-with Flyology.Placement_Model;
+with Flyology.M6_Configuration;
 with Flyology.Task_Core;
 with Flyology.Termination_Model;
 with Flyology.Wait_Arbitration_Model;
@@ -17,7 +18,7 @@ package body Flyology.M3_Runtime is
    package Dispatcher renames Flyology.Dispatcher_Model;
    package Clock renames Flyology.Clock_Model;
    package Completions renames Flyology.Exceptional_Completion_Model;
-   package Placement renames Flyology.Placement_Model;
+   package Domains renames Flyology.Domain_Model;
    package Core renames Flyology.Task_Core;
    package Termination renames Flyology.Termination_Model;
    package Waits renames Flyology.Wait_Arbitration_Model;
@@ -31,6 +32,7 @@ package body Flyology.M3_Runtime is
    use type Dispatcher.Task_Slot;
    use type Dispatcher.Task_Incarnation;
    use type Dispatcher.Task_State;
+   use type Domains.Admit_Status;
    use type System.Address;
    use type System.Tasking.Task_Id;
    use type System.Tasking.Task_Procedure_Access;
@@ -72,6 +74,7 @@ package body Flyology.M3_Runtime is
       Discriminants        : System.Address := System.Null_Address;
       Elaborated           : System.Tasking.Boolean_Access := null;
       Requested_CPU        : Integer := System.Tasking.Unspecified_CPU;
+      Requested_Domain     : System.Address := System.Null_Address;
       Priority             : Dispatcher.Priority := Dispatcher.Priority'First;
       Entry_Count          : Natural range 0 .. 255 := 0;
       Master               : Integer := 0;
@@ -133,6 +136,15 @@ package body Flyology.M3_Runtime is
    type Call_Array is array (Call_Number) of Call_Record;
    type Boolean_Core_Array is array (Core_Number) of Boolean;
    type Core_Plan is array (Positive range <>) of Core_Number;
+   type Domain_Plan is array (Positive range <>) of Core.Domain_Number;
+   type Domain_Cursor_Array is array (Core.Domain_Number) of Core_Number;
+   type Domain_Alias_Record is record
+      Used    : Boolean := False;
+      Address : System.Address := System.Null_Address;
+      Domain  : Core.Domain_Number := Core.System_Domain;
+   end record;
+   type Domain_Alias_Array is array (Positive range 1 .. Core.Max_Domains) of
+     Domain_Alias_Record;
 
    Tasks          : Task_Record_Array;
    Masters        : Master_Array;
@@ -140,7 +152,9 @@ package body Flyology.M3_Runtime is
    Calls          : Call_Array;
    Next_Incarnation : array (Task_Slot) of Dispatcher.Task_Incarnation :=
      [others => 1];
-   Placement_Next : Core_Number := 0;
+   Placement_Next : Domain_Cursor_Array := [others => 0];
+   Domain_Aliases : Domain_Alias_Array := [others => (others => <>)];
+   Domains_Frozen : Boolean := False;
    Next_Call_Sequence : Call_Sequence := No_Call_Sequence + 1;
 
    function Current_Core_Raw return System.Address
@@ -272,6 +286,200 @@ package body Flyology.M3_Runtime is
       return Task_Slot (Slot);
    end Record_Of;
 
+   procedure Register_Domain_Alias_Locked
+     (Domain         : Core.Domain_Number;
+      Object_Address : System.Address)
+   is
+   begin
+      if Object_Address = System.Null_Address
+        or else not Core.Domain_Is_Used_Locked (Domain)
+      then
+         Stop;
+      end if;
+      for Alias of Domain_Aliases loop
+         if Alias.Used and then Alias.Address = Object_Address then
+            if Alias.Domain /= Domain then
+               Stop;
+            end if;
+            return;
+         end if;
+      end loop;
+      for Alias of Domain_Aliases loop
+         if not Alias.Used then
+            Alias :=
+              (Used => True, Address => Object_Address, Domain => Domain);
+            return;
+         end if;
+      end loop;
+      Stop;
+   end Register_Domain_Alias_Locked;
+
+   function Domain_For_Address_Locked
+     (Object_Address : System.Address;
+      Found          : out Boolean) return Core.Domain_Number
+   is
+   begin
+      Found := False;
+      if Object_Address = System.Null_Address then
+         return Core.System_Domain;
+      end if;
+      for Alias of Domain_Aliases loop
+         if Alias.Used and then Alias.Address = Object_Address then
+            if not Core.Domain_Is_Used_Locked (Alias.Domain) then
+               Stop;
+            end if;
+            Found := True;
+            return Alias.Domain;
+         end if;
+      end loop;
+      return Core.System_Domain;
+   end Domain_For_Address_Locked;
+
+   function Domain_Snapshot_Locked return Domains.Domain_State is
+      Result : Domains.Domain_State :=
+        Domains.Initial (Domains.CPU_Count (Core.CPU_Count));
+      Count  : Positive range 1 .. Core.Max_Domains := 1;
+      Cores  : Core.Core_Set;
+   begin
+      for Domain in Core.Domain_Number range 1 .. Core.Domain_Number'Last loop
+         if Core.Domain_Is_Used_Locked (Domain) then
+            Count := Count + 1;
+         end if;
+      end loop;
+      Result.Domain_Count := Count;
+      for Domain in Core.Domain_Number loop
+         Result.Domains (Domains.Domain_Id (Domain)).Used :=
+           Core.Domain_Is_Used_Locked (Domain);
+         Result.Domains (Domains.Domain_Id (Domain)).Policy :=
+           (if Domain = Core.System_Domain
+            then Domains.FIFO_Within_Priorities
+            else Domains.Round_Robin_Within_Priorities);
+         if Core.Domain_Is_Used_Locked (Domain) then
+            Cores := Core.Domain_Cores_Locked (Domain);
+            for Dense in Core_Number loop
+               Result.Domains (Domains.Domain_Id (Domain)).Cores
+                 (Domains.Core_Id (Dense)) := Cores (Dense);
+            end loop;
+         end if;
+      end loop;
+      for Dense in Core_Number loop
+         Result.Owners (Domains.Core_Id (Dense)) :=
+           (Assigned => Natural (Dense) < Core.CPU_Count,
+            Domain   =>
+              (if Natural (Dense) < Core.CPU_Count
+               then Domains.Domain_Id (Core.Domain_Of_Core_Locked (Dense))
+               else 0));
+      end loop;
+      if not Domains.Valid (Result) then
+         Stop;
+      end if;
+      return Result;
+   end Domain_Snapshot_Locked;
+
+   procedure Register_Domain_Alias
+     (Identifier     : Natural;
+      Object_Address : System.Address)
+   is
+   begin
+      if Identifier > Natural (Core.Domain_Number'Last) then
+         Stop;
+      end if;
+      Enter_Kernel;
+      Register_Domain_Alias_Locked
+        (Core.Domain_Number (Identifier), Object_Address);
+      Leave_Kernel;
+   end Register_Domain_Alias;
+
+   procedure Create_Domain
+     (Set            : Domain_CPU_Set;
+      Identifier     : out Natural;
+      Created        : out Boolean)
+   is
+      Cores  : Core.Core_Set := [others => False];
+      Domain : Core.Domain_Number;
+   begin
+      Identifier := 0;
+      Created := False;
+      if not Flyology.M6_Configuration.Enabled or else Domains_Frozen
+      then
+         Stop;
+      end if;
+      for CPU in Domain_CPU loop
+         if Set (CPU) then
+            if CPU > Core.CPU_Count then
+               Stop;
+            end if;
+            Cores (Core.Core_Number (CPU - 1)) := True;
+         end if;
+      end loop;
+      Enter_Kernel;
+      Core.Try_Create_Domain_Locked
+        (Cores, Core.Round_Robin_Within_Priorities, 10_000, Domain, Created);
+      Leave_Kernel;
+      if Created then
+         Identifier := Natural (Domain);
+      end if;
+   end Create_Domain;
+
+   procedure Freeze_Domains is
+   begin
+      Enter_Kernel;
+      if Domains_Frozen then
+         Leave_Kernel;
+         Stop;
+      end if;
+      Domains_Frozen := True;
+      Leave_Kernel;
+   end Freeze_Domains;
+
+   function Domain_CPUs (Identifier : Natural) return Domain_CPU_Set is
+      Result : Domain_CPU_Set := [others => False];
+      Cores  : Core.Core_Set;
+   begin
+      if Identifier > Natural (Core.Domain_Number'Last) then
+         Stop;
+      end if;
+      Enter_Kernel;
+      Cores := Core.Domain_Cores_Locked (Core.Domain_Number (Identifier));
+      for CPU in Domain_CPU loop
+         Result (CPU) :=
+           CPU <= Core.CPU_Count
+           and then Cores (Core.Core_Number (CPU - 1));
+      end loop;
+      Leave_Kernel;
+      return Result;
+   end Domain_CPUs;
+
+   function Task_Domain (Item : Task_Id) return Natural is
+      Slot      : Task_Slot;
+      Reference : Dispatcher.Task_Ref;
+      Result    : Core.Domain_Number;
+   begin
+      Enter_Kernel;
+      Slot := Record_Of (Item);
+      Reference := To_Reference (Tasks (Slot).Identity);
+      Result := Core.Domain_Of_Task_Locked (Reference);
+      Leave_Kernel;
+      return Natural (Result);
+   end Task_Domain;
+
+   function Assigned_CPU (Item : Task_Id) return Natural is
+      Slot      : Task_Slot;
+      Reference : Dispatcher.Task_Ref;
+      Result    : Core_Number;
+   begin
+      Enter_Kernel;
+      Slot := Record_Of (Item);
+      Reference := To_Reference (Tasks (Slot).Identity);
+      if Core.State_Locked (Reference) = Dispatcher.Dormant then
+         Leave_Kernel;
+         Stop;
+      end if;
+      Result := Core.Assigned_Core_Locked (Reference);
+      Leave_Kernel;
+      return Natural (Result) + 1;
+   end Assigned_CPU;
+
    function Depends_On_Master_Locked
      (Slot   : Task_Slot;
       Master : Master_Number) return Boolean
@@ -385,6 +593,7 @@ package body Flyology.M3_Runtime is
       Elaborated     : System.Tasking.Boolean_Access;
       Priority       : Integer;
       CPU            : Integer;
+      Domain_Address : System.Address;
       Entry_Count    : Natural;
       Master         : Integer;
       Created_Task   : out Task_Id)
@@ -435,6 +644,7 @@ package body Flyology.M3_Runtime is
          Discriminants        => Discriminants,
          Elaborated           => Elaborated,
          Requested_CPU        => CPU,
+         Requested_Domain     => Domain_Address,
          Priority             => Effective_Priority,
          Entry_Count          => Entry_Count,
          Master               => Master,
@@ -686,9 +896,12 @@ package body Flyology.M3_Runtime is
       Group          : Group_Number;
       Kicks          : Boolean_Core_Array := [others => False];
       Plan           : Core_Plan (Members'Range);
+      Domains_Plan   : Domain_Plan (Members'Range);
       Slots          : Slot_Plan;
       Needed         : array (Core_Number) of Natural := [others => 0];
-      Cursor         : Placement.Core_Id := Placement.Core_Id (Placement_Next);
+      Cursors        : Domain_Cursor_Array := Placement_Next;
+      Planning       : Domains.Domain_State;
+      Activator_Domain : Core.Domain_Number;
       Outcome        : Waits.Resolution;
       Planned_Master : Master_Number := Master_Number'First;
    begin
@@ -703,6 +916,8 @@ package body Flyology.M3_Runtime is
          Leave_Kernel;
          Stop;
       end if;
+      Activator_Domain := Core.Domain_Of_Task_Locked (Activator);
+      Planning := Domain_Snapshot_Locked;
       Deliver_Pending_Abort_Locked;
       if Tasks (Activator_Slot).Abort_Depth = 255 then
          Leave_Kernel;
@@ -721,13 +936,18 @@ package body Flyology.M3_Runtime is
          declare
             Slot : constant Task_Slot := Record_Of (Members (Index));
             CPU  : constant Integer := Tasks (Slot).Requested_CPU;
-            Result : Placement.Placement_Result;
+            Explicit : constant Boolean :=
+              Tasks (Slot).Requested_Domain /= System.Null_Address;
+            Found    : Boolean := False;
+            Selected : Core.Domain_Number := Activator_Domain;
+            Positioned : Domains.Placement_Result;
+            Admitted   : Domains.Admit_Result;
          begin
             Slots (Index) := Slot;
             if Core.State_Locked (To_Reference (Members (Index))) /=
               Dispatcher.Dormant
-              or else CPU not in Integer (Placement.Ada_CPU'First) ..
-                Integer (Placement.Ada_CPU'Last)
+              or else CPU not in Integer (Domains.Ada_CPU'First) ..
+                Integer (Domains.Ada_CPU'Last)
               or else Tasks (Slot).Master not in
                 Integer (Master_Number'First) .. Integer (Master_Number'Last)
             then
@@ -760,15 +980,39 @@ package body Flyology.M3_Runtime is
                   Stop;
                end if;
             end;
-            Result := Placement.Place
-              (Placement.Ada_CPU (CPU), Placement.Core_Count (Core.CPU_Count),
-               Cursor);
-            if not Result.Accepted then
+            if Explicit then
+               Selected := Domain_For_Address_Locked
+                 (Tasks (Slot).Requested_Domain, Found);
+               if not Found then
+                  Leave_Kernel;
+                  Stop;
+               end if;
+            end if;
+            Positioned := Domains.Place
+              (Planning,
+               Domains.Domain_Id (Selected),
+               Domains.Ada_CPU (CPU),
+               Domains.Core_Id (Cursors (Selected)));
+            if not Positioned.Accepted then
                Leave_Kernel;
                Stop;
             end if;
-            Plan (Index) := Core_Number (Result.Core);
-            Cursor := Result.Next_Cursor;
+            Plan (Index) := Core_Number (Positioned.Core);
+            Domains_Plan (Index) := Selected;
+            Admitted := Domains.Try_Admit
+              (Planning,
+               Domains.Task_Id (Slot),
+               Domains.Domain_Id (Activator_Domain),
+               Explicit,
+               Domains.Domain_Id (Selected),
+               Domains.Ada_CPU (CPU),
+               Positioned.Core);
+            if Admitted.Status /= Domains.Admitted then
+               Leave_Kernel;
+               Stop;
+            end if;
+            Planning := Admitted.State;
+            Cursors (Selected) := Core_Number (Positioned.Next_Cursor);
             Needed (Plan (Index)) := Needed (Plan (Index)) + 1;
          end;
       end loop;
@@ -793,12 +1037,13 @@ package body Flyology.M3_Runtime is
          begin
             Tasks (Slot).Group := Integer (Group);
             Core.Activate_Locked
-              (To_Reference (Members (Index)), Plan (Index),
+              (To_Reference (Members (Index)), Domains_Plan (Index),
+               Plan (Index),
                Tasks (Slot).Priority);
             Kicks (Plan (Index)) := True;
          end;
       end loop;
-      Placement_Next := Core_Number (Cursor);
+      Placement_Next := Cursors;
       for Candidate in Core_Number loop
          if Natural (Candidate) < Core.CPU_Count and then Kicks (Candidate) then
             Kick_Core (System.Address (Candidate));
@@ -2300,7 +2545,9 @@ package body Flyology.M3_Runtime is
       Groups := [others => (others => <>)];
       Calls := [others => (others => <>)];
       Next_Call_Sequence := No_Call_Sequence + 1;
-      Placement_Next := 0;
+      Placement_Next := [others => 0];
+      Domain_Aliases := [others => (others => <>)];
+      Domains_Frozen := False;
       Next_Incarnation := [others => 1];
       Environment := System.Tasking.Identity_For_Slot (0);
       Tasks (0).Identity := Environment;

@@ -589,6 +589,15 @@ m2_interrupt_common:
     mov $3, %eax
     xor %edx, %edx
     xsave64 (%rdi)
+#ifndef FLYOLOGY_M5
+    /*
+     * M2 runs the canary without context transfer, so this per-core flag
+     * still identifies the interrupted execution.  M5 may preempt that task
+     * and run another task on the same core; applying the old flag to the new
+     * task would reject legitimate FP/SIMD state.  M5 instead validates the
+     * complete task-owned state after its exact interrupt continuation
+     * resumes in flyology_m5_preemption_canary.
+     */
     cmpq $0, %gs:80
     je 3f
     cmpw $0x027f, 0(%rdi)
@@ -608,6 +617,7 @@ m2_interrupt_common:
     cmp %rax, 408(%rdi)
     jne fatal
 3:
+#endif
 
     mov 168(%r12), %rax
     cmp $RESCHEDULE_VECTOR, %rax
@@ -685,6 +695,7 @@ m2_interrupt_common:
 .global __gnat_rcheck_CE_Invalid_Data
 .global __gnat_rcheck_CE_Overflow_Check
 .global __gnat_rcheck_CE_Range_Check
+.global __gnat_rcheck_CE_Divide_By_Zero
 .global __gnat_rcheck_PE_Explicit_Raise
 .global __gnat_rcheck_SE_Explicit_Raise
 .type __gnat_last_chance_handler, @function
@@ -696,6 +707,7 @@ __gnat_rcheck_CE_Index_Check:
 __gnat_rcheck_CE_Invalid_Data:
 __gnat_rcheck_CE_Overflow_Check:
 __gnat_rcheck_CE_Range_Check:
+__gnat_rcheck_CE_Divide_By_Zero:
 __gnat_rcheck_PE_Explicit_Raise:
 __gnat_rcheck_SE_Explicit_Raise:
 #endif
@@ -1512,44 +1524,44 @@ flyology_m5_preemption_canary:
     pop %rcx
     andl $0xcd5, %ecx
     cmpl $0x491, %ecx
-    jne fatal
+    jne m5_canary_status_fatal
 
     cmp 24(%rsp), %rdi
-    jne fatal
+    jne m5_canary_gpr_fatal
     cmp %rsp, 8(%rsp)
-    jne fatal
+    jne m5_canary_gpr_fatal
     cmp m5_gpr_canaries + 0(%rip), %rax
-    jne fatal
+    jne m5_canary_gpr_fatal
     cmp m5_gpr_canaries + 8(%rip), %rbx
-    jne fatal
+    jne m5_canary_gpr_fatal
     cmp m5_gpr_canaries + 24(%rip), %rdx
-    jne fatal
+    jne m5_canary_gpr_fatal
     cmp m5_gpr_canaries + 32(%rip), %rsi
-    jne fatal
+    jne m5_canary_gpr_fatal
     cmp m5_gpr_canaries + 40(%rip), %rbp
-    jne fatal
+    jne m5_canary_gpr_fatal
     cmp m5_gpr_canaries + 48(%rip), %r8
-    jne fatal
+    jne m5_canary_gpr_fatal
     cmp m5_gpr_canaries + 56(%rip), %r9
-    jne fatal
+    jne m5_canary_gpr_fatal
     cmp m5_gpr_canaries + 64(%rip), %r10
-    jne fatal
+    jne m5_canary_gpr_fatal
     cmp m5_gpr_canaries + 72(%rip), %r11
-    jne fatal
+    jne m5_canary_gpr_fatal
     cmp m5_gpr_canaries + 80(%rip), %r12
-    jne fatal
+    jne m5_canary_gpr_fatal
     cmp m5_gpr_canaries + 88(%rip), %r13
-    jne fatal
+    jne m5_canary_gpr_fatal
     cmp m5_gpr_canaries + 96(%rip), %r14
-    jne fatal
+    jne m5_canary_gpr_fatal
     cmp m5_gpr_canaries + 104(%rip), %r15
-    jne fatal
+    jne m5_canary_gpr_fatal
 
 .macro m5_check_xmm register, expected
     pcmpeqb \expected(%rip), \register
     pmovmskb \register, %eax
     cmp $0xffff, %eax
-    jne fatal
+    jne m5_canary_simd_fatal
 .endm
     m5_check_xmm %xmm0, m2_simd_canary
     m5_check_xmm %xmm1, m2_simd_canary
@@ -1571,10 +1583,10 @@ flyology_m5_preemption_canary:
 
     fnstcw 20(%rsp)
     cmpw $0x027f, 20(%rsp)
-    jne fatal
+    jne m5_canary_fp_fatal
     stmxcsr 16(%rsp)
     cmpl $0x1f80, 16(%rsp)
-    jne fatal
+    jne m5_canary_fp_fatal
     movq $0, %gs:80
     fldcw 0(%rsp)
     ldmxcsr 4(%rsp)
@@ -1588,6 +1600,27 @@ flyology_m5_preemption_canary:
     pop %rbx
     popfq
     ret
+
+m5_canary_status_fatal:
+    cld
+    lea m5_canary_status_failure(%rip), %rdi
+    call serial_puts_locked
+    jmp fatal
+m5_canary_gpr_fatal:
+    cld
+    lea m5_canary_gpr_failure(%rip), %rdi
+    call serial_puts_locked
+    jmp fatal
+m5_canary_simd_fatal:
+    cld
+    lea m5_canary_simd_failure(%rip), %rdi
+    call serial_puts_locked
+    jmp fatal
+m5_canary_fp_fatal:
+    cld
+    lea m5_canary_fp_failure(%rip), %rdi
+    call serial_puts_locked
+    jmp fatal
 
 .global flyology_m5_report_round_robin_pass
 .type flyology_m5_report_round_robin_pass, @function
@@ -1624,6 +1657,50 @@ flyology_m5_report_priority_requeue_pass:
 flyology_m5_report_nonblocking_ingress_pass:
     lea m5_nonblocking_ingress_pass(%rip), %rdi
     jmp serial_puts_locked
+
+#ifdef FLYOLOGY_M6
+.global flyology_m6_report_layout_pass
+.type flyology_m6_report_layout_pass, @function
+flyology_m6_report_layout_pass:
+    lea m6_layout_pass(%rip), %rdi
+    jmp serial_puts_locked
+
+.global flyology_m6_report_query_pass
+.type flyology_m6_report_query_pass, @function
+flyology_m6_report_query_pass:
+    lea m6_query_pass(%rip), %rdi
+    jmp serial_puts_locked
+
+.global flyology_m6_report_inheritance_pass
+.type flyology_m6_report_inheritance_pass, @function
+flyology_m6_report_inheritance_pass:
+    lea m6_inheritance_pass(%rip), %rdi
+    jmp serial_puts_locked
+
+.global flyology_m6_report_heterogeneous_pass
+.type flyology_m6_report_heterogeneous_pass, @function
+flyology_m6_report_heterogeneous_pass:
+    lea m6_heterogeneous_pass(%rip), %rdi
+    jmp serial_puts_locked
+
+.global flyology_m6_report_all_core_pass
+.type flyology_m6_report_all_core_pass, @function
+flyology_m6_report_all_core_pass:
+    lea m6_all_core_pass(%rip), %rdi
+    jmp serial_puts_locked
+
+.global flyology_m6_report_all_core_start_failure
+.type flyology_m6_report_all_core_start_failure, @function
+flyology_m6_report_all_core_start_failure:
+    lea m6_all_core_start_failure(%rip), %rdi
+    jmp serial_puts_locked
+
+.global flyology_m6_report_all_core_done_failure
+.type flyology_m6_report_all_core_done_failure, @function
+flyology_m6_report_all_core_done_failure:
+    lea m6_all_core_done_failure(%rip), %rdi
+    jmp serial_puts_locked
+#endif
 
 .global flyology_m3_report_master_pass
 .type flyology_m3_report_master_pass, @function
@@ -2140,6 +2217,19 @@ m5_all_core_preemption_pass: .asciz "FLYOLOGY:M5:ALL_CORE_PREEMPTION:PASS\n"
 m5_fifo_no_rotation_pass: .asciz "FLYOLOGY:M5:FIFO_NO_ROTATION:PASS\n"
 m5_priority_requeue_pass: .asciz "FLYOLOGY:M5:PRIORITY_REQUEUE:PASS\n"
 m5_nonblocking_ingress_pass: .asciz "FLYOLOGY:M5:NONBLOCKING_INGRESS:PASS\n"
+#ifdef FLYOLOGY_M6
+m6_layout_pass: .asciz "FLYOLOGY:M6:DOMAIN_LAYOUT:PASS\n"
+m6_query_pass: .asciz "FLYOLOGY:M6:STANDARD_QUERIES:PASS\n"
+m6_inheritance_pass: .asciz "FLYOLOGY:M6:DOMAIN_INHERITANCE:PASS\n"
+m6_heterogeneous_pass: .asciz "FLYOLOGY:M6:HETEROGENEOUS_POLICY:PASS\n"
+m6_all_core_pass: .asciz "FLYOLOGY:M6:ALL_CORE_PREEMPTION:PASS\n"
+m6_all_core_start_failure: .asciz "FLYOLOGY:FAIL:M6_ALL_CORE_START\n"
+m6_all_core_done_failure: .asciz "FLYOLOGY:FAIL:M6_ALL_CORE_DONE\n"
+#endif
+m5_canary_status_failure: .asciz "FLYOLOGY:FAIL:X86_CANARY_STATUS\n"
+m5_canary_gpr_failure: .asciz "FLYOLOGY:FAIL:X86_CANARY_GPR\n"
+m5_canary_simd_failure: .asciz "FLYOLOGY:FAIL:X86_CANARY_SIMD\n"
+m5_canary_fp_failure: .asciz "FLYOLOGY:FAIL:X86_CANARY_FP\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:X86_BOOT\n"
 last_chance_marker: .asciz "FLYOLOGY:LAST_CHANCE:X86_64\n"

@@ -2,6 +2,7 @@
 
 with Flyology.M2_Architecture;
 with Flyology.Ceiling_Model;
+with Flyology.Domain_Model;
 with Flyology.Preemption_Model;
 with Flyology.Priority_Queue_Model;
 with Flyology.Timer_Model;
@@ -10,6 +11,7 @@ with Flyology.Wait_Arbitration_Model;
 package body Flyology.Task_Core is
    package Architecture renames Flyology.M2_Architecture;
    package Ceilings renames Flyology.Ceiling_Model;
+   package Domains renames Flyology.Domain_Model;
    package Preemption renames Flyology.Preemption_Model;
    package Scheduler renames Flyology.Priority_Queue_Model;
    package Timers renames Flyology.Timer_Model;
@@ -17,6 +19,8 @@ package body Flyology.Task_Core is
    use type Dispatcher.Task_Ref;
    use type Dispatcher.Task_Slot;
    use type Dispatcher.Task_State;
+   use type Domains.Create_Status;
+   use type Domains.Policy_Kind;
    use type Dispatcher.Generation;
    use type Dispatcher.Priority;
    use type Scheduler.Enqueue_Status;
@@ -26,6 +30,7 @@ package body Flyology.Task_Core is
    use type Timers.Register_Status;
    use type Timers.Cancel_Status;
    use type Timers.Tick;
+   use type Timers.Timer_Table;
    use type Waits.Arm_Status;
    use type Waits.Commit_Status;
    use type Waits.Resolve_Status;
@@ -65,6 +70,7 @@ package body Flyology.Task_Core is
       Reference     : Task_Ref := No_Task;
       State         : Task_State := Dispatcher.Dormant;
       Assigned_Core : Core_Number := 0;
+      Domain        : Domain_Number := System_Domain;
       Priority      : Ceilings.Ceiling_State;
       Wait          : Waits.Wait_State;
       Budget        : Preemption.Budget_State := Preemption.Empty_Budget;
@@ -75,6 +81,12 @@ package body Flyology.Task_Core is
    type Queue_Array is array (Core_Number) of Scheduler.Ready_Queue;
    type Timer_Array is array (Core_Number) of Timers.Timer_Table;
    type Boolean_Core_Array is array (Core_Number) of Boolean;
+   type Domain_Core_Array is array (Core_Number) of Domain_Number;
+   type Boolean_Domain_Array is array (Domain_Number) of Boolean;
+   type Policy_Domain_Array is
+     array (Domain_Number) of Preemption.Policy_Kind;
+   type Quantum_Domain_Array is
+     array (Domain_Number) of Preemption.Clock.Tick;
 
    Dispatcher_Stacks   : Dispatcher_Stack_Array;
    Task_Stacks         : Task_Stack_Array;
@@ -91,9 +103,12 @@ package body Flyology.Task_Core is
      Scheduler.Arrival_Sequence'First + 1;
    Configured          : Positive range 1 .. Max_Cores := 1;
    On_Retirement       : Retirement_Hook := null;
-   Policy              : Preemption.Policy_Kind :=
-     Preemption.FIFO_Within_Priorities;
-   Quantum             : Preemption.Clock.Tick := 0;
+   Core_Domains        : Domain_Core_Array := [others => System_Domain];
+   Domain_Used         : Boolean_Domain_Array :=
+     [System_Domain => True, others => False];
+   Domain_Policies     : Policy_Domain_Array :=
+     [others => Preemption.FIFO_Within_Priorities];
+   Domain_Quanta       : Quantum_Domain_Array := [others => 0];
    Policy_Configured   : Boolean := False;
 
    procedure Enter_Kernel
@@ -183,6 +198,12 @@ package body Flyology.Task_Core is
       return Attempt.State;
    end Apply;
 
+   function Policy_For (Core : Core_Number) return Preemption.Policy_Kind is
+     (Domain_Policies (Core_Domains (Core)));
+
+   function Quantum_For (Core : Core_Number) return Preemption.Clock.Tick is
+     (Domain_Quanta (Core_Domains (Core)));
+
    procedure Initialize (CPU_Count : Positive) is
    begin
       if CPU_Count > Max_Cores then
@@ -195,8 +216,10 @@ package body Flyology.Task_Core is
       Next_Sequence := Scheduler.Arrival_Sequence'First + 1;
       Dispatcher_Ready := [others => False];
       Tasks := [others => (others => <>)];
-      Policy := Preemption.FIFO_Within_Priorities;
-      Quantum := 0;
+      Core_Domains := [others => System_Domain];
+      Domain_Used := [System_Domain => True, others => False];
+      Domain_Policies := [others => Preemption.FIFO_Within_Priorities];
+      Domain_Quanta := [others => 0];
       Policy_Configured := False;
    end Initialize;
 
@@ -211,11 +234,12 @@ package body Flyology.Task_Core is
       then
          Stop;
       end if;
-      Task_Core.Policy := Policy;
+      Domain_Policies (System_Domain) := Policy;
       if Policy = Preemption.Round_Robin_Within_Priorities then
-         Quantum := Preemption.Quantum_Ticks (Slice, Rate);
+         Domain_Quanta (System_Domain) :=
+           Preemption.Quantum_Ticks (Slice, Rate);
       else
-         Quantum := 0;
+         Domain_Quanta (System_Domain) := 0;
       end if;
       if Current_Tasks (0) /= No_Task then
          declare
@@ -225,7 +249,8 @@ package body Flyology.Task_Core is
          begin
             if Policy = Preemption.Round_Robin_Within_Priorities then
                Tasks (Slot).Budget :=
-                 Preemption.Start_Budget (Policy, Now, Quantum);
+                 Preemption.Start_Budget
+                   (Policy, Now, Domain_Quanta (System_Domain));
             else
                Tasks (Slot).Budget := Preemption.Empty_Budget;
             end if;
@@ -233,6 +258,157 @@ package body Flyology.Task_Core is
       end if;
       Policy_Configured := True;
    end Configure_Dispatching;
+
+   function Domain_Snapshot_Locked return Domains.Domain_State is
+      Result : Domains.Domain_State :=
+        Domains.Initial (Domains.CPU_Count (Configured));
+      Count  : Positive range 1 .. Max_Domains := 1;
+   begin
+      for Domain in Domain_Number range 1 .. Domain_Number'Last loop
+         if Domain_Used (Domain) then
+            Count := Count + 1;
+         end if;
+      end loop;
+      Result.Domain_Count := Count;
+      for Domain in Domain_Number loop
+         Result.Domains (Domains.Domain_Id (Domain)).Used :=
+           Domain_Used (Domain);
+         Result.Domains (Domains.Domain_Id (Domain)).Policy :=
+           (if Domain_Policies (Domain) =
+              Preemption.FIFO_Within_Priorities
+            then Domains.FIFO_Within_Priorities
+            else Domains.Round_Robin_Within_Priorities);
+         for Core in Core_Number loop
+            Result.Domains (Domains.Domain_Id (Domain)).Cores
+              (Domains.Core_Id (Core)) :=
+                Natural (Core) < Configured
+                and then Core_Domains (Core) = Domain;
+         end loop;
+      end loop;
+      for Core in Core_Number loop
+         Result.Owners (Domains.Core_Id (Core)) :=
+           (Assigned => Natural (Core) < Configured,
+            Domain   => Domains.Domain_Id (Core_Domains (Core)));
+      end loop;
+      for Slot in Task_Slot loop
+         if Tasks (Slot).Present
+           and then Tasks (Slot).State /= Dispatcher.Dormant
+         then
+            Result.Tasks (Domains.Task_Id (Slot)) :=
+              (Present       => True,
+               Domain        => Domains.Domain_Id (Tasks (Slot).Domain),
+               Core          => Domains.Core_Id (Tasks (Slot).Assigned_Core),
+               Requested_CPU =>
+                 (if Slot = 0 then 1 else Domains.Not_A_Specific_CPU));
+         end if;
+      end loop;
+      return Result;
+   end Domain_Snapshot_Locked;
+
+   procedure Try_Create_Domain_Locked
+     (Cores  : Core_Set;
+      Policy : Dispatching_Policy;
+      Slice  : Binder_Time_Slice;
+      Domain : out Domain_Number;
+      Created : out Boolean)
+   is
+      Before       : Domains.Domain_State;
+      Selected_Set : Domains.Core_Set := [others => False];
+      Attempt      : Domains.Create_Result;
+      Selected     : Domain_Number := Domain_Number'First;
+      Rate         : constant Frequency := Clock_Frequency;
+   begin
+      Domain := System_Domain;
+      Created := False;
+      if not Policy_Configured
+        or else not Preemption.Configuration_Is_Valid (Policy, Slice, Rate)
+      then
+         Stop;
+      end if;
+      for Core in Core_Number loop
+         if Cores (Core) then
+            if Natural (Core) >= Configured
+              or else Current_Tasks (Core) /= No_Task
+              or else Ready_Queues (Core).Length /= 0
+              or else Timer_Tables (Core) /= Timers.Empty_Table
+            then
+               return;
+            end if;
+            for Slot in Task_Slot loop
+               if Tasks (Slot).Present
+                 and then Tasks (Slot).State /= Dispatcher.Dormant
+                 and then Tasks (Slot).Assigned_Core = Core
+               then
+                  return;
+               end if;
+            end loop;
+         end if;
+         Selected_Set (Domains.Core_Id (Core)) := Cores (Core);
+      end loop;
+      Before := Domain_Snapshot_Locked;
+      if not Domains.Valid (Before) then
+         Stop;
+      end if;
+      Attempt := Domains.Try_Create
+        (Before,
+         Selected_Set,
+         (if Policy = Preemption.FIFO_Within_Priorities
+          then Domains.FIFO_Within_Priorities
+          else Domains.Round_Robin_Within_Priorities));
+      if Attempt.Status /= Domains.Created then
+         return;
+      end if;
+      Selected := Domain_Number (Attempt.Domain);
+      Domain_Used (Selected) := True;
+      Domain_Policies (Selected) := Policy;
+      Domain_Quanta (Selected) :=
+        (if Policy = Preemption.Round_Robin_Within_Priorities
+         then Preemption.Quantum_Ticks (Slice, Rate)
+         else 0);
+      for Core in Core_Number loop
+         Core_Domains (Core) := Domain_Number
+           (Attempt.State.Owners (Domains.Core_Id (Core)).Domain);
+      end loop;
+      Domain := Selected;
+      Created := True;
+   end Try_Create_Domain_Locked;
+
+   function Domain_Is_Used_Locked (Domain : Domain_Number) return Boolean is
+     (Domain_Used (Domain));
+
+   function Domain_Cores_Locked (Domain : Domain_Number) return Core_Set is
+      Result : Core_Set := [others => False];
+   begin
+      if not Domain_Used (Domain) then
+         Stop;
+      end if;
+      for Core in Core_Number loop
+         Result (Core) :=
+           Natural (Core) < Configured and then Core_Domains (Core) = Domain;
+      end loop;
+      return Result;
+   end Domain_Cores_Locked;
+
+   function Domain_Of_Core_Locked (Core : Core_Number) return Domain_Number is
+   begin
+      if Natural (Core) >= Configured then
+         Stop;
+      end if;
+      return Core_Domains (Core);
+   end Domain_Of_Core_Locked;
+
+   function Domain_Of_Task_Locked
+     (Reference : Task_Ref) return Domain_Number
+   is
+      Slot : constant Task_Slot := Slot_Of (Reference);
+   begin
+      if not Known_Locked (Reference)
+        or else Tasks (Slot).State = Dispatcher.Dormant
+      then
+         Stop;
+      end if;
+      return Tasks (Slot).Domain;
+   end Domain_Of_Task_Locked;
 
    function CPU_Count return Positive is (Configured);
 
@@ -252,7 +428,10 @@ package body Flyology.Task_Core is
       Slot    : constant Task_Slot := Slot_Of (Reference);
       Attempt : Scheduler.Enqueue_Result;
    begin
-      if Next_Sequence = Scheduler.Arrival_Sequence'Last then
+      if Next_Sequence = Scheduler.Arrival_Sequence'Last
+        or else not Known_Locked (Reference)
+        or else Tasks (Slot).Domain /= Core_Domains (Core)
+      then
          Stop;
       end if;
       Attempt := Scheduler.Enqueue
@@ -292,6 +471,7 @@ package body Flyology.Task_Core is
       Tasks (Slot) :=
         (Present => True, Reference => Reference,
          State => Dispatcher.Running, Assigned_Core => 0,
+         Domain => System_Domain,
          Priority => (others => <>),
          Wait =>
            (Reference => Reference, Kind => Waits.No_Wait,
@@ -311,6 +491,7 @@ package body Flyology.Task_Core is
       Tasks (Slot) :=
         (Present => True, Reference => Reference,
          State => Dispatcher.Dormant, Assigned_Core => 0,
+         Domain => System_Domain,
          Priority => (others => <>),
          Wait =>
            (Reference => Reference, Kind => Waits.No_Wait,
@@ -387,6 +568,7 @@ package body Flyology.Task_Core is
 
    procedure Activate_Locked
      (Reference : Task_Ref;
+      Domain    : Domain_Number;
       Core      : Core_Number;
       Priority  : Dispatcher.Priority)
    is
@@ -394,11 +576,16 @@ package body Flyology.Task_Core is
       Base    : constant System.Address :=
         Task_Stacks (Slot) (Task_Stack'First)'Address;
    begin
-      if Natural (Core) >= Configured or else not Known_Locked (Reference) then
+      if Natural (Core) >= Configured
+        or else not Domain_Used (Domain)
+        or else Core_Domains (Core) /= Domain
+        or else not Known_Locked (Reference)
+      then
          Stop;
       end if;
       Tasks (Slot).State := Apply (Tasks (Slot).State, Dispatcher.Admit);
       Tasks (Slot).Assigned_Core := Core;
+      Tasks (Slot).Domain := Domain;
       Tasks (Slot).Priority :=
         (Base => Priority, Active => Priority,
          Previous => [others => Dispatcher.Priority'First], Depth => 0);
@@ -715,7 +902,7 @@ package body Flyology.Task_Core is
          then
             Stop;
          end if;
-         if Policy = Preemption.Round_Robin_Within_Priorities
+         if Policy_For (Core) = Preemption.Round_Robin_Within_Priorities
            and then Tasks (Slot).Budget.Armed
            and then Tasks (Slot).Budget.Remaining > 0
          then
@@ -855,7 +1042,8 @@ package body Flyology.Task_Core is
    function Stack_Is_Valid_Locked
      (Core      : Core_Number;
       Reference : Task_Ref;
-      Probe     : System.Address) return Boolean
+      Probe     : System.Address;
+      Allow_Top : Boolean := False) return Boolean
    is
       Slot : constant Task_Slot := Slot_Of (Reference);
       Base : System.Address;
@@ -872,7 +1060,11 @@ package body Flyology.Task_Core is
       Base := Task_Stacks (Slot) (Task_Stack'First)'Address;
       return Base <= System.Address'Last - System.Address (Task_Stack_Size)
         and then Probe >= Base + System.Address (Stack_Canary_Length)
-        and then Probe < Base + System.Address (Task_Stack_Size)
+        and then
+          (Probe < Base + System.Address (Task_Stack_Size)
+           or else
+             (Allow_Top
+              and then Probe = Base + System.Address (Task_Stack_Size)))
         and then Canary_Is_Valid (Slot);
    end Stack_Is_Valid_Locked;
 
@@ -939,8 +1131,10 @@ package body Flyology.Task_Core is
       Slot := Slot_Of (Reference);
       if not Known_Locked (Reference)
         or else Tasks (Slot).State /= Dispatcher.Running
+        or else Tasks (Slot).Domain /= Core_Domains (Dense)
         or else not Stack_Is_Valid_Locked
-          (Dense, Reference, Architecture.Interrupted_Stack (Frame))
+          (Dense, Reference, Architecture.Interrupted_Stack (Frame),
+           Allow_Top => True)
       then
          Leave_Kernel;
          Stop;
@@ -956,7 +1150,7 @@ package body Flyology.Task_Core is
       end if;
       Choice := Scheduler.Select_Next (Ready_Queues (Dense));
       Cause := Preemption.Decide
-        (Policy,
+        (Policy_For (Dense),
          Tasks (Slot).Priority.Active,
          Choice.Found,
          (if Choice.Found
@@ -1075,6 +1269,7 @@ package body Flyology.Task_Core is
             if not Known_Locked (Reference)
               or else Current_Tasks (Dense) /= No_Task
               or else Tasks (Slot).Assigned_Core /= Dense
+              or else Tasks (Slot).Domain /= Core_Domains (Dense)
             then
                Leave_Kernel;
                Stop;
@@ -1088,7 +1283,9 @@ package body Flyology.Task_Core is
               Apply (Tasks (Slot).State, Dispatcher.Dispatch);
             Current_Tasks (Dense) := Reference;
             Now := Preemption.Clock.Tick (Read_Clock);
-            if Policy = Preemption.Round_Robin_Within_Priorities then
+            if Policy_For (Dense) =
+              Preemption.Round_Robin_Within_Priorities
+            then
                if Tasks (Slot).Budget.Armed
                  and then Tasks (Slot).Budget.Remaining > 0
                then
@@ -1096,7 +1293,8 @@ package body Flyology.Task_Core is
                     Preemption.Resume_Retained (Tasks (Slot).Budget, Now);
                else
                   Tasks (Slot).Budget :=
-                    Preemption.Start_Budget (Policy, Now, Quantum);
+                    Preemption.Start_Budget
+                      (Policy_For (Dense), Now, Quantum_For (Dense));
                end if;
             else
                Tasks (Slot).Budget := Preemption.Empty_Budget;

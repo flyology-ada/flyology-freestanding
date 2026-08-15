@@ -6,6 +6,8 @@ with System.Tasking;
 package Flyology.M3_Runtime is
    subtype Task_Id is System.Tasking.Task_Id;
    type Task_List is array (Positive range <>) of Task_Id;
+   subtype Domain_CPU is Positive range 1 .. 4;
+   type Domain_CPU_Set is array (Domain_CPU) of Boolean;
 
    procedure Create_Task
      (Body_Procedure : System.Tasking.Task_Procedure_Access;
@@ -13,6 +15,7 @@ package Flyology.M3_Runtime is
       Elaborated     : System.Tasking.Boolean_Access;
       Priority       : Integer;
       CPU            : Integer;
+      Domain_Address : System.Address;
       Entry_Count    : Natural;
       Master         : Integer;
       Created_Task   : out Task_Id);
@@ -43,6 +46,17 @@ package Flyology.M3_Runtime is
    function Is_Terminated (Item : Task_Id) return Boolean;
    function Number_Of_CPUs return Natural;
    function Current_Core_Number return Natural;
+   procedure Register_Domain_Alias
+     (Identifier     : Natural;
+      Object_Address : System.Address);
+   procedure Create_Domain
+     (Set            : Domain_CPU_Set;
+      Identifier     : out Natural;
+      Created        : out Boolean);
+   function Domain_CPUs (Identifier : Natural) return Domain_CPU_Set;
+   procedure Freeze_Domains;
+   function Task_Domain (Item : Task_Id) return Natural;
+   function Assigned_CPU (Item : Task_Id) return Natural;
    function Validate_Current_Stack (Probe : System.Address) return Boolean;
    procedure Demo_Parallel_Barrier (Phase : Positive);
    function Demo_Queued_Call_Count return Natural;

@@ -1,0 +1,12 @@
+project M6_Domain_Tests is
+   for Languages use ("Ada");
+   for Source_Dirs use (".", "../../runtime/core");
+   for Object_Dir use "../../build/host-m6-domain/obj";
+   for Exec_Dir use "../../build/host-m6-domain/bin";
+   for Main use ("m6_domain_tests.adb");
+
+   package Compiler is
+      for Default_Switches ("Ada") use
+        ("-gnat2022", "-gnata", "-gnatwa", "-gnatwe", "-gnatVa");
+   end Compiler;
+end M6_Domain_Tests;

@@ -54,6 +54,17 @@ package Flyology.Binder_Support is
    Default_Stack_Size : Integer := -1;
    pragma Export (C, Default_Stack_Size, "__gl_default_stack_size");
 
+   Default_Secondary_Stack_Size : Long_Long_Integer := -1;
+   pragma Export
+     (C, Default_Secondary_Stack_Size, "__gnat_default_ss_size");
+
+   Binder_Sec_Stacks_Count : Natural := 0;
+   pragma Export
+     (Ada, Binder_Sec_Stacks_Count, "__gnat_binder_ss_count");
+
+   Default_Sized_SS_Pool : System.Address := System.Null_Address;
+   pragma Export (Ada, Default_Sized_SS_Pool, "__gnat_default_ss_pool");
+
    Finalize_Library_Objects : No_Param_Procedure := null;
    pragma Export
      (C, Finalize_Library_Objects, "__gnat_finalize_library_objects");

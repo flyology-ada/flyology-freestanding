@@ -498,6 +498,11 @@ void __gnat_rcheck_CE_Range_Check(void *location, int line)
     __gnat_rcheck_CE_Explicit_Raise(location, line);
 }
 
+void __gnat_rcheck_CE_Divide_By_Zero(void *location, int line)
+{
+    __gnat_rcheck_CE_Explicit_Raise(location, line);
+}
+
 void __gnat_rcheck_SE_Explicit_Raise(void *location, int line)
 {
     (void)location;

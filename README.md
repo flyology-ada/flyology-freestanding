@@ -61,9 +61,19 @@ The first release is not complete. Work proceeds through the independently gated
   round-robin progress at SMP4.
 - `scripts/test-m5-policy.sh` checks the deterministic policy, budget, and
   ready-position kernel against its pinned edge count and hash.
+- `scripts/verify-m6.sh` proves and model-checks scheduling-domain creation,
+  placement, and isolation; probes the clean-room Ada domain interface;
+  reproduces and inspects both target images; boots both CPU counts; and runs
+  bounded SMP4 heterogeneous-policy and all-core preemption stress.
+- `scripts/stress-m6.sh` repeats the SMP4 domain inheritance, FIFO isolation,
+  round-robin progress, and per-core complete-context preemption gates on both
+  architectures.
+- `scripts/test-m6-domain-model.sh` checks the bounded deterministic domain
+  creation/admission model against its pinned edge count and hash.
 - `scripts/test-tla-models.sh` runs bounded TLC exploration of scheduler/
-  preemption ingress and exact wake/timeout/abort arbitration, with pinned
-  state counts; see [docs/formal-models.md](docs/formal-models.md).
+  preemption ingress, scheduling-domain isolation, and exact wake/timeout/abort
+  arbitration, with pinned state counts; see
+  [docs/formal-models.md](docs/formal-models.md).
 - `scripts/verify-formal-models.sh` runs repository hygiene, GNATprove, every
   bounded Ada host model, and the TLA+ models as one fail-closed formal gate.
 - `scripts/verify-m5-reproducible.sh` rebuilds all four M5 ELF/FAT pairs in

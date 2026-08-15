@@ -1316,13 +1316,13 @@ flyology_m5_preemption_canary:
     mrs x1, nzcv
     lsr x1, x1, #28
     cmp x1, #10
-    b.ne fatal
+    b.ne m5_canary_status_fatal
     ldr x1, [sp, #0]
     cmp x0, x1
-    b.ne fatal
+    b.ne m5_canary_gpr_fatal
 .macro m5_check_gpr register, value
     cmp \register, #\value
-    b.ne fatal
+    b.ne m5_canary_gpr_fatal
 .endm
     m5_check_gpr x2, 2
     m5_check_gpr x3, 3
@@ -1357,12 +1357,12 @@ flyology_m5_preemption_canary:
     mov x1, sp
     ldr x2, [sp, #8]
     cmp x1, x2
-    b.ne fatal
+    b.ne m5_canary_gpr_fatal
     mrs x1, fpcr
     cmp x1, #(1 << 22)
-    b.ne fatal
+    b.ne m5_canary_fp_fatal
     mrs x1, fpsr
-    cbnz x1, fatal
+    cbnz x1, m5_canary_fp_fatal
 
 .macro m5_check_q register, expected_offset
     str q\register, [sp, #160]
@@ -1371,9 +1371,9 @@ flyology_m5_preemption_canary:
     ldr x5, [x4, #\expected_offset]
     ldr x6, [x4, #(\expected_offset + 8)]
     cmp x2, x5
-    b.ne fatal
+    b.ne m5_canary_simd_fatal
     cmp x3, x6
-    b.ne fatal
+    b.ne m5_canary_simd_fatal
 .endm
     m5_check_q 0, 0
     m5_check_q 1, 0
@@ -1429,6 +1429,23 @@ flyology_m5_preemption_canary:
     add sp, sp, #304
     ret
 
+m5_canary_status_fatal:
+    address x0, m5_canary_status_failure
+    bl serial_puts_locked
+    b fatal
+m5_canary_gpr_fatal:
+    address x0, m5_canary_gpr_failure
+    bl serial_puts_locked
+    b fatal
+m5_canary_simd_fatal:
+    address x0, m5_canary_simd_failure
+    bl serial_puts_locked
+    b fatal
+m5_canary_fp_fatal:
+    address x0, m5_canary_fp_failure
+    bl serial_puts_locked
+    b fatal
+
 .global flyology_m5_report_round_robin_pass
 .type flyology_m5_report_round_robin_pass, %function
 flyology_m5_report_round_robin_pass:
@@ -1464,6 +1481,50 @@ flyology_m5_report_priority_requeue_pass:
 flyology_m5_report_nonblocking_ingress_pass:
     address x0, m5_nonblocking_ingress_pass
     b serial_puts_locked
+
+#ifdef FLYOLOGY_M6
+.global flyology_m6_report_layout_pass
+.type flyology_m6_report_layout_pass, %function
+flyology_m6_report_layout_pass:
+    address x0, m6_layout_pass
+    b serial_puts_locked
+
+.global flyology_m6_report_query_pass
+.type flyology_m6_report_query_pass, %function
+flyology_m6_report_query_pass:
+    address x0, m6_query_pass
+    b serial_puts_locked
+
+.global flyology_m6_report_inheritance_pass
+.type flyology_m6_report_inheritance_pass, %function
+flyology_m6_report_inheritance_pass:
+    address x0, m6_inheritance_pass
+    b serial_puts_locked
+
+.global flyology_m6_report_heterogeneous_pass
+.type flyology_m6_report_heterogeneous_pass, %function
+flyology_m6_report_heterogeneous_pass:
+    address x0, m6_heterogeneous_pass
+    b serial_puts_locked
+
+.global flyology_m6_report_all_core_pass
+.type flyology_m6_report_all_core_pass, %function
+flyology_m6_report_all_core_pass:
+    address x0, m6_all_core_pass
+    b serial_puts_locked
+
+.global flyology_m6_report_all_core_start_failure
+.type flyology_m6_report_all_core_start_failure, %function
+flyology_m6_report_all_core_start_failure:
+    address x0, m6_all_core_start_failure
+    b serial_puts_locked
+
+.global flyology_m6_report_all_core_done_failure
+.type flyology_m6_report_all_core_done_failure, %function
+flyology_m6_report_all_core_done_failure:
+    address x0, m6_all_core_done_failure
+    b serial_puts_locked
+#endif
 
 .global flyology_m3_report_master_pass
 .type flyology_m3_report_master_pass, %function
@@ -1869,6 +1930,7 @@ serial_init:
 .global __gnat_rcheck_CE_Invalid_Data
 .global __gnat_rcheck_CE_Overflow_Check
 .global __gnat_rcheck_CE_Range_Check
+.global __gnat_rcheck_CE_Divide_By_Zero
 .global __gnat_rcheck_PE_Explicit_Raise
 .global __gnat_rcheck_SE_Explicit_Raise
 .type __gnat_last_chance_handler, %function
@@ -1880,6 +1942,7 @@ __gnat_rcheck_CE_Index_Check:
 __gnat_rcheck_CE_Invalid_Data:
 __gnat_rcheck_CE_Overflow_Check:
 __gnat_rcheck_CE_Range_Check:
+__gnat_rcheck_CE_Divide_By_Zero:
 __gnat_rcheck_PE_Explicit_Raise:
 __gnat_rcheck_SE_Explicit_Raise:
 #endif
@@ -2068,6 +2131,13 @@ reschedule_irq:
     and x0, x0, #15
     cmp x0, #4
     b.ne frame_state_fatal
+#ifndef FLYOLOGY_M5
+    /*
+     * M2 has no context transfer while its canary is armed.  Under M5 a
+     * different task may run on this core before the canary task resumes, so
+     * the per-core flag cannot describe the interrupted task's FP/SIMD state.
+     * The M5 canary validates its task-owned full continuation after resume.
+     */
     mrs x0, tpidr_el1
     ldr x0, [x0, #80]
     cbz x0, 4f
@@ -2091,6 +2161,7 @@ reschedule_irq:
     cmp w0, #0xff
     b.ne frame_simd31_fatal
 4:
+#endif
     mrs x20, icc_iar1_el1
     and x1, x20, #0xffffff
     cmp x1, #RESCHEDULE_SGI
@@ -2295,6 +2366,19 @@ m5_all_core_preemption_pass: .asciz "FLYOLOGY:M5:ALL_CORE_PREEMPTION:PASS\n"
 m5_fifo_no_rotation_pass: .asciz "FLYOLOGY:M5:FIFO_NO_ROTATION:PASS\n"
 m5_priority_requeue_pass: .asciz "FLYOLOGY:M5:PRIORITY_REQUEUE:PASS\n"
 m5_nonblocking_ingress_pass: .asciz "FLYOLOGY:M5:NONBLOCKING_INGRESS:PASS\n"
+#ifdef FLYOLOGY_M6
+m6_layout_pass: .asciz "FLYOLOGY:M6:DOMAIN_LAYOUT:PASS\n"
+m6_query_pass: .asciz "FLYOLOGY:M6:STANDARD_QUERIES:PASS\n"
+m6_inheritance_pass: .asciz "FLYOLOGY:M6:DOMAIN_INHERITANCE:PASS\n"
+m6_heterogeneous_pass: .asciz "FLYOLOGY:M6:HETEROGENEOUS_POLICY:PASS\n"
+m6_all_core_pass: .asciz "FLYOLOGY:M6:ALL_CORE_PREEMPTION:PASS\n"
+m6_all_core_start_failure: .asciz "FLYOLOGY:FAIL:M6_ALL_CORE_START\n"
+m6_all_core_done_failure: .asciz "FLYOLOGY:FAIL:M6_ALL_CORE_DONE\n"
+#endif
+m5_canary_status_failure: .asciz "FLYOLOGY:FAIL:AARCH64_CANARY_STATUS\n"
+m5_canary_gpr_failure: .asciz "FLYOLOGY:FAIL:AARCH64_CANARY_GPR\n"
+m5_canary_simd_failure: .asciz "FLYOLOGY:FAIL:AARCH64_CANARY_SIMD\n"
+m5_canary_fp_failure: .asciz "FLYOLOGY:FAIL:AARCH64_CANARY_FP\n"
 #endif
 fail_marker:   .asciz "FLYOLOGY:FAIL:AARCH64_BOOT\n"
 exception_marker: .asciz "FLYOLOGY:FAIL:AARCH64_EXCEPTION\n"

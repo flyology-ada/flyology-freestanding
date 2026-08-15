@@ -14,9 +14,13 @@ package Flyology.Task_Core is
    use type Dispatcher.Task_Slot;
 
    Max_Cores : constant := 4;
+   Max_Domains : constant := 4;
    Max_Tasks : constant := 16;
 
    subtype Core_Number is Natural range 0 .. Max_Cores - 1;
+   subtype Domain_Number is Natural range 0 .. Max_Domains - 1;
+   System_Domain : constant Domain_Number := Domain_Number'First;
+   type Core_Set is array (Core_Number) of Boolean;
    subtype Task_Slot is Dispatcher.Task_Slot range 0 .. Max_Tasks - 1;
    subtype Task_Ref is Dispatcher.Task_Ref;
    subtype Task_State is Dispatcher.Task_State;
@@ -46,6 +50,16 @@ package Flyology.Task_Core is
    procedure Configure_Dispatching
      (Policy : Dispatching_Policy;
       Slice  : Binder_Time_Slice);
+   procedure Try_Create_Domain_Locked
+     (Cores  : Core_Set;
+      Policy : Dispatching_Policy;
+      Slice  : Binder_Time_Slice;
+      Domain : out Domain_Number;
+      Created : out Boolean);
+   function Domain_Is_Used_Locked (Domain : Domain_Number) return Boolean;
+   function Domain_Cores_Locked (Domain : Domain_Number) return Core_Set;
+   function Domain_Of_Core_Locked (Core : Core_Number) return Domain_Number;
+   function Domain_Of_Task_Locked (Reference : Task_Ref) return Domain_Number;
    procedure Install_Retirement_Hook (Hook : Retirement_Hook);
    function CPU_Count return Positive;
 
@@ -62,6 +76,7 @@ package Flyology.Task_Core is
 
    procedure Activate_Locked
      (Reference : Task_Ref;
+      Domain    : Domain_Number;
       Core      : Core_Number;
       Priority  : Dispatcher.Priority);
 

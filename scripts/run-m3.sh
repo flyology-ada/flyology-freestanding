@@ -8,9 +8,14 @@ test "$#" -eq 2 || {
 
 architecture=$1
 cpu_count=$2
+run_profile=${FLYOLOGY_RUN_PROFILE:-m3}
 case "$cpu_count" in
     1|4) ;;
     *) echo "unsupported CPU count: $cpu_count" >&2; exit 64 ;;
+esac
+case "$run_profile" in
+    m3|m6) ;;
+    *) echo "unsupported run profile: $run_profile" >&2; exit 64 ;;
 esac
 
 qemu_root=${FLYOLOGY_QEMU_ROOT:-/opt/homebrew/Cellar/qemu/10.2.0}
@@ -109,6 +114,9 @@ count_marker() {
 
 test "$(count_marker 'FLYOLOGY:ADA:ELABORATION:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:ADA:MAIN:PASS')" -eq 1
+test "$(count_marker 'FLYOLOGY:M4:FINALIZATION:PASS')" -eq 1
+test "$(count_marker 'FLYOLOGY:M3:BOOT_SUBSTRATE:PASS')" -eq 1
+if test "$run_profile" = m3; then
 test "$(count_marker 'FLYOLOGY:M3:ORDINARY_TASKS:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:SPECIFIC_CPU:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:AUTO_MASTER:PASS')" -eq 1
@@ -117,7 +125,6 @@ test "$(count_marker 'FLYOLOGY:M4:DELAYS:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:ABSOLUTE_DELAY:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:PROTECTED:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:PROTECTED_ENTRY:PASS')" -eq 1
-test "$(count_marker 'FLYOLOGY:M4:FINALIZATION:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:RENDEZVOUS:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:EXCEPTIONAL_SYNC:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:EXCEPTIONAL_PROTECTED_IMMEDIATE:PASS')" -eq 1
@@ -147,15 +154,16 @@ test "$(count_marker 'FLYOLOGY:M4:ABORT_PROTECTED:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M4:COLLISION_STRESS:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:NESTED_MASTER:PASS')" -eq 1
 test "$(count_marker 'FLYOLOGY:M3:TASK_STACKS:PASS')" -eq 1
-test "$(count_marker 'FLYOLOGY:M3:BOOT_SUBSTRATE:PASS')" -eq 1
-test "$(count_marker 'FLYOLOGY:FAIL:')" -eq 0
-test "$(count_marker 'PANIC:')" -eq 0
-test "$(count_marker 'FLYOLOGY:CORE:ONLINE:')" -eq "$cpu_count"
 if test "$cpu_count" -eq 4; then
     test "$(count_marker 'FLYOLOGY:M3:AUTO_PARALLEL:PASS')" -eq 1
 else
     test "$(count_marker 'FLYOLOGY:M3:AUTO_PARALLEL:PASS')" -eq 0
 fi
+fi
+
+test "$(count_marker 'FLYOLOGY:FAIL:')" -eq 0
+test "$(count_marker 'PANIC:')" -eq 0
+test "$(count_marker 'FLYOLOGY:CORE:ONLINE:')" -eq "$cpu_count"
 
 core=0
 while test "$core" -lt "$cpu_count"; do
@@ -163,4 +171,8 @@ while test "$core" -lt "$cpu_count"; do
     core=$((core + 1))
 done
 
-echo "FLYOLOGY:M3:BOOT_TEST:PASS:$architecture:SMP$cpu_count"
+if test "$run_profile" = m3; then
+    echo "FLYOLOGY:M3:BOOT_TEST:PASS:$architecture:SMP$cpu_count"
+else
+    echo "FLYOLOGY:M6:BASE_BOOT_TEST:PASS:$architecture:SMP$cpu_count"
+fi

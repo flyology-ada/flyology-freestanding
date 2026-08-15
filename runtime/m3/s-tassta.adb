@@ -22,13 +22,14 @@ package body System.Tasking.Stages is
    is
       pragma Unreferenced
         (Stack_Size, Secondary_Stack_Size, Task_Info,
-         Relative_Deadline, Domain, Task_Name);
+         Relative_Deadline, Task_Name);
    begin
       if Chain.Length = System.Tasking.Max_Tasks then
          raise Storage_Error;
       end if;
       Flyology.M3_Runtime.Create_Task
         (Body_Procedure, Discriminants, Elaborated, Priority, CPU,
+         (if Domain = null then System.Null_Address else Domain.all'Address),
          Natural (Base_CPU), Master, Created_Task);
       Chain.Length := Chain.Length + 1;
       Chain.Members (Chain.Length) := Created_Task;

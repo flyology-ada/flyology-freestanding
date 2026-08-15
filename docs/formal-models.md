@@ -19,6 +19,15 @@ every losing registration after one winner. Its bounded terminal states are
 valid completed scenarios, so this model disables deadlock checking and makes
 only the listed safety claim.
 
+`formal/tla/SchedulingDomains.tla` explores creation of one secondary domain
+from a nonempty subset of the four-core system domain, explicit and inherited
+task admission, specific and automatic CPU placement, dispatch, and bounded
+round-robin rotation. Its invariants require one immutable domain owner per
+core, nonempty system-domain membership, unique ready/current ownership,
+queue/current isolation to the task's domain and home core, and zero FIFO
+rotation while the secondary domain uses round robin. Terminal configurations
+are valid bounded scenarios, so deadlock checking is disabled for this model.
+
 These models deliberately do not claim source-code refinement or proof of the
 Ada, C, assembly, atomics, compiler ABI, or hardware. Each retained algorithm
 must still have a typed production boundary, SPARK contracts where applicable,
@@ -34,6 +43,7 @@ The current exact bounds are:
 | --- | ---: | ---: | --- |
 | FIFO scheduler/preemption | 1,171,969 | 165,888 | checked |
 | Round-robin scheduler/preemption | 1,202,689 | 165,888 | checked |
+| Scheduling-domain isolation | 57,399 | 5,408 | terminal states allowed |
 | Wait arbitration | 5,839 | 1,513 | terminal states allowed |
 
 Run `scripts/test-tla-models.sh`. It requires the ignored external
