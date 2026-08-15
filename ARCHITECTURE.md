@@ -23,6 +23,13 @@ semantics to `Flyology.RTS`. `Flyology.RTS` is semantic glue, not a second
 task-state or ready-queue authority: it validates GNARL lifecycle operations
 and commits them through `Flyology.Kernel`.
 
+Large runtime bodies are decomposed with Ada subunits by semantic responsibility.
+Subunits inherit their parent's private state and do not create another package
+API or mutable authority. In particular,
+`flyology-rts-domain_operations.adb` owns dispatching-domain aliases, creation,
+freezing, queries, and the domain snapshot used by activation planning; the
+state it mutates remains declared once in the `Flyology.RTS` parent body.
+
 The minimal binder and root predefined-unit substrate lives in
 `src/bootstrap/`. The only C production sources live in `src/abi/`, where they
 implement the documented compiler allocator and exception-unwinding ABIs; C is

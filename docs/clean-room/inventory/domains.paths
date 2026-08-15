@@ -12,6 +12,7 @@ src/primitives/flyology-domain_model.ads
 src/primitives/flyology-domain_model.adb
 src/rts/flyology-rts.ads
 src/rts/flyology-rts.adb
+src/rts/flyology-rts-domain_operations.adb
 src/kernel/flyology-kernel.ads
 src/kernel/flyology-kernel.adb
 config/domains/on/flyology-domain_configuration.ads
