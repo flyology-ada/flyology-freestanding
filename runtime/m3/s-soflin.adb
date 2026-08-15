@@ -1,6 +1,6 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
-with Flyology.M3_Runtime;
+with Flyology.RTS;
 
 package body System.Soft_Links is
    use type Ada.Exceptions.Exception_Occurrence_Access;
@@ -26,9 +26,9 @@ package body System.Soft_Links is
       Save_Current_Library_Exception;
    end Save_Library_Occurrence;
 begin
-   Abort_Defer := Flyology.M3_Runtime.Abort_Defer'Access;
-   Abort_Undefer := Flyology.M3_Runtime.Abort_Undefer'Access;
-   Enter_Master := Flyology.M3_Runtime.Enter_Master'Access;
-   Complete_Master := Flyology.M3_Runtime.Complete_Master'Access;
-   Current_Master := Flyology.M3_Runtime.Current_Master'Access;
+   Abort_Defer := Flyology.RTS.Abort_Defer'Access;
+   Abort_Undefer := Flyology.RTS.Abort_Undefer'Access;
+   Enter_Master := Flyology.RTS.Enter_Master'Access;
+   Complete_Master := Flyology.RTS.Complete_Master'Access;
+   Current_Master := Flyology.RTS.Current_Master'Access;
 end System.Soft_Links;

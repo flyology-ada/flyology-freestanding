@@ -1,6 +1,6 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
-with Flyology.M3_Runtime;
+with Flyology.RTS;
 
 package body System.Tasking.Protected_Objects.Entries is
    use type Pending_Phase;
@@ -39,7 +39,7 @@ package body System.Tasking.Protected_Objects.Entries is
       if Object = null or else not Object.Initialized then
          raise Program_Error;
       end if;
-      Flyology.M3_Runtime.Protected_Enter (Object.Ceiling);
+      Flyology.RTS.Protected_Enter (Object.Ceiling);
    end Lock_Entries;
 
    procedure Unlock_Entries (Object : Protection_Entries_Access) is
@@ -47,7 +47,7 @@ package body System.Tasking.Protected_Objects.Entries is
       if Object = null or else not Object.Initialized then
          raise Program_Error;
       end if;
-      Flyology.M3_Runtime.Protected_Leave;
+      Flyology.RTS.Protected_Leave;
    end Unlock_Entries;
 
    overriding procedure Finalize (Object : in out Protection_Entries) is

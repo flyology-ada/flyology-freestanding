@@ -91,7 +91,7 @@ registration_count=$(printf '%s\n' "$all_relocations" | awk \
     '$NF == "__register_frame" { count = count + 1 } END { print count + 0 }')
 test "$registration_count" -eq 1
 
-runtime_ada="$output_root/$architecture/flyology-m3_runtime.o"
+runtime_ada="$output_root/$architecture/flyology-rts.o"
 root_section=.gcc_except_table.flyology_task_root_invoke
 root_sections=$(scripts/toolchain.sh exec "$architecture" \
     "$target-readelf" -SW "$runtime_ada")

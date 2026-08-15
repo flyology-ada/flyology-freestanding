@@ -24,8 +24,14 @@ until its build, proof, review, and QEMU evidence is recorded.
 - `docs/reviews/` — evidence-based milestone reviews.
 - `docs/clean-room/` — normative compiler-interface methodology and evidence.
 - `docs/build.md` — Alire primitive-library and freestanding image builds.
+- `src/kernel/` — the single concurrent task-state, ready-queue, dispatcher,
+  timer, and context-transfer authority (`Flyology.Kernel`).
+- `src/rts/` — GNARL lifecycle and language-semantic glue (`Flyology.RTS`).
 - `scripts/` — authoritative build, test, proof, and reproducibility entry points (introduced during M0).
-- `runtime/` — original runtime/platform implementation (introduced incrementally).
+- `runtime/core/` — deterministic Ada/SPARK policy and validation primitives.
+- `runtime/m3/`, `runtime/m4/`, and `runtime/m6/` — transitional
+  compiler-facing predefined units and capability adapters pending their move
+  into `src/gnarl/`.
 - `runtime/bootstrap/` — original minimal compiler-compatibility runtime used by early milestones.
 - `tests/target/scenarios/` — ordinary-Ada conformance image and behavioral workloads.
 

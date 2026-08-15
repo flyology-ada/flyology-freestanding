@@ -67,7 +67,7 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     system__tasking__rendezvous__selective_wait \
     ada__dynamic_priorities__set_priority \
     ada__dynamic_priorities__get_priority \
-    flyology__m3_runtime__current_active_priority \
+    flyology__rts__current_active_priority \
     system__tasking__stages__activate_tasks \
     system__tasking__stages__complete_activation \
     system__tasking__stages__complete_task \
@@ -78,13 +78,13 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     ada__task_identification__current_task \
     ada__task_identification__is_callable \
     ada__task_identification__is_terminated \
-    flyology__task_core__task_stacks \
-    flyology__task_core__arm_wait_locked \
-    flyology__task_core__resolve_exact_locked \
-    flyology__task_core__install_retirement_hook \
-    flyology__task_core__cancel_dormant_locked \
-    flyology__task_core__begin_retirement_locked \
-    flyology__task_core__finish_retirement_locked \
+    flyology__kernel__task_stacks \
+    flyology__kernel__arm_wait_locked \
+    flyology__kernel__resolve_exact_locked \
+    flyology__kernel__install_retirement_hook \
+    flyology__kernel__cancel_dormant_locked \
+    flyology__kernel__begin_retirement_locked \
+    flyology__kernel__finish_retirement_locked \
     flyology__priority_queue_model__select_next \
     flyology__wait_arbitration_model__resolve \
     flyology__exceptional_completion_model__complete \

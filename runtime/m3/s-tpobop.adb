@@ -2,13 +2,13 @@
 
 with Flyology.Clock_Model;
 with Flyology.Exceptional_Completion_Model;
-with Flyology.M3_Runtime;
-with Flyology.Task_Core;
+with Flyology.RTS;
+with Flyology.Kernel;
 with Flyology.Wait_Arbitration_Model;
 with Flyology.Wait_Queue_Model;
 
 package body System.Tasking.Protected_Objects.Operations is
-   package Core renames Flyology.Task_Core;
+   package Core renames Flyology.Kernel;
    package Clock renames Flyology.Clock_Model;
    package Completions renames Flyology.Exceptional_Completion_Model;
    package Queues renames Flyology.Wait_Queue_Model;
@@ -51,7 +51,7 @@ package body System.Tasking.Protected_Objects.Operations is
    end Stop;
 
    function Dense_Core return Core.Core_Number is
-     (Core.Core_Number (Flyology.M3_Runtime.Current_Core_Number));
+     (Core.Core_Number (Flyology.RTS.Current_Core_Number));
 
    function Body_Index
      (Object : Entries.Protection_Entries_Access;
@@ -152,7 +152,7 @@ package body System.Tasking.Protected_Objects.Operations is
       end if;
       Object.Pending (Slot) := (others => <>);
       Entries.Unlock_Entries (Object);
-      Flyology.M3_Runtime.Deliver_Completion (Identity);
+      Flyology.RTS.Deliver_Completion (Identity);
    end Consume_Completed_Call;
 
    procedure Complete_Entry_Body
@@ -351,7 +351,7 @@ package body System.Tasking.Protected_Objects.Operations is
          raise Program_Error;
       end if;
       Entries.Lock_Entries (Object);
-      Flyology.M3_Runtime.Deliver_Pending_Abort_Locked;
+      Flyology.RTS.Deliver_Pending_Abort_Locked;
       Mapped := Body_Index (Object, Index);
       if Object.Entry_Bodies (Mapped).Barrier
         (Object.Enclosing_Object, Mapped)
@@ -400,7 +400,7 @@ package body System.Tasking.Protected_Objects.Operations is
       Core.Block_Current_And_Release (Dense_Core, Token, Outcome);
       if Outcome = Waits.Abort_Wake then
          Remove_Aborted_Call (Object, Token, Slot);
-         Flyology.M3_Runtime.Deliver_Pending_Abort;
+         Flyology.RTS.Deliver_Pending_Abort;
          Stop;
       elsif Outcome /= Waits.Object_Wake then
          raise Program_Error;
@@ -455,7 +455,7 @@ package body System.Tasking.Protected_Objects.Operations is
       end if;
 
       Entries.Lock_Entries (Object);
-      Flyology.M3_Runtime.Deliver_Pending_Abort_Locked;
+      Flyology.RTS.Deliver_Pending_Abort_Locked;
       Mapped := Body_Index (Object, Index);
       if Object.Entry_Bodies (Mapped).Barrier
         (Object.Enclosing_Object, Mapped)
@@ -508,7 +508,7 @@ package body System.Tasking.Protected_Objects.Operations is
          return;
       elsif Outcome = Waits.Abort_Wake then
          Remove_Aborted_Call (Object, Token, Slot);
-         Flyology.M3_Runtime.Deliver_Pending_Abort;
+         Flyology.RTS.Deliver_Pending_Abort;
          Stop;
       elsif Outcome /= Waits.Timer_Expiry then
          Stop;
@@ -526,7 +526,7 @@ package body System.Tasking.Protected_Objects.Operations is
          Object.Pending (Slot) := (others => <>);
       end if;
       Entries.Unlock_Entries (Object);
-      Flyology.M3_Runtime.Deliver_Pending_Abort;
+      Flyology.RTS.Deliver_Pending_Abort;
    end Timed_Protected_Entry_Call;
 
    function Cancelled (Block : Communication_Block) return Boolean is

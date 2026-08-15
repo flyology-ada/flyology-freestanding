@@ -8,7 +8,7 @@ with Flyology.Priority_Queue_Model;
 with Flyology.Timer_Model;
 with Flyology.Wait_Arbitration_Model;
 
-package body Flyology.Task_Core is
+package body Flyology.Kernel is
    package Architecture renames Flyology.M2_Architecture;
    package Ceilings renames Flyology.Ceiling_Model;
    package Domains renames Flyology.Domain_Model;
@@ -1357,4 +1357,4 @@ package body Flyology.Task_Core is
       Leave_Kernel;
       Switch_To_Dispatcher (0, Environment);
    end Environment_Complete;
-end Flyology.Task_Core;
+end Flyology.Kernel;

@@ -5,18 +5,28 @@ This document is normative unless superseded by an accepted ADR.
 ## Layer ownership
 
 1. **GNARL** owns Ada language tasking semantics: activation, masters, rendezvous, protected objects, abort, delay, task attributes, priorities, and termination.
-2. **Task primitives and core dispatcher** own atomic task-state transitions, block-and-unlock, exact wakeups, current-task ownership, context transfer, preemption control, interrupt return, remote reschedule requests, and idle entry.
+2. **Task primitives and core dispatcher** (`Flyology.Kernel`) own atomic
+   task-state transitions, block-and-unlock, exact wakeups, current-task
+   ownership, context transfer, preemption control, interrupt return, remote
+   reschedule requests, and idle entry.
 3. **Scheduler policy** owns eligibility ordering, ready structures, priorities/quantum accounting, and next-task selection. It never switches contexts.
 4. **Architecture code** owns exception frames, local timers, interrupt controllers, IPIs/SGIs, privileged registers, machine-state normalization, and the minimum assembly required by entry/context ABIs.
 5. **Limine** owns loading, initial mappings/stacks, machine description, and MP bootstrap handoff only.
 
 Dependencies point downward through typed contracts. Architecture code does not choose policy; policy code does not manipulate exception frames; GNARL does not directly program interrupt controllers.
 
+The compiler-facing predefined units delegate Ada tasking semantics to
+`Flyology.RTS`. `Flyology.RTS` is semantic glue, not a second task-state or
+ready-queue authority: it validates GNARL lifecycle operations and commits them
+through `Flyology.Kernel`.
+
 The responsibility-based product source and build structure is defined by
-[ADR-0010](docs/adr/0010-productize-the-runtime.md). Milestone-named paths are
-transitional historical structure, not additional architectural layers. During
-the migration, they may remain in supported project source paths only while a
-differential build or compatibility gate still requires them.
+[ADR-0010](docs/adr/0010-productize-the-runtime.md). The state-owning kernel is
+in `src/kernel/`, and the GNARL semantic runtime is in `src/rts/`.
+Milestone-named paths are transitional historical structure, not additional
+architectural layers. During the migration, they may remain in supported
+project source paths only while a differential build or compatibility gate
+still requires them.
 
 ## Identity and topology
 

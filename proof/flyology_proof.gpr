@@ -1,8 +1,6 @@
 project Flyology_Proof is
    for Languages use ("Ada");
    for Source_Dirs use ("../runtime/core");
-   for Excluded_Source_Files use
-     ("flyology-task_core.ads", "flyology-task_core.adb");
    for Object_Dir use "../build/proof";
 
    package Compiler is

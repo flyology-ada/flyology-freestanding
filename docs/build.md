@@ -7,8 +7,9 @@ They share sources and contracts but have different toolchain and linking needs.
 ## Deterministic primitive library
 
 The root Alire crate builds `libflyology_primitives.a` from the Ada/SPARK
-packages in `runtime/core`, excluding the concurrent `Flyology.Task_Core`
-wrapper. Select the pinned native tools recorded in `docs/external-inputs.md`,
+packages in `runtime/core`. The concurrent `Flyology.Kernel` authority lives
+separately under `src/kernel` and is not part of this host archive. Select the
+pinned native tools recorded in `docs/external-inputs.md`,
 then build:
 
 ```sh

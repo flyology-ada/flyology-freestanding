@@ -1,11 +1,11 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Ada.Task_Identification.Flyology;
-with Flyology.M3_Runtime;
+with Flyology.RTS;
 
 package body System.Multiprocessors.Dispatching_Domains is
    package Identity_Bridge renames Ada.Task_Identification.Flyology;
-   package Runtime renames Flyology.M3_Runtime;
+   package Runtime renames Flyology.RTS;
 
    type Domain_Handle_Array is array (Natural range 1 .. 3) of
      aliased System.Tasking.Dispatching_Domain;

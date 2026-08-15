@@ -1,6 +1,6 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
-with Flyology.M3_Runtime;
+with Flyology.RTS;
 with Ada.Task_Identification.Conversions;
 
 package body Ada.Dynamic_Priorities is
@@ -10,7 +10,7 @@ package body Ada.Dynamic_Priorities is
         Ada.Task_Identification.Current_Task)
    is
    begin
-      Flyology.M3_Runtime.Set_Priority
+      Flyology.RTS.Set_Priority
         (Integer (Priority),
          Ada.Task_Identification.Conversions.To_System (T));
    end Set_Priority;
@@ -20,6 +20,6 @@ package body Ada.Dynamic_Priorities is
         Ada.Task_Identification.Current_Task) return System.Any_Priority
    is
      (System.Any_Priority
-        (Flyology.M3_Runtime.Get_Priority
+        (Flyology.RTS.Get_Priority
            (Ada.Task_Identification.Conversions.To_System (T))));
 end Ada.Dynamic_Priorities;

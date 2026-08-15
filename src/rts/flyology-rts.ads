@@ -3,7 +3,7 @@
 with System;
 with System.Tasking;
 
-package Flyology.M3_Runtime is
+package Flyology.RTS is
    subtype Task_Id is System.Tasking.Task_Id;
    type Task_List is array (Positive range <>) of Task_Id;
    subtype Domain_CPU is Positive range 1 .. 4;
@@ -112,4 +112,4 @@ package Flyology.M3_Runtime is
      (Core_Address : System.Address;
       Slot_Address : System.Address);
 
-end Flyology.M3_Runtime;
+end Flyology.RTS;

@@ -53,4 +53,13 @@ if rg -n '\bDemo_[A-Za-z0-9_]+' "$repository/runtime" >/dev/null; then
     exit 1
 fi
 
+if rg -n 'Flyology\.(Task_Core|M3_Runtime)' \
+    "$repository/runtime" "$repository/src" "$repository/tests" >/dev/null; then
+    echo 'milestone task authority name found in current source' >&2
+    exit 1
+fi
+
+test -f "$repository/src/kernel/flyology-kernel.adb"
+test -f "$repository/src/rts/flyology-rts.adb"
+
 echo 'FLYOLOGY:PRODUCT:PROJECT:PASS'

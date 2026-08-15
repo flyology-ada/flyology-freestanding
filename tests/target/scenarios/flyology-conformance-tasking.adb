@@ -5,7 +5,7 @@ with Ada.Real_Time;
 with Ada.Task_Identification;
 with Ada.Unchecked_Deallocation;
 with Flyology.Conformance.Observations;
-with Flyology.M3_Runtime;
+with Flyology.RTS;
 with Flyology.M5_Configuration;
 with System.Multiprocessors;
 
@@ -50,7 +50,7 @@ package body Flyology.Conformance.Tasking is
    protected body Nested_Ceiling_Probe is
       procedure Observe is
       begin
-         if Flyology.M3_Runtime.Current_Active_Priority /= 10 then
+         if Flyology.RTS.Current_Active_Priority /= 10 then
             Ceiling_Check_Failed := True;
          end if;
       end Observe;
@@ -64,17 +64,17 @@ package body Flyology.Conformance.Tasking is
       procedure Change_Base is
       begin
          Ceiling_Body_Ran := True;
-         if Flyology.M3_Runtime.Current_Active_Priority /= 8 then
+         if Flyology.RTS.Current_Active_Priority /= 8 then
             Ceiling_Check_Failed := True;
          end if;
          Ada.Dynamic_Priorities.Set_Priority (3);
          if Ada.Dynamic_Priorities.Get_Priority /= 3
-           or else Flyology.M3_Runtime.Current_Active_Priority /= 8
+           or else Flyology.RTS.Current_Active_Priority /= 8
          then
             Ceiling_Check_Failed := True;
          end if;
          Nested_Ceiling_Probe.Observe;
-         if Flyology.M3_Runtime.Current_Active_Priority /= 8 then
+         if Flyology.RTS.Current_Active_Priority /= 8 then
             Ceiling_Check_Failed := True;
          end if;
       end Change_Base;
@@ -429,14 +429,14 @@ package body Flyology.Conformance.Tasking is
    task body Specific_Worker_Type is
       Self : constant Ada.Task_Identification.Task_Id :=
         Ada.Task_Identification.Current_Task;
-      Core : constant Natural := Flyology.M3_Runtime.Current_Core_Number;
+      Core : constant Natural := Flyology.RTS.Current_Core_Number;
       Stack_Probe : aliased Stack_Probe_Array := [others => 'S'];
    begin
       if Self = Ada.Task_Identification.Null_Task_Id
         or else not Ada.Task_Identification.Is_Callable (Self)
         or else Ada.Task_Identification.Is_Terminated (Self)
         or else Core + 1 /= Natural (CPU_Number)
-        or else not Flyology.M3_Runtime.Validate_Current_Stack
+        or else not Flyology.RTS.Validate_Current_Stack
           (Stack_Probe'Address)
       then
          raise Program_Error;
@@ -455,13 +455,13 @@ package body Flyology.Conformance.Tasking is
       if Self = Ada.Task_Identification.Null_Task_Id
         or else not Ada.Task_Identification.Is_Callable (Self)
         or else Ada.Task_Identification.Is_Terminated (Self)
-        or else not Flyology.M3_Runtime.Validate_Current_Stack
+        or else not Flyology.RTS.Validate_Current_Stack
           (Stack_Probe'Address)
       then
          raise Program_Error;
       end if;
       Auto_Id (Index) := Self;
-      Auto_Core (Index) := Flyology.M3_Runtime.Current_Core_Number;
+      Auto_Core (Index) := Flyology.RTS.Current_Core_Number;
       Flyology.Conformance.Observations.Parallel_Barrier (2);
       delay 0.001;
       Shared_Counter.Increment;
@@ -474,7 +474,7 @@ package body Flyology.Conformance.Tasking is
       Stack_Probe : aliased Stack_Probe_Array := [others => 'R'];
    begin
       if Self = Ada.Task_Identification.Null_Task_Id
-        or else not Flyology.M3_Runtime.Validate_Current_Stack
+        or else not Flyology.RTS.Validate_Current_Stack
           (Stack_Probe'Address)
       then
          raise Program_Error;
@@ -488,7 +488,7 @@ package body Flyology.Conformance.Tasking is
         Ada.Task_Identification.Current_Task;
       Stack_Probe : aliased Stack_Probe_Array := [others => 'C'];
    begin
-      if not Flyology.M3_Runtime.Validate_Current_Stack (Stack_Probe'Address)
+      if not Flyology.RTS.Validate_Current_Stack (Stack_Probe'Address)
       then
          raise Program_Error;
       end if;
@@ -501,7 +501,7 @@ package body Flyology.Conformance.Tasking is
         Ada.Task_Identification.Current_Task;
       Stack_Probe : aliased Stack_Probe_Array := [others => 'P'];
    begin
-      if not Flyology.M3_Runtime.Validate_Current_Stack (Stack_Probe'Address)
+      if not Flyology.RTS.Validate_Current_Stack (Stack_Probe'Address)
       then
          raise Program_Error;
       end if;
@@ -667,7 +667,7 @@ package body Flyology.Conformance.Tasking is
             Wait_Deadline : constant Ada.Real_Time.Time :=
               Ada.Real_Time.Clock + Ada.Real_Time.Milliseconds (100);
          begin
-            while not Flyology.M3_Runtime.Any_Free_Wait_Is_Active
+            while not Flyology.RTS.Any_Free_Wait_Is_Active
             loop
                if not (Ada.Real_Time.Clock < Wait_Deadline) then
                   Report_Failure;
@@ -1639,7 +1639,7 @@ package body Flyology.Conformance.Tasking is
          end;
          if not Violation_Caught or else Ceiling_Body_Ran
            or else Ada.Dynamic_Priorities.Get_Priority /= 9
-           or else Flyology.M3_Runtime.Current_Active_Priority /= 9
+           or else Flyology.RTS.Current_Active_Priority /= 9
          then
             Report_Failure;
          end if;
@@ -1648,7 +1648,7 @@ package body Flyology.Conformance.Tasking is
          Ceiling_Probe.Change_Base;
          if not Ceiling_Body_Ran or else Ceiling_Check_Failed
            or else Ada.Dynamic_Priorities.Get_Priority /= 3
-           or else Flyology.M3_Runtime.Current_Active_Priority /= 3
+           or else Flyology.RTS.Current_Active_Priority /= 3
          then
             Report_Failure;
          end if;

@@ -9,7 +9,7 @@ with Flyology.Timer_Model;
 with Flyology.Wait_Arbitration_Model;
 with System;
 
-package Flyology.Task_Core is
+package Flyology.Kernel is
    package Dispatcher renames Flyology.Dispatcher_Model;
    use type Dispatcher.Task_Slot;
 
@@ -172,4 +172,4 @@ package Flyology.Task_Core is
    procedure Environment_Complete
    with Export, Convention => C,
         External_Name => "flyology_m3_environment_complete";
-end Flyology.Task_Core;
+end Flyology.Kernel;

@@ -1,6 +1,6 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
-with Flyology.M3_Runtime;
+with Flyology.RTS;
 
 package body System.Tasking.Rendezvous is
    procedure Accept_Call
@@ -8,7 +8,7 @@ package body System.Tasking.Rendezvous is
       Parameters  : out System.Address)
    is
    begin
-      Flyology.M3_Runtime.Accept_Call (Entry_Index, Parameters);
+      Flyology.RTS.Accept_Call (Entry_Index, Parameters);
    end Accept_Call;
 
    procedure Accept_Trivial
@@ -16,8 +16,8 @@ package body System.Tasking.Rendezvous is
    is
       Parameters : System.Address;
    begin
-      Flyology.M3_Runtime.Accept_Call (Entry_Index, Parameters);
-      Flyology.M3_Runtime.Complete_Rendezvous;
+      Flyology.RTS.Accept_Call (Entry_Index, Parameters);
+      Flyology.RTS.Complete_Rendezvous;
    end Accept_Trivial;
 
    procedure Call_Simple
@@ -26,7 +26,7 @@ package body System.Tasking.Rendezvous is
       Parameters  : System.Address)
    is
    begin
-      Flyology.M3_Runtime.Call_Simple (Target, Entry_Index, Parameters);
+      Flyology.RTS.Call_Simple (Target, Entry_Index, Parameters);
    end Call_Simple;
 
    procedure Task_Entry_Call
@@ -37,7 +37,7 @@ package body System.Tasking.Rendezvous is
       Accepted    : out Boolean)
    is
    begin
-      Flyology.M3_Runtime.Task_Entry_Call
+      Flyology.RTS.Task_Entry_Call
         (Target, Entry_Index, Parameters, Mode, Accepted);
    end Task_Entry_Call;
 
@@ -50,20 +50,20 @@ package body System.Tasking.Rendezvous is
       Accepted    : out Boolean)
    is
    begin
-      Flyology.M3_Runtime.Timed_Task_Entry_Call
+      Flyology.RTS.Timed_Task_Entry_Call
         (Target, Entry_Index, Parameters, Timeout, Mode, Accepted);
    end Timed_Task_Entry_Call;
 
    procedure Complete_Rendezvous is
    begin
-      Flyology.M3_Runtime.Complete_Rendezvous;
+      Flyology.RTS.Complete_Rendezvous;
    end Complete_Rendezvous;
 
    procedure Exceptional_Complete_Rendezvous
      (Occurrence : System.Address)
    is
    begin
-      Flyology.M3_Runtime.Exceptional_Complete_Rendezvous (Occurrence);
+      Flyology.RTS.Exceptional_Complete_Rendezvous (Occurrence);
    end Exceptional_Complete_Rendezvous;
 
    procedure Selective_Wait
@@ -73,7 +73,7 @@ package body System.Tasking.Rendezvous is
       Selected     : out System.Tasking.Select_Index)
    is
    begin
-      Flyology.M3_Runtime.Selective_Wait
+      Flyology.RTS.Selective_Wait
         (Alternatives, Mode, Parameters, Selected);
    end Selective_Wait;
 end System.Tasking.Rendezvous;

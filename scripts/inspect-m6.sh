@@ -51,10 +51,10 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     __gnat_freeze_dispatching_domains \
     system__secondary_stack__ss_mark system__secondary_stack__ss_release \
     system__secondary_stack__ss_allocate \
-    flyology__m3_runtime__register_domain_alias \
-    flyology__m3_runtime__create_domain \
-    flyology__task_core__try_create_domain_locked \
-    flyology__task_core__activate_locked \
+    flyology__rts__register_domain_alias \
+    flyology__rts__create_domain \
+    flyology__kernel__try_create_domain_locked \
+    flyology__kernel__activate_locked \
     flyology__domain_model__valid flyology__domain_model__try_create \
     flyology__domain_model__place flyology__domain_model__try_admit \
     flyology_m5_preemption_canary; do

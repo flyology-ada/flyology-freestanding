@@ -58,7 +58,8 @@ compile_ada() {
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
         -c "$source" -o "$output_directory/$object" \
-        -nostdinc -Iruntime/bootstrap -Iruntime/core -Iruntime/m3 \
+        -nostdinc -Iruntime/bootstrap -Iruntime/core -Isrc/kernel -Isrc/rts \
+        -Iruntime/m3 \
         -I"$m5_config_dir" -Iruntime/m5 \
         -I"$m6_config_dir" -Iruntime/m6 \
         -I"$m6_test_config_dir" \
@@ -128,8 +129,8 @@ compile_ada "arch/$architecture/flyology-interrupt_frames.ads" \
     flyology-interrupt_frames.o
 compile_ada "arch/$architecture/flyology-m2_architecture.adb" \
     flyology-m2_architecture.o
-compile_ada runtime/core/flyology-task_core.adb flyology-task_core.o generated
-compile_ada runtime/m3/flyology-m3_runtime.adb flyology-m3_runtime.o generated
+compile_ada src/kernel/flyology-kernel.adb flyology-kernel.o generated
+compile_ada src/rts/flyology-rts.adb flyology-rts.o generated
 compile_ada runtime/m3/s-multip.adb s-multip.o yes
 compile_ada runtime/m3/s-tassta.adb s-tassta.o yes
 compile_ada runtime/m3/s-soflin.adb s-soflin.o yes
@@ -159,6 +160,7 @@ compile_ada tests/target/scenarios/flyology_m3.adb flyology_m3.o
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" -nostdinc -nostdlib -n -minimal \
     -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
+    -I"$repository/src/kernel" -I"$repository/src/rts" \
     -I"$repository/runtime/m3" -I"$repository/$m5_config_dir" \
     -I"$repository/runtime/m5" \
     -I"$repository/$m6_config_dir" -I"$repository/runtime/m6" \
@@ -232,8 +234,8 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/s-soflin.o" \
     "$output_directory/s-tassta.o" \
     "$output_directory/s-multip.o" \
-    "$output_directory/flyology-m3_runtime.o" \
-    "$output_directory/flyology-task_core.o" \
+    "$output_directory/flyology-rts.o" \
+    "$output_directory/flyology-kernel.o" \
     "$output_directory/flyology-domain_model.o" \
     "$output_directory/flyology-placement_model.o" \
     "$output_directory/flyology-task_primitives_contract.o" \

@@ -9,17 +9,17 @@ with Flyology.Exceptional_Completion_Model;
 with Flyology.Binder_Support;
 with Flyology.M5_Configuration;
 with Flyology.M6_Configuration;
-with Flyology.Task_Core;
+with Flyology.Kernel;
 with Flyology.Termination_Model;
 with Flyology.Wait_Arbitration_Model;
 
-package body Flyology.M3_Runtime is
+package body Flyology.RTS is
    package Abort_Closure renames Flyology.Abort_Closure_Model;
    package Dispatcher renames Flyology.Dispatcher_Model;
    package Clock renames Flyology.Clock_Model;
    package Completions renames Flyology.Exceptional_Completion_Model;
    package Domains renames Flyology.Domain_Model;
-   package Core renames Flyology.Task_Core;
+   package Core renames Flyology.Kernel;
    package Termination renames Flyology.Termination_Model;
    package Waits renames Flyology.Wait_Arbitration_Model;
    pragma Compile_Time_Error
@@ -2756,4 +2756,4 @@ begin
    --  this compiler facade are elaborated, before Soft_Links or application
    --  units can execute tasking operations.
    Core_Initialize (Boot_CPU_Count);
-end Flyology.M3_Runtime;
+end Flyology.RTS;
