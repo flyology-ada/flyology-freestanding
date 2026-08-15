@@ -10,6 +10,10 @@ website = ""
 tags = ["ada", "spark", "freestanding", "tasking", "smp"]
 project-files = ["flyology.gpr"]
 
+[environment]
+FLYOLOGY_BAREBONES_ROOT.set = "${CRATE_ROOT}"
+PATH.prepend = "${CRATE_ROOT}/scripts"
+
 [configuration]
 generate_ada = false
 generate_c = false

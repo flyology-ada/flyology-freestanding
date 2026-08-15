@@ -14,7 +14,11 @@ case "$architecture" in
 esac
 
 output_root=${FLYOLOGY_PRODUCT_OUTPUT_ROOT:-build/product}
-profile_root="$output_root/$profile"
+if test "${FLYOLOGY_FLAT_OUTPUT:-0}" = 1; then
+    profile_root=$output_root
+else
+    profile_root="$output_root/$profile"
+fi
 
 case "$profile" in
     tasking)

@@ -16,6 +16,9 @@ test -f "$repository/tests/target/scenarios/flyology_conformance.adb"
 test -f "$repository/tests/target/scenarios/flyology-conformance-tasking.adb"
 test -f "$repository/tests/target/scenarios/flyology-conformance-observations.adb"
 test -x "$repository/scripts/build-image.sh"
+test -x "$repository/scripts/flyology-build"
+test -x "$repository/scripts/flyology-run"
+test -x "$repository/scripts/run-uefi-image.sh"
 test -x "$repository/scripts/inspect-image.sh"
 test -x "$repository/scripts/run-product.sh"
 test -x "$repository/scripts/verify-product-runtime.sh"
@@ -27,7 +30,11 @@ grep -F 'for Project_Files use ("gpr/flyology_primitives.gpr");' \
 grep -F 'for Library_Name use "flyology_primitives";' \
     "$repository/gpr/flyology_primitives.gpr" >/dev/null
 grep -F 'for Main use' "$repository/gpr/flyology_image.gpr" >/dev/null
-grep -F '"flyology_conformance.adb"' \
+grep -F '"flyology_launcher.adb"' \
+    "$repository/gpr/flyology_image.gpr" >/dev/null
+grep -F 'Application_Directory := external ("FLYOLOGY_APPLICATION_DIR");' \
+    "$repository/gpr/flyology_image.gpr" >/dev/null
+grep -F 'Generated_Directory := external ("FLYOLOGY_GENERATED_DIR");' \
     "$repository/gpr/flyology_image.gpr" >/dev/null
 grep -F '"flyology-validation.adb"' \
     "$repository/gpr/flyology_image.gpr" >/dev/null

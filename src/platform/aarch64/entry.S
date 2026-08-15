@@ -285,7 +285,7 @@ wait_interrupts_complete:
     b.ne wait_interrupts_complete
     msr daifclr, #2
     isb
-    bl _ada_flyology_conformance
+    bl _ada_flyology_launcher
     address x0, ada_pass
     bl serial_puts_locked
     address x0, tasking_boot_pass
@@ -2004,6 +2004,11 @@ serial_puts_locked:
     ldr x19, [sp, #16]
     ldp x29, x30, [sp], #32
     ret
+
+.global flyology_console_puts
+.type flyology_console_puts, %function
+flyology_console_puts:
+    b serial_puts_locked
 
 .type serial_lock_acquire, %function
 serial_lock_acquire:

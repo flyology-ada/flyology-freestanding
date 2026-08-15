@@ -4,6 +4,8 @@ project Flyology_Image is
    Scheduler_Directory := external ("FLYOLOGY_SCHEDULER_CONFIG_DIR");
    Domain_Directory := external ("FLYOLOGY_DOMAIN_CONFIG_DIR");
    Conformance_Directory := external ("FLYOLOGY_CONFORMANCE_CONFIG_DIR");
+   Application_Directory := external ("FLYOLOGY_APPLICATION_DIR");
+   Generated_Directory := external ("FLYOLOGY_GENERATED_DIR");
    Product_Config := external ("FLYOLOGY_PRODUCT_CONFIG");
    Target_Name := "unsupported-elf";
    Architecture_Switches := ("");
@@ -28,18 +30,25 @@ project Flyology_Image is
       "../src/kernel",
       "../src/rts",
       "../src/gnarl",
+      "../src/application",
       Scheduler_Directory,
       Domain_Directory,
       Conformance_Directory,
-      "../tests/target/scenarios",
+      Generated_Directory,
+      Application_Directory,
       "../src/platform/" & Architecture);
    for Object_Dir use Object_Directory;
    for Exec_Dir use Object_Directory;
-   --  The conformance main is the Ada dependency root.  Validation packages
-   --  are additional roots because the platform entry assembly calls their
-   --  exported subprograms directly rather than through an Ada with-clause.
+   --  The generated launcher is the binder main.  It makes RTS elaboration
+   --  independent of which language features the selected application uses.
+   --  Validation packages are additional roots because the platform entry
+   --  assembly calls their exported subprograms directly.
    for Main use
-     ("flyology_conformance.adb",
+     ("flyology_launcher.adb",
+      "flyology-rts.adb",
+      "flyology-kernel.adb",
+      "flyology-binder_support.adb",
+      "s-stalib.adb",
       "flyology-validation.adb",
       "flyology-boot_validation.adb");
 

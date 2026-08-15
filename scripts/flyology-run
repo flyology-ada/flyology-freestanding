@@ -1,0 +1,53 @@
+#!/bin/sh
+set -eu
+
+runtime_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+application_root=${FLYOLOGY_APPLICATION_ROOT:-$PWD}
+output_root=${FLYOLOGY_OUTPUT_ROOT:-$application_root/build}
+profile=${FLYOLOGY_PROFILE:-tasking}
+cpu_count=${FLYOLOGY_CPUS:-1}
+
+usage() {
+    cat >&2 <<'EOF'
+usage: flyology-run [--profile PROFILE] [--cpus 1..4] [--timeout SECONDS] ARCH
+
+Boot a previously built Flyology UEFI FAT image with the pinned QEMU machine
+and EDK II firmware contract.  Without --timeout QEMU remains attached to the
+terminal; press Ctrl-C after the application reaches its halt/idle state.
+EOF
+    exit 64
+}
+
+timeout_seconds=0
+while test "$#" -gt 0; do
+    case "$1" in
+        --profile)
+            test "$#" -ge 2 || usage
+            profile=$2
+            shift 2
+            ;;
+        --cpus)
+            test "$#" -ge 2 || usage
+            cpu_count=$2
+            shift 2
+            ;;
+        --timeout)
+            test "$#" -ge 2 || usage
+            timeout_seconds=$2
+            shift 2
+            ;;
+        --help|-h) usage ;;
+        --*) usage ;;
+        *) break ;;
+    esac
+done
+test "$#" -eq 1 || usage
+architecture=$1
+
+image="$output_root/$architecture/flyology-$architecture.fat"
+state="$output_root/run/$architecture-smp$cpu_count"
+bundle="$output_root/$architecture"
+FLYOLOGY_QEMU_TIMEOUT_SECONDS="$timeout_seconds" \
+FLYOLOGY_UEFI_BUNDLE_DIRECTORY="$bundle" \
+    "$runtime_root/scripts/run-uefi-image.sh" \
+    "$architecture" "$cpu_count" "$image" "$state"

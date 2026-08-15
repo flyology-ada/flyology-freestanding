@@ -1,0 +1,70 @@
+#!/bin/sh
+set -eu
+
+runtime_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+application_root=${FLYOLOGY_APPLICATION_ROOT:-$PWD}
+application_directory=${FLYOLOGY_APPLICATION_DIR:-$application_root/src}
+application_unit=${FLYOLOGY_APPLICATION_UNIT:-}
+output_root=${FLYOLOGY_OUTPUT_ROOT:-$application_root/build}
+profile=${FLYOLOGY_PROFILE:-tasking}
+
+usage() {
+    cat >&2 <<'EOF'
+usage: flyology-build [--profile PROFILE] [x86_64|aarch64 ...]
+
+Build the current Alire application's deployable Flyology UEFI images.  With
+no architecture arguments, both supported architectures are built.
+
+The application manifest must set FLYOLOGY_APPLICATION_UNIT.  Its source is
+read from FLYOLOGY_APPLICATION_DIR, which defaults to the crate's src directory.
+EOF
+    exit 64
+}
+
+while test "$#" -gt 0; do
+    case "$1" in
+        --profile)
+            test "$#" -ge 2 || usage
+            profile=$2
+            shift 2
+            ;;
+        --help|-h) usage ;;
+        --*) usage ;;
+        *) break ;;
+    esac
+done
+
+test -n "$application_unit" || {
+    echo "FLYOLOGY_APPLICATION_UNIT is not set" >&2
+    exit 64
+}
+
+if test "$#" -eq 0; then
+    set -- x86_64 aarch64
+fi
+
+application_directory=$(CDPATH= cd -- "$application_directory" && pwd)
+mkdir -p "$output_root"
+output_root=$(CDPATH= cd -- "$output_root" && pwd)
+
+for architecture in "$@"; do
+    case "$architecture" in
+        x86_64|aarch64) ;;
+        *) echo "unsupported architecture: $architecture" >&2; exit 64 ;;
+    esac
+    (
+        cd "$runtime_root"
+        FLYOLOGY_APPLICATION_DIR="$application_directory" \
+        FLYOLOGY_APPLICATION_UNIT="$application_unit" \
+        FLYOLOGY_FLAT_OUTPUT=1 \
+        FLYOLOGY_PRODUCT_OUTPUT_ROOT="$output_root" \
+            scripts/build-product.sh "$architecture" "$profile"
+        scripts/bundle-uefi-firmware.sh \
+            "$architecture" "$output_root/$architecture"
+    )
+done
+
+printf 'FLYOLOGY:APPLICATION:BUILD:PASS:%s\n' "$profile"
+for architecture in "$@"; do
+    printf '%s\n' "$output_root/$architecture/flyology-$architecture.fat"
+done

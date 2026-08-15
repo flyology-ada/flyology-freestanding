@@ -260,7 +260,7 @@ wait_interrupts_complete:
     cmp %r13d, %eax
     jne wait_interrupts_complete
     sti
-    call _ada_flyology_conformance
+    call _ada_flyology_launcher
     lea ada_pass(%rip), %rdi
     call serial_puts_locked
     lea tasking_boot_pass(%rip), %rdi
@@ -2110,6 +2110,11 @@ serial_puts_locked:
     call serial_puts
     call serial_lock_release
     ret
+
+.global flyology_console_puts
+.type flyology_console_puts, @function
+flyology_console_puts:
+    jmp serial_puts_locked
 
 .type serial_lock_acquire, @function
 serial_lock_acquire:

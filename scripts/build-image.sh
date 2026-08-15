@@ -30,6 +30,16 @@ assembly_defines='-DFLYOLOGY_INTERRUPTS -DFLYOLOGY_TASKING -DFLYOLOGY_EXCEPTIONS
 scheduler_config_dir=${FLYOLOGY_SCHEDULER_CONFIG_DIR:-config/scheduler/off}
 domain_config_dir=${FLYOLOGY_DOMAIN_CONFIG_DIR:-config/domains/off}
 conformance_config_dir=${FLYOLOGY_CONFORMANCE_CONFIG_DIR:-tests/target/config/domains/off}
+application_dir=${FLYOLOGY_APPLICATION_DIR:-tests/target/scenarios}
+application_unit=${FLYOLOGY_APPLICATION_UNIT:-flyology_conformance}
+application_source="$application_unit.adb"
+printf '%s\n' "$application_unit" | grep -Eq '^[a-z][a-z0-9_]*$' || {
+    echo "invalid Ada application unit: $application_unit" >&2
+    exit 64
+}
+case "$application_unit" in
+    *_|*__*) echo "invalid Ada application unit: $application_unit" >&2; exit 64 ;;
+esac
 if test "${FLYOLOGY_PREEMPTION:-0}" = 1; then
     assembly_defines="$assembly_defines -DFLYOLOGY_PREEMPTION"
 fi
@@ -38,7 +48,8 @@ if test "${FLYOLOGY_DOMAINS:-0}" = 1; then
 fi
 mkdir -p "$output_directory"
 rm -f "$output_directory"/*.ali "$output_directory"/*.o \
-      "$output_directory"/b~flyology_conformance.ad? \
+      "$output_directory"/b~"$application_unit".ad? \
+      "$output_directory"/b~flyology_launcher.ad? \
       "$output_directory/flyology.elf"
 output_directory=$(CDPATH= cd -- "$output_directory" && pwd)
 
@@ -52,7 +63,18 @@ absolute_path() {
 scheduler_config_directory=$(absolute_path "$scheduler_config_dir")
 domain_config_directory=$(absolute_path "$domain_config_dir")
 conformance_config_directory=$(absolute_path "$conformance_config_dir")
+case "$application_dir" in
+    /*) application_directory=$application_dir ;;
+    *) application_directory=$(CDPATH= cd -- "$application_dir" && pwd) ;;
+esac
 product_config_file=$(absolute_path "$product_config")
+test -f "$application_directory/$application_source" || {
+    echo "missing application main: $application_directory/$application_source" >&2
+    exit 66
+}
+sed "s/@APPLICATION_UNIT@/$application_unit/g" \
+    "$repository/src/application/flyology_launcher.adb.in" > \
+    "$output_directory/flyology_launcher.adb"
 
 export LC_ALL=C
 export SOURCE_DATE_EPOCH=1786502400
@@ -67,7 +89,9 @@ scripts/toolchain.sh exec "$architecture" sh -c '
     scheduler_directory=$4
     domain_directory=$5
     conformance_directory=$6
-    product_config=$7
+    application_directory=$7
+    generated_directory=$8
+    product_config=$9
     driver=$(command -v "$target-gcc")
     archiver=$(command -v "$target-ar")
     archive_indexer=$(command -v "$target-ranlib")
@@ -82,10 +106,13 @@ scripts/toolchain.sh exec "$architecture" sh -c '
         -XFLYOLOGY_SCHEDULER_CONFIG_DIR="$scheduler_directory" \
         -XFLYOLOGY_DOMAIN_CONFIG_DIR="$domain_directory" \
         -XFLYOLOGY_CONFORMANCE_CONFIG_DIR="$conformance_directory" \
+        -XFLYOLOGY_APPLICATION_DIR="$application_directory" \
+        -XFLYOLOGY_GENERATED_DIR="$generated_directory" \
         -XFLYOLOGY_PRODUCT_CONFIG="$product_config"
 ' sh "$target" "$architecture" "$output_directory" \
     "$scheduler_config_directory" "$domain_config_directory" \
-    "$conformance_config_directory" "$product_config_file"
+    "$conformance_config_directory" "$application_directory" \
+    "$output_directory" "$product_config_file"
 
 ada_objects_file="$output_directory/ada-objects.list"
 find "$output_directory" -maxdepth 1 -type f -name '*.o' -print | \
@@ -98,20 +125,21 @@ scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     -I"$repository/src/gnarl" -I"$scheduler_config_directory" \
     -I"$domain_config_directory" \
     -I"$conformance_config_directory" \
-    -I"$repository/tests/target/scenarios" \
+    -I"$output_directory" \
+    -I"$application_directory" \
     -I"$repository/src/platform/$architecture" \
-    -I. $binder_flags flyology_conformance.ali
+    -I. $binder_flags flyology_launcher.ali
 
 #  Binder output is generated after the project build and is the only Ada
 #  source compiled outside the project dependency graph.
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c "$output_directory/b~flyology_conformance.adb" \
-    -o "$output_directory/b~flyology_conformance.o" \
+    -c "$output_directory/b~flyology_launcher.adb" \
+    -o "$output_directory/b~flyology_launcher.o" \
     -nostdinc -Isrc/bootstrap -Isrc/primitives -Isrc/kernel -Isrc/rts \
-    -Isrc/gnarl -I"$scheduler_config_directory" \
+    -Isrc/gnarl -Isrc/application -I"$scheduler_config_directory" \
     -I"$domain_config_directory" -I"$conformance_config_directory" \
-    -Itests/target/scenarios \
+    -I"$application_directory" -I"$output_directory" \
     -I"src/platform/$architecture" -I"$output_directory" \
     -gnat2022 -gnatws -gnatw.X -gnatw.i -gnato \
     -gnatec="$product_config_file" -ffunction-sections -fdata-sections \
@@ -164,7 +192,7 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/limine_requests.o" \
     "$output_directory/exception_runtime.o" \
     "$output_directory/allocator_runtime.o" \
-    "$output_directory/b~flyology_conformance.o" \
+    "$output_directory/b~flyology_launcher.o" \
     @"$ada_objects_file" \
     --start-group "$libgcc" --end-group
 

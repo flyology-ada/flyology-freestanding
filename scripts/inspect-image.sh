@@ -20,7 +20,7 @@ esac
 
 output_root=${FLYOLOGY_IMAGE_OUTPUT_ROOT:-build/image}
 elf="$output_root/$architecture/flyology.elf"
-binder="$output_root/$architecture/b~flyology_conformance.adb"
+binder="$output_root/$architecture/b~flyology_launcher.adb"
 test -f "$elf" || { echo "missing image ELF: $elf" >&2; exit 66; }
 test -f "$binder" || { echo "missing image binder: $binder" >&2; exit 66; }
 
@@ -47,7 +47,8 @@ if printf '%s\n' "$program_output" | grep -E 'INTERP|DYNAMIC|TLS|RWE' >/dev/null
 fi
 
 if test "$profile" != domains; then
-for symbol in _start adainit adafinal _ada_flyology_conformance \
+for symbol in _start adainit adafinal _ada_flyology_launcher \
+    _ada_flyology_conformance \
     flyology_task_start flyology_dispatcher_start flyology_context_switch \
     flyology_kernel_prepare_environment flyology_kernel_prepare_ap \
     flyology_kernel_environment_complete flyology_platform_kick_core \
@@ -208,7 +209,8 @@ case "$profile" in
 esac
 
 if test "$profile" = domains; then
-    for symbol in _start adainit adafinal _ada_flyology_conformance \
+    for symbol in _start adainit adafinal _ada_flyology_launcher \
+        _ada_flyology_conformance \
         flyology_task_start flyology_dispatcher_start \
         flyology_context_switch flyology_kernel_prepare_environment \
         flyology_kernel_prepare_ap flyology_kernel_environment_complete \
