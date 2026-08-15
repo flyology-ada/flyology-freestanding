@@ -143,6 +143,7 @@ test -f \
 test ! -e "$repository/tests/legacy"
 test ! -e "$repository/scripts/build-domain-image.sh"
 test ! -e "$repository/scripts/build-preemption-image.sh"
+test ! -e "$repository/scripts/inspect-bootstrap-minimum.sh"
 test -f "$repository/config/restrictions/product.adc"
 test -f "$repository/config/scheduler/fifo/flyology-scheduler_configuration.ads"
 test -f "$repository/config/domains/on/flyology-domain_configuration.ads"
