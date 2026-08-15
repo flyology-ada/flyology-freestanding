@@ -11,13 +11,13 @@ policy=$2
 output_base=${FLYOLOGY_M5_OUTPUT_ROOT:-build/m5}
 case "$policy" in
     fifo)
-        config=runtime/m5/fifo.adc
-        config_dir=runtime/m5/fifo
+        config=config/scheduler/fifo.adc
+        config_dir=config/scheduler/fifo
         binder_flags=-T0
         ;;
     round_robin)
-        config=runtime/m5/round_robin.adc
-        config_dir=runtime/m5/round_robin
+        config=config/scheduler/round_robin.adc
+        config_dir=config/scheduler/round_robin
         binder_flags=-T10
         ;;
     *) echo "unsupported M5 policy: $policy" >&2; exit 64 ;;

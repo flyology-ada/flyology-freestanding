@@ -29,17 +29,19 @@ until its build, proof, review, and QEMU evidence is recorded.
 - `src/rts/` — GNARL lifecycle and language-semantic glue (`Flyology.RTS`).
 - `src/gnarl/` — compiler-facing Ada and System predefined-unit facades whose
   exact surface is indexed by the clean-room evidence manifest.
-- `scripts/` — authoritative build, test, proof, and reproducibility entry points (introduced during M0).
 - `src/primitives/` — reusable deterministic Ada/SPARK validation, lifecycle,
   queueing, timing, placement, and scheduling-policy algorithms.
-- `runtime/m4/` and `runtime/m6/` — transitional C ABI, restriction, and
-  capability-configuration inputs pending later ownership moves.
 - `src/bootstrap/` — minimal binder, Standard Library, and root `System`
   support required before the full GNARL facade is available.
 - `src/abi/` — narrow documented C boundaries for exception unwinding and the
   compiler allocator ABI.
 - `src/platform/{x86_64,aarch64}/` — target context, interrupt, timer, memory,
   Limine request, and linker implementations.
+- `config/` — named restriction, scheduler-policy, scheduling-domain, and
+  product capability selections; configuration is not runtime state.
+- `scripts/` — authoritative build, test, proof, and reproducibility entry points (introduced during M0).
+- `runtime/m0/`, `runtime/m1/`, and `runtime/m2/` — historical checkpoint
+  applications retained temporarily for compatibility gates only.
 - `tests/target/scenarios/` — ordinary-Ada conformance image and behavioral workloads.
 
 Milestone-named runtime and script paths are transitional. They remain supported

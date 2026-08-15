@@ -24,11 +24,11 @@ esac
 
 output_root=${FLYOLOGY_M3_OUTPUT_ROOT:-build/m3}
 output_directory="$output_root/$architecture"
-product_config=${FLYOLOGY_PRODUCT_CONFIG:-runtime/m4/product.adc}
+product_config=${FLYOLOGY_PRODUCT_CONFIG:-config/restrictions/product.adc}
 binder_flags=${FLYOLOGY_BINDER_FLAGS:-}
 assembly_defines='-DFLYOLOGY_M2 -DFLYOLOGY_M3 -DFLYOLOGY_EXCEPTION'
-m5_config_dir=${FLYOLOGY_M5_CONFIG_DIR:-runtime/m5/off}
-m6_config_dir=${FLYOLOGY_M6_CONFIG_DIR:-runtime/m6/off}
+m5_config_dir=${FLYOLOGY_M5_CONFIG_DIR:-config/scheduler/off}
+m6_config_dir=${FLYOLOGY_M6_CONFIG_DIR:-config/domains/off}
 m6_test_config_dir=${FLYOLOGY_M6_TEST_CONFIG_DIR:-tests/target/config/domains/off}
 if test "${FLYOLOGY_M5:-0}" = 1; then
     assembly_defines="$assembly_defines -DFLYOLOGY_M5"
@@ -60,8 +60,8 @@ compile_ada() {
         -c "$source" -o "$output_directory/$object" \
         -nostdinc -Isrc/bootstrap -Isrc/primitives -Isrc/kernel -Isrc/rts \
         -Isrc/gnarl \
-        -I"$m5_config_dir" -Iruntime/m5 \
-        -I"$m6_config_dir" -Iruntime/m6 \
+        -I"$m5_config_dir" \
+        -I"$m6_config_dir" \
         -I"$m6_test_config_dir" \
         -Itests/target/scenarios \
         -I"src/platform/$architecture" -I"$output_directory" \
@@ -162,7 +162,6 @@ scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
     -I"$repository/src/kernel" -I"$repository/src/rts" \
     -I"$repository/src/gnarl" -I"$repository/$m5_config_dir" \
-    -I"$repository/runtime/m5" \
     -I"$repository/$m6_config_dir" \
     -I"$repository/$m6_test_config_dir" \
     -I"$repository/tests/target/scenarios" \

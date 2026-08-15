@@ -70,7 +70,12 @@ test -f "$repository/src/platform/aarch64/m1_entry.S"
 test ! -e "$repository/runtime/m3"
 test ! -e "$repository/runtime/core"
 test ! -e "$repository/runtime/bootstrap"
-test ! -e "$repository/runtime/m4/exception_runtime.c"
 test ! -e "$repository/arch"
+test ! -e "$repository/runtime/m4"
+test ! -e "$repository/runtime/m5"
+test ! -e "$repository/runtime/m6"
+test -f "$repository/config/restrictions/product.adc"
+test -f "$repository/config/scheduler/fifo/flyology-m5_configuration.ads"
+test -f "$repository/config/domains/on/flyology-m6_configuration.ads"
 
 echo 'FLYOLOGY:PRODUCT:PROJECT:PASS'

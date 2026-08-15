@@ -55,7 +55,7 @@ compile_ada() {
         -c "$source" -o "$output_directory/$object" \
         -nostdinc -Isrc/bootstrap -Isrc/primitives -Iruntime/m1 \
         -I"$output_directory" $style_flags -gnatw.X -gnato \
-        -gnatec=src/bootstrap/m1.adc \
+        -gnatec=config/restrictions/bootstrap.adc \
         -ffunction-sections -fdata-sections \
         -fno-stack-protector -fno-pic -fno-pie $architecture_flags
 }

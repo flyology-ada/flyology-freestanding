@@ -19,7 +19,7 @@ for architecture in x86_64 aarch64; do
         -I"$repository/probes/m6/interfaces" \
         -I"$repository/probes/m3/interfaces" \
         -gnat2022 -gnatG -gnatf \
-        -gnatec="$repository/runtime/m4/product.adc" \
+        -gnatec="$repository/config/restrictions/product.adc" \
         >"$output/domain_probe.expanded" 2>&1
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-nm" -u domain_probe.o >"$output/domain_probe.undefined"
@@ -32,7 +32,7 @@ for architecture in x86_64 aarch64; do
         -I"$repository/probes/m6/interfaces" \
         -I"$repository/probes/m3/interfaces" \
         -gnat2022 -gnatc -gnatR3 -gnatf \
-        -gnatec="$repository/runtime/m4/product.adc" \
+        -gnatec="$repository/config/restrictions/product.adc" \
         >"$output/domain_layout.txt" 2>&1
 
     expanded="$output/domain_probe.expanded"

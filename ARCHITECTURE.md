@@ -28,6 +28,10 @@ The minimal binder and root predefined-unit substrate lives in
 implement the documented compiler allocator and exception-unwinding ABIs; C is
 not used for scheduler or task-state policy.
 
+Restriction sets and compile-time policy/domain selections live under
+`config/`. They select implementations and compiler behavior; they never own
+mutable scheduling or task state.
+
 The responsibility-based product source and build structure is defined by
 [ADR-0010](docs/adr/0010-productize-the-runtime.md). The state-owning kernel is
 in `src/kernel/`, the reusable deterministic algorithms are in

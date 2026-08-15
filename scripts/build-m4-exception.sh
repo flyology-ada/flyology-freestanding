@@ -46,7 +46,8 @@ compile_ada() {
         -c "$source" -o "$output_directory/$object" \
         -nostdinc -Isrc/bootstrap -Isrc/primitives -Iprobes/m4/interfaces \
         -I"$output_directory" $style_flags -gnatw.X -gnatw.i -gnato \
-        -gnatec=runtime/m4/m4.adc -ffunction-sections -fdata-sections \
+        -gnatec=config/restrictions/exception-probe.adc \
+        -ffunction-sections -fdata-sections \
         -fno-stack-protector -fno-pic -fno-pie $architecture_flags
 }
 
