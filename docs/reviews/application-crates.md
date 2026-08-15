@@ -154,3 +154,32 @@ timeout and asserts the finalization markers.
 Within those limits, the application-crate workflow is complete: a small Ada
 crate can build, inspect, and run deployable UEFI images for both supported
 architectures without reproducing Flyology's target project.
+
+## Observation-policy amendment — 2026-08-15
+
+Implementation commit `f8844cf39c121956aa95005d56f94251ff43d5fc`, Git tree
+`f3323300d1b9be0028edc711b96c97184b99a4ee`, separates repository test
+observations from consumer output. `flyology-build` now selects
+`FLYOLOGY_TEST_OBSERVATIONS=0` unless the application explicitly opts in;
+repository conformance composition retains the enabled default. Fatal
+`FLYOLOGY:FAIL`/`PANIC` diagnostics and `Flyology.Console` output are outside
+this switch.
+
+The exact implementation tree passed `scripts/verify-minimal-example.sh` on
+x86-64 SMP4 and AArch64 SMP4. Each quiet serial log contained the eight exact
+worker records and `OK`, with zero Ada, core-online, tasking-boot, or RTS
+finalization observation markers and no failure/panic marker. Independent
+output-root images were byte-identical:
+
+| Architecture | Quiet ELF SHA-256 | Quiet FAT SHA-256 |
+| --- | --- | --- |
+| x86-64 | `bbf29b98ede30ad9b45c79df111f37a8b4b2dbb35ba390464c4f41c323b1a6ae` | `4f2e8a079265a6b33221434712a75d9e99e1ad1bbd7590eba5c129d8b774cc5c` |
+| AArch64 | `477f486b8fffc1586aba90b609a65f1da1da1508a2a3c80ad1e3bb9f927545b9` | `01f58447afd778e223dbb46149b36d2b65728f3148d6601d2705963f5a56a1e8` |
+
+The complementary tasking conformance image was freshly rebuilt and passed
+`scripts/run-image.sh ARCH 1 tasking` on both architectures. Each log retained
+exactly one Ada-main and tasking-boot observation along with the complete
+machine-checked tasking marker set. This demonstrates that suppression is an
+application composition policy, not deletion or weakening of behavioral-gate
+evidence. The switch and documentation are original Flyology build/test
+surfaces and do not change a compiler-facing clean-room interface.
