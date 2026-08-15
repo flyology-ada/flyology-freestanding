@@ -40,21 +40,21 @@ for profile in $profile_names; do
     grep -F "    $profile)" "$repository/scripts/build-product.sh" >/dev/null
 done
 
-if find "$repository/runtime" -type f \
+if find "$repository/src" -type f \
     \( -name 'flyology-m*_demo.ads' -o -name 'flyology-m*_demo.adb' \
        -o -name 'flyology_m3.adb' -o -name 'flyology-m6_hook.ads' \
        -o -name 'flyology-m6_hook.adb' \) -print | grep .; then
-    echo 'target conformance scenario found under runtime/' >&2
+    echo 'target conformance scenario found under src/' >&2
     exit 1
 fi
 
-if rg -n '\bDemo_[A-Za-z0-9_]+' "$repository/runtime" >/dev/null; then
-    echo 'demo-named test hook found in runtime API' >&2
+if rg -n '\bDemo_[A-Za-z0-9_]+' "$repository/src" >/dev/null; then
+    echo 'demo-named test hook found in product API' >&2
     exit 1
 fi
 
 if rg -n 'Flyology\.(Task_Core|M3_Runtime)' \
-    "$repository/runtime" "$repository/src" "$repository/tests" >/dev/null; then
+    "$repository/src" "$repository/tests/target" >/dev/null; then
     echo 'milestone task authority name found in current source' >&2
     exit 1
 fi
@@ -74,6 +74,8 @@ test ! -e "$repository/arch"
 test ! -e "$repository/runtime/m4"
 test ! -e "$repository/runtime/m5"
 test ! -e "$repository/runtime/m6"
+test ! -e "$repository/runtime"
+test -f "$repository/tests/legacy/checkpoints/m2/flyology_m2.adb"
 test -f "$repository/config/restrictions/product.adc"
 test -f "$repository/config/scheduler/fifo/flyology-m5_configuration.ads"
 test -f "$repository/config/domains/on/flyology-m6_configuration.ads"

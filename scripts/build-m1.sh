@@ -53,7 +53,8 @@ compile_ada() {
     esac
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
         -c "$source" -o "$output_directory/$object" \
-        -nostdinc -Isrc/bootstrap -Isrc/primitives -Iruntime/m1 \
+        -nostdinc -Isrc/bootstrap -Isrc/primitives \
+        -Itests/legacy/checkpoints/m1 \
         -I"$output_directory" $style_flags -gnatw.X -gnato \
         -gnatec=config/restrictions/bootstrap.adc \
         -ffunction-sections -fdata-sections \
@@ -66,15 +67,17 @@ compile_ada src/primitives/flyology.ads flyology.o
 compile_ada src/primitives/flyology-validation.adb flyology-validation.o
 compile_ada src/primitives/flyology-boot_validation.adb flyology-boot_validation.o
 compile_ada src/bootstrap/flyology-binder_support.adb flyology-binder_support.o
-compile_ada runtime/m1/flyology-elaboration_probe.adb flyology-elaboration_probe.o
-compile_ada runtime/m1/flyology_m1.adb flyology_m1.o
-compile_ada runtime/m1/flyology_last_chance_probe.adb \
+compile_ada tests/legacy/checkpoints/m1/flyology-elaboration_probe.adb \
+    flyology-elaboration_probe.o
+compile_ada tests/legacy/checkpoints/m1/flyology_m1.adb flyology_m1.o
+compile_ada tests/legacy/checkpoints/m1/flyology_last_chance_probe.adb \
     flyology_last_chance_probe.o
 
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" \
     -nostdinc -nostdlib -n -minimal \
-    -I../../../src/bootstrap -I../../../src/primitives -I../../../runtime/m1 \
+    -I../../../src/bootstrap -I../../../src/primitives \
+    -I../../../tests/legacy/checkpoints/m1 \
     -I. flyology_m1.ali
 
 compile_ada "$output_directory/b~flyology_m1.adb" b~flyology_m1.o generated

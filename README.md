@@ -40,8 +40,9 @@ until its build, proof, review, and QEMU evidence is recorded.
 - `config/` — named restriction, scheduler-policy, scheduling-domain, and
   product capability selections; configuration is not runtime state.
 - `scripts/` — authoritative build, test, proof, and reproducibility entry points (introduced during M0).
-- `runtime/m0/`, `runtime/m1/`, and `runtime/m2/` — historical checkpoint
-  applications retained temporarily for compatibility gates only.
+- `tests/legacy/checkpoints/` — quarantined M0–M2 checkpoint applications,
+  retained temporarily for compatibility gates and never linked by product
+  profiles.
 - `tests/target/scenarios/` — ordinary-Ada conformance image and behavioral workloads.
 
 Milestone-named runtime and script paths are transitional. They remain supported

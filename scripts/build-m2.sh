@@ -44,7 +44,8 @@ compile_ada() {
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
         -c "$source" -o "$output_directory/$object" \
-        -nostdinc -Isrc/bootstrap -Isrc/primitives -Iruntime/m2 \
+        -nostdinc -Isrc/bootstrap -Isrc/primitives \
+        -Itests/legacy/checkpoints/m2 \
         -I"src/platform/$architecture" -I"$output_directory" \
         $style_flags -gnatw.X -gnato -gnatec=config/restrictions/bootstrap.adc \
         -ffunction-sections -fdata-sections \
@@ -69,16 +70,18 @@ compile_ada "src/platform/$architecture/flyology-interrupt_frames.ads" \
     flyology-interrupt_frames.o
 compile_ada "src/platform/$architecture/flyology-m2_architecture.adb" \
     flyology-m2_architecture.o
-compile_ada runtime/m2/flyology-m2_runtime.adb flyology-m2_runtime.o
+compile_ada tests/legacy/checkpoints/m2/flyology-m2_runtime.adb \
+    flyology-m2_runtime.o
 compile_ada src/bootstrap/flyology-binder_support.adb \
     flyology-binder_support.o
-compile_ada runtime/m2/flyology_m2.adb flyology_m2.o
+compile_ada tests/legacy/checkpoints/m2/flyology_m2.adb flyology_m2.o
 
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" \
     -nostdinc -nostdlib -n -minimal \
     -I../../../src/bootstrap -I../../../src/primitives \
-    -I../../../runtime/m2 -I../../../src/platform/"$architecture" \
+    -I../../../tests/legacy/checkpoints/m2 \
+    -I../../../src/platform/"$architecture" \
     -I. flyology_m2.ali
 
 compile_ada "$output_directory/b~flyology_m2.adb" b~flyology_m2.o generated
