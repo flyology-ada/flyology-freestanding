@@ -10,3 +10,7 @@ Each capability review is written after its gates run and contains:
 - a candid residual-risk and unsupported-claims section.
 
 A review template is not evidence and does not close a capability.
+
+The responsibility-based repository/product closure is recorded separately in
+[product-structure.md](product-structure.md); it composes but does not broaden
+the individual capability reviews.
