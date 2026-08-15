@@ -1,0 +1,7 @@
+project Minimal is
+   --  The dependency-owned image project compiles the application with the
+   --  selected freestanding RTS.  Alire's host phase compiles only this inert
+   --  manifest package; the post-build action emits both target images.
+   for Source_Dirs use ("host");
+   for Object_Dir use "build/host";
+end Minimal;

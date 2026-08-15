@@ -1,0 +1,25 @@
+name = "flyology_minimal_kernel"
+description = "Minimal bootable Flyology Barebones application"
+version = "0.1.0-dev"
+
+authors = ["Flyology Barebones contributors"]
+maintainers = ["Flyology Barebones contributors <maintainers@flyology.invalid>"]
+maintainers-logins = []
+licenses = "MIT OR Apache-2.0"
+tags = ["ada", "freestanding", "kernel"]
+project-files = ["minimal.gpr"]
+
+[[depends-on]]
+flyology_barebones = "*"
+
+[[pins]]
+flyology_barebones = { path = "../.." }
+
+[environment]
+FLYOLOGY_APPLICATION_ROOT.set = "${CRATE_ROOT}"
+FLYOLOGY_APPLICATION_DIR.set = "${CRATE_ROOT}/src"
+FLYOLOGY_APPLICATION_UNIT.set = "minimal_kernel"
+
+[[actions]]
+type = "post-build"
+command = ["flyology-build"]

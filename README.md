@@ -31,6 +31,8 @@ until its build, proof, review, and QEMU evidence is recorded.
 - `src/rts/` — GNARL lifecycle and language-semantic glue (`Flyology.RTS`).
 - `src/gnarl/` — compiler-facing Ada and System predefined-unit facades whose
   exact surface is indexed by the clean-room evidence manifest.
+- `src/application/` — the generated binder launcher template and narrow
+  architecture-neutral APIs available to application crates.
 - `src/primitives/` — reusable deterministic Ada/SPARK validation, lifecycle,
   queueing, timing, placement, and scheduling-policy algorithms.
 - `src/bootstrap/` — minimal binder, Standard Library, and root `System`
@@ -54,6 +56,23 @@ Product profiles select configuration views for `gpr/flyology_image.gpr`.
 platform assembly/C, linker, and boot-media steps; capability gates use the same
 build, run, and inspection entry points.
 
+## Start a kernel application
+
+[`examples/minimal`](examples/minimal/) is an independent Alire crate whose
+only target source prints `OK` and returns. Its `flyology_barebones` dependency
+provides the image builder and QEMU runner:
+
+```sh
+cd examples/minimal
+alr build
+alr exec -- flyology-run x86_64
+```
+
+The build emits shallow `build/x86_64/` and `build/aarch64/` directories. Each
+contains a Limine UEFI FAT disk, the kernel ELF, and validated TianoCore/EDK II
+code and variables firmware. See [application crates](docs/application-crates.md)
+for the small manifest contract and profile/CPU options.
+
 ## Authoritative gates
 
 - `alr build` builds the host-side `libflyology_primitives.a` from the
@@ -65,6 +84,9 @@ build, run, and inspection entry points.
   FAT-image hashes.
 - `scripts/verify-product-runtime.sh` builds and runs all four product profiles
   on x86-64 and AArch64 at SMP1 and SMP4 through the capability entry points.
+- `scripts/verify-minimal-example.sh` runs the independent Alire consumer build,
+  compares two output roots, validates both TianoCore bundles, and boots the
+  minimal UEFI FAT image on x86-64 and AArch64.
 
 - `scripts/verify-bootstrap-minimum.sh` builds and inspects the bootstrap-minimum checkpoint ELF probes.
 - `scripts/verify-bootstrap.sh` builds both Limine images, boots each at one and four CPUs, and boots both injected last-chance variants.

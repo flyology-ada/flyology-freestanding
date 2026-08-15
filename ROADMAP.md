@@ -7,6 +7,7 @@ described as capability completion.
 | Capability | Status | Required outcome |
 | --- | --- | --- |
 | product structure | complete ([review](docs/reviews/product-structure.md)) | Responsibility-owned runtime/library layout, real host and target Alire/GPR project graphs, stable capability profiles, exact clean-room inventories, and zero numbered development-stage names in maintained artifacts. |
+| application crate workflow | in progress | A dependent Alire crate supplies one ordinary Ada procedure and automatically receives reproducible x86-64/AArch64 Limine UEFI disks, adjacent TianoCore firmware, and a pinned QEMU runner without target-specific GPR configuration. |
 | bootstrap-minimum checkpoint | complete ([review](docs/reviews/bootstrap-minimum.md)) | Pinned clean-room builder produces and inspects freestanding x86-64 and AArch64 ELF images reproducibly. |
 | bootstrap checkpoint | complete ([review](docs/reviews/bootstrap.md)) | Limine boots Ada elaboration and brings all requested CPUs online on both architectures at `-smp 1/4`. |
 | interrupt-substrate checkpoint | complete ([review](docs/reviews/interrupts.md)) | Policy-neutral per-core dispatch, checked task transitions, voluntary contexts, interrupt frames, and remote reschedule substrate. |

@@ -74,20 +74,28 @@ semantic evidence.
 
 ## Product project boundary
 
-`gpr/flyology_image.gpr` is the authoritative Ada compilation graph for the
-freestanding conformance image. Its source directories make compiler-facing
-units discoverable, but directory membership is not clean-room evidence and
-does not enlarge any interface claim. The exact implementation inventory named
-by each manifest entry remains authoritative for that claim.
+`gpr/flyology_image.gpr` is the authoritative Ada compilation graph for both
+freestanding conformance images and independent application images. Its source
+directories make compiler-facing units discoverable, but directory membership
+is not clean-room evidence and does not enlarge any interface claim. The exact
+implementation inventory named by each manifest entry remains authoritative
+for that claim.
 
-The project roots the ordinary-Ada conformance main and the two Flyology
-validation bodies exported to platform entry assembly. Every compiler facade
-and semantic implementation object is otherwise selected through an Ada
-dependency from those roots and the chosen configuration view. The separate
-`gpr/flyology_cross.cgpr` describes only the no-installed-runtime compiler
-protocol; it supplies no GNAT runtime sources, libraries, or semantic behavior.
-Concrete tool paths come from the pinned Alire workspaces and are not recorded
-as source inputs.
+The generated original-work `Flyology_Launcher` is the binder main and invokes
+the selected ordinary-Ada application procedure after requiring the RTS
+elaboration closure. The project also roots the runtime/binder authorities and
+the two Flyology validation bodies exported to platform entry assembly. Every
+compiler facade and remaining semantic implementation object is selected
+through an Ada dependency from those roots and the chosen configuration view.
+The separate `gpr/flyology_cross.cgpr` describes only the no-installed-runtime
+compiler protocol; it supplies no GNAT runtime sources, libraries, or semantic
+behavior. Concrete tool paths come from the pinned Alire workspaces and are not
+recorded as source inputs.
+
+Application procedures, the launcher template, the console API, UEFI bundle
+layout, and QEMU command are not compiler-facing GNARL interfaces. They remain
+outside the clean-room interface manifest and cannot be cited as compiler-shape
+evidence.
 
 ## Compiler upgrades
 

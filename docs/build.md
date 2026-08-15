@@ -1,8 +1,9 @@
 # Build the runtime
 
-Flyology has two complementary build products during productization: a reusable
-host-side archive of deterministic primitives, and freestanding target images.
-They share sources and contracts but have different toolchain and linking needs.
+Flyology has three complementary build products: a reusable host-side archive
+of deterministic primitives, repository conformance images, and freestanding
+images supplied by independent application crates. They share sources and
+contracts but have different toolchain and linking needs.
 
 ## Deterministic primitive library
 
@@ -55,11 +56,14 @@ Limine/firmware image construction.
 
 Ada compilation is owned by `gpr/flyology_image.gpr`. Its source directories
 are the responsibility-owned runtime roots plus exactly one selected scheduler,
-domain, and conformance configuration view. The project has three compilation
-roots: the ordinary-Ada conformance main and the two validation package bodies
-whose exported subprograms are called directly by platform entry assembly.
-GPRbuild discovers every other Ada unit from dependencies; the shell builder
-does not carry a second Ada source or object list.
+domain, configuration view, and application directory. A generated
+`Flyology_Launcher` is the binder main: it explicitly validates RTS elaboration
+and invokes the selected ordinary-Ada application procedure. Runtime authority,
+standard-library finalization, and the two validation bodies are explicit
+project roots because architecture entry code and foreign binder boundaries
+reference them directly. GPRbuild discovers the remaining Ada units from
+dependencies; the shell builder does not carry a second Ada source or object
+list.
 
 The cross compilers intentionally ship without an installed default Ada
 runtime. `gpr/flyology_cross.cgpr` therefore describes the unit-based compiler
@@ -79,6 +83,27 @@ The current conformance image main and ordinary-Ada behavioral scenarios live
 under `tests/target/scenarios/`. They are linked test clients of the runtime, not
 runtime library sources. Structured serial markers therefore describe a scenario
 assertion and do not enlarge the product API.
+
+## Independent application crates
+
+The root Alire manifest contributes `flyology-build` and `flyology-run` to a
+dependent crate's build environment. The consumer identifies one source
+directory and parameterless Ada procedure; it does not name target sources,
+predefined units, linker scripts, firmware, or QEMU options. `alr build` may use
+the dependency-provided post-build action to produce both architecture bundles.
+
+Consumer artifacts use `build/ARCH/` rather than the repository's deeper
+profile matrix. A selected profile is one build configuration and intentionally
+does not appear in the default consumer path. The repository gates retain
+`build/product/PROFILE/ARCH/` because they compare several profiles side by
+side.
+
+Each consumer architecture directory contains the ELF, Limine FAT disk, and
+copies of the pinned TianoCore code/variables firmware. The firmware is kept
+adjacent because it belongs to the emulated machine, not to the guest disk.
+`scripts/flyology-run` uses those copies and creates a private mutable variables
+file for each run. The complete contract and example are in
+[`docs/application-crates.md`](application-crates.md).
 
 Each capability profile records the same target project and cross-toolchain
 configuration in `config/profiles.toml`, then configures one
