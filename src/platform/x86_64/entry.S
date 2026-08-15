@@ -260,7 +260,7 @@ wait_m2_complete:
     cmp %r13d, %eax
     jne wait_m2_complete
     sti
-    call _ada_flyology_m3
+    call _ada_flyology_conformance
     lea ada_pass(%rip), %rdi
     call serial_puts_locked
     lea m3_boot_pass(%rip), %rdi

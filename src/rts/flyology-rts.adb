@@ -7,8 +7,8 @@ with Flyology.Dispatcher_Model;
 with Flyology.Domain_Model;
 with Flyology.Exceptional_Completion_Model;
 with Flyology.Binder_Support;
-with Flyology.M5_Configuration;
-with Flyology.M6_Configuration;
+with Flyology.Domain_Configuration;
+with Flyology.Scheduler_Configuration;
 with Flyology.Kernel;
 with Flyology.Termination_Model;
 with Flyology.Wait_Arbitration_Model;
@@ -408,7 +408,7 @@ package body Flyology.RTS is
    begin
       Identifier := 0;
       Created := False;
-      if not Flyology.M6_Configuration.Enabled or else Domains_Frozen
+      if not Flyology.Domain_Configuration.Enabled or else Domains_Frozen
       then
          Stop;
       end if;
@@ -2562,15 +2562,15 @@ package body Flyology.RTS is
       Enter_Kernel;
       Core.Register_Environment_Locked (To_Reference (Environment));
       Leave_Kernel;
-      case Flyology.M5_Configuration.Policy_Code is
+      case Flyology.Scheduler_Configuration.Policy_Code is
          when ' ' =>
-            if Flyology.M5_Configuration.Enabled then
+            if Flyology.Scheduler_Configuration.Enabled then
                Stop;
             end if;
             Core.Configure_Dispatching
               (Core.FIFO_Within_Priorities, 0);
          when 'F' =>
-            if not Flyology.M5_Configuration.Enabled
+            if not Flyology.Scheduler_Configuration.Enabled
               or else Flyology.Binder_Support.Task_Dispatching_Policy /= 'F'
               or else Flyology.Binder_Support.Time_Slice_Value /= 0
             then
@@ -2579,7 +2579,7 @@ package body Flyology.RTS is
             Core.Configure_Dispatching
               (Core.FIFO_Within_Priorities, 0);
          when 'R' =>
-            if not Flyology.M5_Configuration.Enabled
+            if not Flyology.Scheduler_Configuration.Enabled
               or else Flyology.Binder_Support.Task_Dispatching_Policy /= 'R'
               or else Flyology.Binder_Support.Time_Slice_Value /= 10_000
             then

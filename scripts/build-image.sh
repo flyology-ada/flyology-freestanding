@@ -39,7 +39,7 @@ if test "${FLYOLOGY_M6:-0}" = 1; then
 fi
 mkdir -p "$output_directory"
 rm -f "$output_directory"/*.ali "$output_directory"/*.o \
-      "$output_directory"/b~flyology_m3.ad? \
+      "$output_directory"/b~flyology_conformance.ad? \
       "$output_directory/flyology-m3.elf"
 
 export LC_ALL=C
@@ -93,17 +93,17 @@ compile_ada src/gnarl/s-tpoben.adb s-tpoben.o yes
 compile_ada src/gnarl/s-tpobop.adb s-tpobop.o yes
 compile_ada src/gnarl/s-tasren.adb s-tasren.o yes
 compile_ada src/primitives/flyology.ads flyology.o
-compile_ada "$m5_config_dir/flyology-m5_configuration.ads" \
-    flyology-m5_configuration.o
-compile_ada "$m6_config_dir/flyology-m6_configuration.ads" \
-    flyology-m6_configuration.o
-compile_ada "$m6_test_config_dir/flyology-m6_hook.adb" flyology-m6_hook.o
+compile_ada "$m5_config_dir/flyology-scheduler_configuration.ads" \
+    flyology-scheduler_configuration.o
+compile_ada "$m6_config_dir/flyology-domain_configuration.ads" \
+    flyology-domain_configuration.o
+compile_ada "$m6_test_config_dir/flyology-conformance_profile.adb" \
+    flyology-conformance_profile.o
 compile_ada src/primitives/flyology-validation.adb flyology-validation.o
 compile_ada src/primitives/flyology-boot_validation.adb flyology-boot_validation.o
 compile_ada src/primitives/flyology-dispatcher_model.adb \
     flyology-dispatcher_model.o
 compile_ada src/primitives/flyology-domain_model.adb flyology-domain_model.o
-compile_ada src/primitives/flyology-placement_model.adb flyology-placement_model.o
 compile_ada src/primitives/flyology-task_primitives.ads \
     flyology-task_primitives.o
 compile_ada src/primitives/flyology-clock_model.adb flyology-clock_model.o
@@ -155,7 +155,8 @@ $output_directory/s-mudido.o $output_directory/a-taidfl.o"
 fi
 compile_ada src/bootstrap/flyology-binder_support.adb \
     flyology-binder_support.o
-compile_ada tests/target/scenarios/flyology_m3.adb flyology_m3.o
+compile_ada tests/target/scenarios/flyology_conformance.adb \
+    flyology_conformance.o
 
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" -nostdinc -nostdlib -n -minimal \
@@ -166,9 +167,10 @@ scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     -I"$repository/$m6_test_config_dir" \
     -I"$repository/tests/target/scenarios" \
     -I"$repository/src/platform/$architecture" \
-    -I. $binder_flags flyology_m3.ali
+    -I. $binder_flags flyology_conformance.ali
 
-compile_ada "$output_directory/b~flyology_m3.adb" b~flyology_m3.o generated
+compile_ada "$output_directory/b~flyology_conformance.adb" \
+    b~flyology_conformance.o generated
 
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
@@ -217,11 +219,11 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/limine_requests.o" \
     "$output_directory/exception_runtime.o" \
     "$output_directory/allocator_runtime.o" \
-    "$output_directory/b~flyology_m3.o" \
-    "$output_directory/flyology_m3.o" \
-    "$output_directory/flyology-m5_configuration.o" \
-    "$output_directory/flyology-m6_configuration.o" \
-    "$output_directory/flyology-m6_hook.o" \
+    "$output_directory/b~flyology_conformance.o" \
+    "$output_directory/flyology_conformance.o" \
+    "$output_directory/flyology-scheduler_configuration.o" \
+    "$output_directory/flyology-domain_configuration.o" \
+    "$output_directory/flyology-conformance_profile.o" \
     $m6_link_objects \
     "$output_directory/flyology-conformance.o" \
     "$output_directory/flyology-conformance-observations.o" \
@@ -236,7 +238,6 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/flyology-rts.o" \
     "$output_directory/flyology-kernel.o" \
     "$output_directory/flyology-domain_model.o" \
-    "$output_directory/flyology-placement_model.o" \
     "$output_directory/flyology-task_primitives.o" \
     "$output_directory/flyology-clock_model.o" \
     "$output_directory/flyology-exceptional_completion_model.o" \

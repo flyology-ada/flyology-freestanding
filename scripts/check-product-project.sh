@@ -9,7 +9,7 @@ test -f "$manifest"
 test -f "$repository/flyology.gpr"
 test -f "$repository/gpr/flyology_primitives.gpr"
 test -f "$profiles"
-test -f "$repository/tests/target/scenarios/flyology_m3.adb"
+test -f "$repository/tests/target/scenarios/flyology_conformance.adb"
 test -f "$repository/tests/target/scenarios/flyology-conformance-tasking.adb"
 test -f "$repository/tests/target/scenarios/flyology-conformance-observations.adb"
 test -x "$repository/scripts/build-image.sh"
@@ -62,6 +62,19 @@ if rg -n 'Flyology\.(Task_Core|M3_Runtime)' \
     exit 1
 fi
 
+if rg -n 'Flyology\.(M[0-9]_Architecture|M[0-9]_Configuration|M[0-9]_Hook)' \
+    "$repository/src" "$repository/config" "$repository/tests/target" \
+    >/dev/null; then
+    echo 'milestone-named product configuration or platform unit found' >&2
+    exit 1
+fi
+
+if rg -n '^procedure Flyology_M[0-9]' \
+    "$repository/tests/target/scenarios" >/dev/null; then
+    echo 'milestone-named conformance main found' >&2
+    exit 1
+fi
+
 test -f "$repository/src/kernel/flyology-kernel.adb"
 test -f "$repository/src/rts/flyology-rts.adb"
 test -f "$repository/src/gnarl/s-tassta.adb"
@@ -80,7 +93,7 @@ test ! -e "$repository/runtime/m6"
 test ! -e "$repository/runtime"
 test -f "$repository/tests/legacy/checkpoints/m2/flyology_m2.adb"
 test -f "$repository/config/restrictions/product.adc"
-test -f "$repository/config/scheduler/fifo/flyology-m5_configuration.ads"
-test -f "$repository/config/domains/on/flyology-m6_configuration.ads"
+test -f "$repository/config/scheduler/fifo/flyology-scheduler_configuration.ads"
+test -f "$repository/config/domains/on/flyology-domain_configuration.ads"
 
 echo 'FLYOLOGY:PRODUCT:PROJECT:PASS'

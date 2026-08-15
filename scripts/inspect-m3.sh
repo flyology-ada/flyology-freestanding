@@ -39,7 +39,7 @@ if printf '%s\n' "$program_output" | grep -E 'INTERP|DYNAMIC|TLS|RWE' >/dev/null
     exit 1
 fi
 
-for symbol in _start adainit adafinal _ada_flyology_m3 \
+for symbol in _start adainit adafinal _ada_flyology_conformance \
     flyology_task_start flyology_dispatcher_start flyology_context_switch \
     flyology_m3_prepare_environment flyology_m3_prepare_ap \
     flyology_m3_environment_complete flyology_m3_kick_core \
@@ -91,7 +91,7 @@ for symbol in _start adainit adafinal _ada_flyology_m3 \
     flyology__exceptional_completion_model__consume \
     flyology__dispatcher_model__try_transition \
     flyology__dispatcher_model__next_incarnation \
-    flyology__placement_model__place \
+    flyology__domain_model__place \
     flyology__abort_closure_model__close \
     flyology__termination_model__can_select \
     flyology__termination_model__select_termination \

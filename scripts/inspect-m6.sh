@@ -15,7 +15,7 @@ esac
 
 output_root=${FLYOLOGY_M6_OUTPUT_ROOT:-build/m6}
 elf="$output_root/$architecture/flyology-m3.elf"
-binder="$output_root/$architecture/b~flyology_m3.adb"
+binder="$output_root/$architecture/b~flyology_conformance.adb"
 test -f "$elf"
 test -f "$binder"
 
@@ -40,7 +40,7 @@ if printf '%s\n' "$program_output" | grep -E 'INTERP|DYNAMIC|TLS|RWE' >/dev/null
     exit 1
 fi
 
-for symbol in _start adainit adafinal _ada_flyology_m3 \
+for symbol in _start adainit adafinal _ada_flyology_conformance \
     system__tasking__stages__create_task \
     system__tasking__stages__activate_tasks \
     system__multiprocessors__number_of_cpus \

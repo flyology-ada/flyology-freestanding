@@ -30,7 +30,7 @@ output_root="$output_base/$policy"
 FLYOLOGY_M3_OUTPUT_ROOT="$output_root" scripts/inspect-m3.sh "$architecture"
 
 elf="$output_root/$architecture/flyology-m3.elf"
-binder="$output_root/$architecture/b~flyology_m3.adb"
+binder="$output_root/$architecture/b~flyology_conformance.adb"
 nm_output=$(scripts/toolchain.sh exec "$architecture" "$target-nm" -n "$elf")
 
 for symbol in flyology_m5_interrupt_dispatch \
@@ -38,7 +38,7 @@ for symbol in flyology_m5_interrupt_dispatch \
     flyology_m5_retry_interrupt flyology_m5_retry_count \
     flyology_rts_lock_try_acquire \
     flyology_context_switch_to_task flyology_context_switch_to_full \
-    flyology__m2_architecture__capture_full_context \
+    flyology__platform__capture_full_context \
     flyology__preemption_model__configuration_is_valid \
     flyology__preemption_model__quantum_ticks \
     flyology__preemption_model__account \

@@ -285,7 +285,7 @@ wait_m2_complete:
     b.ne wait_m2_complete
     msr daifclr, #2
     isb
-    bl _ada_flyology_m3
+    bl _ada_flyology_conformance
     address x0, ada_pass
     bl serial_puts_locked
     address x0, m3_boot_pass
