@@ -23,7 +23,7 @@ to the core runtime, ready ordering to the scheduler instance, and context
 transfer to architecture code. Application task creation remains ordinary Ada
 syntax; Flyology exposes no Spawn, fiber, or parallel task dialect.
 
-The initial M3 checkpoint retains terminated bounded TCB and stack slots. It
+The initial tasking capability checkpoint retains terminated bounded TCB and stack slots. It
 supports the demonstrated normal activation/master/completion path and fails
 closed if compiler-emitted unwind entries are reached. This is not exception
 propagation or abnormal cleanup support.
@@ -35,5 +35,5 @@ propagation or abnormal cleanup support.
 - Compiler upgrades require re-running and reviewing the complete probe suite.
 - Clean-room provenance is auditable, but this ADR is an engineering record,
   not legal advice or a warranty about third-party intellectual property.
-- M4 must replace fail-closed unwind entries before claiming exception-driven
+- synchronization capability must replace fail-closed unwind entries before claiming exception-driven
   task cleanup, abort, or abnormal master semantics.

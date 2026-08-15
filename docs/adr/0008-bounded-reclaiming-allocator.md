@@ -6,7 +6,7 @@
 ## Context
 
 GNAT lowers ordinary access-type allocation and `Ada.Unchecked_Deallocation`
-to `__gnat_malloc` and `__gnat_free`. The first M4 checkpoint used a safe
+to `__gnat_malloc` and `__gnat_free`. The first synchronization capability checkpoint used a safe
 monotonic 64-KiB cursor, which proved exhaustion arithmetic but could not reuse
 heap objects after task execution slots and stacks had been retired. Adding a
 second allocator spinlock would also create a new mutation authority and would
@@ -39,7 +39,7 @@ source native concurrency/reuse gate plus both target QEMU images.
 Fragmentation can reject a large allocation even when total free space is
 sufficient; this is a deterministic bounded allocator, not a virtual-memory
 manager. Scanning 4,096 units under the global lock is acceptable for the
-current small M4 pool but must be reconsidered before substantially increasing
+current small synchronization capability pool but must be reconsidered before substantially increasing
 capacity. General controlled-object finalization races and storage-pool
 customization remain separate GNARL/Ada semantics rather than allocator
 metadata concerns.

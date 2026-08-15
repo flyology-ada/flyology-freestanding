@@ -27,7 +27,7 @@ esac
 
 dependency_root=${FLYOLOGY_DEPENDENCIES:-downloads}
 limine="$dependency_root/limine-12.5.2"
-output_directory=${FLYOLOGY_DISK_OUTPUT_DIRECTORY:-"build/m1/$architecture"}
+output_directory=${FLYOLOGY_DISK_OUTPUT_DIRECTORY:-"build/bootstrap/$architecture"}
 image="$output_directory/flyology-$architecture.fat"
 mtools_root=${FLYOLOGY_MTOOLS_ROOT:-/opt/homebrew/bin}
 mtools_digest=e8310ca53ac5f471b7cd8b0b4dacd2ef11a57e399e35d034d1b6899e49dd48a6

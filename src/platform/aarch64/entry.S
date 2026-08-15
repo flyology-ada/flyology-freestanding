@@ -276,13 +276,13 @@ wait_online:
     bl interrupt_idle_reschedule_test
     bl interrupt_complete_increment
 #endif
-wait_m2_complete:
+wait_interrupts_complete:
 #ifdef FLYOLOGY_TASKING
     wfe
     address x0, dispatcher_ready_count
     ldar w1, [x0]
     cmp x1, x20
-    b.ne wait_m2_complete
+    b.ne wait_interrupts_complete
     msr daifclr, #2
     isb
     bl _ada_flyology_conformance
@@ -299,7 +299,7 @@ wait_m2_complete:
     address x0, interrupt_complete_count
     ldar w1, [x0]
     cmp x1, x20
-    b.ne wait_m2_complete
+    b.ne wait_interrupts_complete
     address x0, interrupt_pass
     bl serial_puts_locked
     bl adafinal

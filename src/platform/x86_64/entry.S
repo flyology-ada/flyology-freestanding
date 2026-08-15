@@ -253,12 +253,12 @@ wait_online:
     call interrupt_idle_reschedule_test
     lock incl interrupt_complete_count(%rip)
 #endif
-wait_m2_complete:
+wait_interrupts_complete:
 #ifdef FLYOLOGY_TASKING
     pause
     mov dispatcher_ready_count(%rip), %eax
     cmp %r13d, %eax
-    jne wait_m2_complete
+    jne wait_interrupts_complete
     sti
     call _ada_flyology_conformance
     lea ada_pass(%rip), %rdi
@@ -273,7 +273,7 @@ wait_m2_complete:
     pause
     mov interrupt_complete_count(%rip), %eax
     cmp %r13d, %eax
-    jne wait_m2_complete
+    jne wait_interrupts_complete
     lea interrupt_pass(%rip), %rdi
     call serial_puts_locked
     call adafinal

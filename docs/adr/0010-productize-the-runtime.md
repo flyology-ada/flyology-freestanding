@@ -8,7 +8,7 @@
 Flyology was developed as a sequence of independently gated milestones. That
 made early uncertainty visible and kept each checkpoint reviewable, but the
 milestone names have become accidental architecture. Current production builds
-assemble sources from `runtime/m3`, `runtime/m4`, `runtime/m5`, and `runtime/m6`;
+assemble sources from four sequential milestone directories;
 the principal GNARL semantic facade is named `Flyology.M3_Runtime`; the platform
 contract is named `Flyology.M2_Architecture`; target entry assembly still uses
 an `m1_entry.S` filename; and demonstrations, structured evidence markers, and

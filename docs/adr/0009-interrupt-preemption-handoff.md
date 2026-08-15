@@ -5,8 +5,8 @@
 
 ## Context
 
-M2 captured complete interrupt frames but returned to the interrupted task.
-M5 must sometimes abandon the reusable per-core exception stack, make the
+interrupt-substrate checkpoint captured complete interrupt frames but returned to the interrupted task.
+preemption capability must sometimes abandon the reusable per-core exception stack, make the
 interrupted task Ready, run the dispatcher, and later resume the exact
 instruction. Publishing `Current` before the incoming task stack is installed
 would let an interrupt mistake the dispatcher stack for task state. Retaining

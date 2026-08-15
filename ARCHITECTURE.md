@@ -69,7 +69,7 @@ Preemption-disable depth is per core. A reschedule received while depth is nonze
 
 A scheduling domain owns one policy instance, ready structures, preemption configuration, admitted tasks, and eligible cores. Cores are policy-neutral. Initial domain membership is immutable. `CPU => n` retains standard Ada specific-CPU meaning and must also satisfy domain eligibility; `Not_A_Specific_CPU` permits placement only among the task's domain-eligible cores.
 
-No cross-domain migration is supported through M6 because priority interpretation, pending timers, blocked entry queues, protected actions, and ownership transfer lack defined semantics.
+No cross-domain migration is supported through dispatching-domain capability because priority interpretation, pending timers, blocked entry queues, protected actions, and ownership transfer lack defined semantics.
 
 ## Boot order
 

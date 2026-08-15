@@ -30,8 +30,8 @@ single-winner timeout arbitration are SPARK kernels. Interrupt handlers only
 disable/acknowledge the local timer and release-publish a timer request epoch.
 The owning core drains due exact tokens under the RTS lock at a dispatcher
 boundary, reprograms its own timer, and resumes winners through the common task
-state authority. M4 therefore provides timed blocking but not arbitrary
-instruction preemption; M5 will connect complete interrupt frames to dispatch.
+state authority. synchronization capability therefore provides timed blocking but not arbitrary
+instruction preemption; preemption capability will connect complete interrupt frames to dispatch.
 
 ## Consequences
 

@@ -22,7 +22,7 @@ pinned native GNAT/GCC 15.3 compiler is used only for host ABI/concurrency
 tests; the current Alire cross releases are GCC/GNAT 15.3.0 and have no default
 target runtime.
 
-M4 exception images use only the generic `libgcc` unwinder contained in those
+synchronization capability exception images use only the generic `libgcc` unwinder contained in those
 pinned compiler archives. The installed `libgcc.a` hashes are SHA-256
 `b6d172e843239c3fa3906c0d972936a48ebf3d4249a0d0e723f83ecb18ff2304`
 for x86-64 and
@@ -86,14 +86,14 @@ both:    -smp cpus=N,sockets=1,cores=N,threads=1   where N is 1 or 4
 
 `virtualization=off` makes the QEMU AArch64 contract EL1, but startup still reads and validates `CurrentEL`. TCG is the reproducibility baseline on the Apple Silicon host; acceleration-specific coverage is not claimed.
 
-The explicit x86 TSC frequency is part of the M4 clock contract. Flyology
+The explicit x86 TSC frequency is part of the synchronization capability clock contract. Flyology
 calibrates each local x2APIC timer against it and makes no `invtsc` or physical
 hardware claim. AArch64 uses the architected virtual counter frequency
 reported by `CNTFRQ_EL0` on the pinned `virt-10.2` machine.
 
 ## UEFI firmware
 
-M1 uses the firmware shipped with the pinned local QEMU 10.2.0 package and validates each file before launch:
+bootstrap checkpoint uses the firmware shipped with the pinned local QEMU 10.2.0 package and validates each file before launch:
 
 | Image | SHA-256 |
 | --- | --- |

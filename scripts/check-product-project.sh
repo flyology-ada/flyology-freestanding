@@ -45,9 +45,7 @@ for profile in $profile_names; do
 done
 
 if find "$repository/src" -type f \
-    \( -name 'flyology-m*_demo.ads' -o -name 'flyology-m*_demo.adb' \
-       -o -name 'flyology_m3.adb' -o -name 'flyology-m6_hook.ads' \
-       -o -name 'flyology-m6_hook.adb' \) -print | grep .; then
+    \( -name '*_demo.ads' -o -name '*_demo.adb' \) -print | grep .; then
     echo 'target conformance scenario found under src/' >&2
     exit 1
 fi
@@ -57,16 +55,18 @@ if rg -n '\bDemo_[A-Za-z0-9_]+' "$repository/src" >/dev/null; then
     exit 1
 fi
 
-if rg -n 'Flyology\.(Task_Core|M3_Runtime)' \
-    "$repository/src" "$repository/tests/target" >/dev/null; then
-    echo 'milestone task authority name found in current source' >&2
-    exit 1
-fi
-
 if rg -n 'Flyology\.(M[0-9]_Architecture|M[0-9]_Configuration|M[0-9]_Hook)' \
     "$repository/src" "$repository/config" "$repository/tests/target" \
     >/dev/null; then
     echo 'milestone-named product configuration or platform unit found' >&2
+    exit 1
+fi
+
+if find "$repository" \
+    \( -path "$repository/.git" -o -path "$repository/build" \) -prune \
+    -o -print | sed "s#^$repository/##" | \
+    rg '(^|[/_.-])m[0-9]([/_.-]|$)' >/dev/null; then
+    echo 'milestone name found in the maintained filesystem' >&2
     exit 1
 fi
 
@@ -96,16 +96,12 @@ test -f "$repository/src/bootstrap/system.ads"
 test -f "$repository/src/abi/exception_runtime.c"
 test -f "$repository/src/platform/x86_64/entry.S"
 test -f "$repository/src/platform/aarch64/entry.S"
-test ! -e "$repository/runtime/m3"
 test ! -e "$repository/runtime/core"
 test ! -e "$repository/runtime/bootstrap"
 test ! -e "$repository/arch"
-test ! -e "$repository/runtime/m4"
-test ! -e "$repository/runtime/m5"
-test ! -e "$repository/runtime/m6"
 test ! -e "$repository/runtime"
 test -f \
-    "$repository/tests/legacy/checkpoints/m2/flyology_interrupt_checkpoint.adb"
+    "$repository/tests/legacy/checkpoints/interrupts/flyology_interrupt_checkpoint.adb"
 test -f "$repository/config/restrictions/product.adc"
 test -f "$repository/config/scheduler/fifo/flyology-scheduler_configuration.ads"
 test -f "$repository/config/domains/on/flyology-domain_configuration.ads"

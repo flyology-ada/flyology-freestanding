@@ -3,10 +3,10 @@ set -eu
 
 scripts/check.sh
 scripts/prove.sh
-scripts/test-m3-models.sh
-scripts/test-m4-models.sh
-scripts/test-m5-policy.sh
-scripts/test-m6-domain-model.sh
+scripts/test-tasking-models.sh
+scripts/test-synchronization-models.sh
+scripts/test-preemption-policy.sh
+scripts/test-domain-model.sh
 scripts/test-tla-models.sh
 
 echo 'FLYOLOGY:FORMAL_MODELS:PASS'

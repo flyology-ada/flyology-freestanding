@@ -1,0 +1,266 @@
+# synchronization capability review — cross-core synchronization and abnormal lifecycle
+
+- Review date: 2026-08-14
+- Reviewed implementation commit: `0d8fb6fcc197f10822bcc2e77d2d7d5b66b90dc6`
+- Reviewed source tree: `6eebdee7b01345b74c3ad245ab34bff9d0b41d3c`
+- Closing gate: `scripts/verify-synchronization.sh`
+- Proof gate: `scripts/prove.sh` (FSF GNATprove 16.1.0, level 2)
+
+## Evidence
+
+The clean reviewed-tree gate ended in `FLYOLOGY:RTS:GATE:PASS`. It checked
+repository hygiene; proved deterministic lifecycle, wait, timer, priority,
+ceiling, allocator, exceptional-completion, abort-closure, and collective-
+termination kernels; ran pinned host models and native ABI black boxes; rebuilt
+owned compiler-interface probes with both target compilers; checked voluntary
+and interrupt layouts; reproduced and inspected both final images; verified the
+linked unwind tables; booted all four architecture/CPU cells; and repeated the
+complete SMP4 synchronization campaign ten times per architecture. Every QEMU
+run had a 20-second timeout and rejected `FLYOLOGY:FAIL:` and `PANIC:`.
+
+| Target | CPU cells | ELF SHA-256 | FAT SHA-256 |
+| --- | --- | --- | --- |
+| x86-64 `pc-q35-10.2` | 1, 4, plus 10 × SMP4 | `0d49de6ce073bf2b7320420b9934a81d43ed1f308a68ed93409d9c7202edd284` | `cc7ab59c10644b2419a57e56c7566c624faa6f2b925ed12560604ebcf02590a3` |
+| AArch64 `virt-10.2` / GICv3 | 1, 4, plus 10 × SMP4 | `25b6fcdd4191ee11622d3a487de36b7d2c125538d28e10d13601b2f6515fc031` | `eda1b44071dc9260b2288583f73b055aecc7b82505e17321d463c9293242e3dc` |
+
+GNATprove proved all 403 generated checks in 19 SPARK-analyzed deterministic
+units, with zero justified or unproved checks and no `Assume`. The report
+records 181 run-time checks, 45 assertions, 66 functional contracts, and 106
+termination checks. `Flyology.Task_Core`, imported task-primitives declarations,
+compiler-facing GNARL facades, assembly, the C unwinder, and the allocator's C
+metadata/critical-section facade remain outside SPARK behind typed boundaries.
+The production runtime directly calls the proved dispatcher, priority queue,
+wait, timer, ceiling, termination, and abort-closure kernels where applicable;
+the concurrent orchestration itself is not claimed proved.
+
+The host gates emitted exactly
+`FLYOLOGY:TASKING:MODEL:PASS:EDGES 313:HASH 6790843470299599875` and
+`FLYOLOGY:RTS:MODEL:PASS:EDGES 224969:HASH 12736863837444350006`.
+The latter enumerates the bounded wait winners and duplicates, exact FIFO and
+timer operations, priority and ceiling transitions, exception-completion
+phases, allocator maps, dependent abort closure, and collective termination.
+It is exhaustive over those bounded deterministic inputs, not over concurrent
+assembly/GNARL interleavings. Native gates separately exercised allocator CAS
+contention/exhaustion and abort-versus-exception precedence.
+
+The four baseline logs were recorded on 2026-08-14 between 06:59 and 07:01
+America/Vancouver. Every one contains each required synchronization capability semantic marker exactly
+once. All twenty SMP4 stress logs contain the causal
+`FLYOLOGY:RTS:COLLISION_STRESS:PASS` marker exactly once. The reproducibility
+claim remains same-host, same-worktree rebuilding in two independent output
+roots; it is not independently provisioned clean-room reproduction.
+
+## Findings and dispositions
+
+### Blocker — timed interrupt ingress could be acknowledged before draining
+
+The initial dispatcher sampled the request epoch after programming a one-shot
+timer. A timer firing between programming and the idle snapshot could be
+acknowledged without draining its now-disabled ingress, stranding the waiter.
+
+Disposition: fixed. The dispatcher carries the processed epoch from before the
+drain through idle preparation. Both architecture idle paths mask, recheck the
+release-published epoch, and sleep only when no unprocessed request exists.
+Timer ISRs publish ingress/reasons and return through the complete interrupt-substrate checkpoint frame;
+they never mutate Ada queues or switch tasks in synchronization capability.
+
+### Blocker — synchronization paths had competing ownership and cleanup rules
+
+Queued protected entry calls originally retained ceiling depth, timed
+rendezvous records could be freed by a server before the exact caller consumed
+timeout, and accepted exceptional completion could strand or reuse a call
+record. Accept-side FIFO order also followed allocation-slot order rather than
+arrival order.
+
+Disposition: fixed. Blocking drops protected ownership and restores active
+priority in the same locked handoff. Completion records use one checked phase
+machine and remain exact-caller owned until consumption. Timed-out queued calls
+cannot be reused by server scans. Every rendezvous record carries a monotonic
+sequence, and acceptance selects the oldest matching queued call. Protected
+service, timeout, abort, cancellation, and exceptional completion all resolve
+one generation-tagged wait under the one RTS lock and remove losing
+registrations exactly once.
+
+### Blocker — abort did not cover lifecycle waits or dependent closure
+
+The first abort path could index a nonexistent call while aborting a blocked
+acceptor, fail-stop on activation/master waits, and abort only one named task
+without its dependent task closure.
+
+Disposition: fixed. Wait-kind dispatch distinguishes unaccepted caller,
+accepted caller, server accept, protected entry, activation, master, delay, and
+termination waits. Activation and master completion retain their natural exact
+wake while abort is deferred, then deliver pending abort immediately after
+cleanup. A proved 16-slot closure computes the named tasks and every transitive
+dependent before any publication; production validates the complete plan and
+publishes all abort requests atomically. Multi-task and nested dependent abort
+are ordinary-Ada gates on both SMP paths.
+
+### Blocker — exception propagation and abort identity were incomplete
+
+The original last-chance shims could not support ordinary handlers, protected
+or rendezvous exceptional completion, abnormal task cleanup, or abort bypass of
+user `when others`. An interior `.eh_frame` registration also made unwind lookup
+link-shape dependent, and one propagating occurrence slot lost an outer abort
+during nested handled cleanup.
+
+Disposition: fixed. One owned bounded ZCX runtime registers the complete linked
+frame table exactly once. Final inspection proves exact section bounds, one
+terminator, target-root FDE/LSDA coverage, and allocator unwind coverage.
+Per-task bounded handler and propagation stacks retain nested occurrence
+identity. Abort bypasses ordinary user handlers, remains visible to generated
+cleanup through `Triggered_By_Abort`, and is caught only at the owned task root.
+Exceptional protected/rendezvous completion transfers stable exception
+identity after clearing exact ownership, while abort wins at the compiler safe
+boundary. Both target probes and ordinary-Ada/host black boxes gate these paths.
+
+### Blocker — abnormal activation and task reclamation could run on live stacks
+
+A task failing before `Complete_Activation` left the activation group pending,
+unactivated dependents were not expunged, and completion published termination
+before switching off the task stack. Dynamic deallocation lacked a verified
+compiler-facing lifecycle and the first allocator never reclaimed storage.
+
+Disposition: fixed. Activation reports success or failure exactly once; the
+activator wakes after every member reports and receives `Tasking_Error` for any
+failure. Dormant expunge validates the complete same-master plan before
+mutation. Running tasks transition to `Retiring`, switch to a separate
+dispatcher stack, and become `Terminated` only in the dispatcher callback.
+Intrinsic `Ada.Unchecked_Deallocation` lowering is pinned on both targets as
+`Stages.Free_Task`, raw free, then access nulling. Freeing a live task requests
+abort, waits for exact off-stack retirement, releases the execution incarnation,
+and preserves the stable old `Task_Id` tombstone. The bounded first-fit allocator
+reclaims exact extents under the RTS lock and is covered by proof-model,
+contention, exhaustion, target-unwind, and cumulative-reuse gates.
+
+### Blocker — termination alternatives were only accept stubs
+
+The first selective-wait facade always blocked for a caller and did not
+implement the collective terminate rule.
+
+Disposition: fixed for the retained one-alternative surface. Each task publishes
+its open terminate alternative and exact accept wait under the RTS lock. The
+proved termination kernel selects only when the depended-on master is closed
+and every transitive dependent is terminated or similarly waiting. Selection
+wakes the complete set in one transaction; a private termination identity runs
+compiler cleanup but bypasses user handlers. A queued call still wins if it was
+published first, and calls after selection raise `Tasking_Error`.
+
+### High — priority and ceiling evidence was disconnected from production
+
+Early models proved priority queues and ceiling nesting, but the compiler
+priority and protected-object arguments were discarded or observed only in
+sequential smoke tests.
+
+Disposition: fixed. Production TCBs retain base and active priority. Ready-task
+changes remove/reinsert through the proved priority policy and publish a remote
+reschedule request. The ordinary-Ada gate changes two blocked callers and
+separately changes a remote rendezvous server. Configured ceiling-8 and
+ceiling-10 objects prove rejection above ceiling, nested active-priority raises,
+and deferred base-priority restoration before their markers.
+
+### High — separated tests did not establish composite winner cleanup
+
+Individual service, timeout, and abort tests could pass without exercising
+their near-boundary call-record and queue ownership composition. The first
+campaign also assumed that the environment issuing abort immediately after
+service must run before the newly ready remote caller, which is not an SMP
+guarantee and produced a rare false failure.
+
+Disposition: fixed. Every image runs six protected-entry and six rendezvous
+orderings, including equal timeout/service boundaries and abort before or after
+acceptance. It permits whichever contender or ready task legitimately wins a
+tight boundary but rejects double/partial outcomes, callable terminated
+identities, retained queues, failed master completion, and failed post-collision
+protected reuse.
+The aggregate marker is required by inspection, all four baseline cells, and
+all twenty closing stress runs. A separate focused x86 campaign passed 30/30
+serialized SMP4 runs after removing the invalid scheduling assumption.
+
+## Perspective review
+
+- Architecture and boundary integrity: GNARL owns language synchronization and
+  lifecycle; Task_Core owns task state, exact waits, timer tables, queues,
+  context handoff, and idle; scheduler policy owns ready ordering only;
+  architecture owns clocks, local timers, interrupt frames, and notifications.
+- Systems/hardware correctness: x86 uses ordered TSC reads and calibrated
+  x2APIC one-shot timers under the pinned 1 GHz QEMU contract. AArch64 validates
+  `CNTFRQ_EL0`, reads `CNTVCT_EL0`, and programs `CNTV_CVAL_EL0`/PPI 27. Both
+  SMP1/4 paths preserve the reason-before-epoch and publication-before-IPI/SGI
+  ordering and use race-free idle entry.
+- Ada/GNARL compatibility: all product tasks, protected objects, entry calls,
+  delays, priorities, abort statements, terminate alternatives, dynamic tasks,
+  and deallocations originate in ordinary Ada. Compiler-facing profiles and
+  lowering order are backed by owned GNAT 15.3 probes; there is no public
+  creation or synchronization dialect.
+- SMP and atomics: the global RTS lock is the single publication authority;
+  application and protected/rendezvous participants still execute on distinct
+  cores. Exact tokens contain task incarnation and wait generation. Remote
+  ready/timer changes publish before x2APIC IPI or GICv3 SGI.
+- Interrupt/ABI/context: voluntary switch and full asynchronous frames remain
+  distinct. Timer ingress preserves all enabled state and does not perform an
+  interrupt-time task switch. x87/SSE and base AArch64 FP/SIMD state are covered;
+  AVX/SVE are not enabled.
+- Scheduler-policy separation: priority ordering is implemented by the policy;
+  GNARL requests state changes but does not select or switch. synchronization capability remains
+  cooperative at safe boundaries; standard preemption and alternative policy
+  instances are preemption capability.
+- Memory and lifecycle: execution slots/stacks are reusable only after off-stack
+  retirement and exact master observation. Heap extents are reclaimed and
+  double/foreign frees fail closed. Stable language identities are intentionally
+  retained for the bounded image lifetime.
+- SPARK soundness: 403 checks cover deterministic kernels without assumptions.
+  C atomics, exception machinery, concurrent GNARL orchestration, architecture
+  code, and hardware remain explicitly outside the proof claim.
+- Security and diagnostics: invalid identities, stale generations, impossible
+  phases, queue/timer/call ownership mismatches, capacity/extent errors, handler
+  stack corruption, invalid free, and unsupported foreign unwind state fail
+  closed. Structured markers are emitted only after causal assertions.
+- Portability and claims: execution evidence is limited to pinned QEMU 10.2 TCG,
+  q35/virt, EDK2, Limine, SMP1/4, GNAT 15.3 target compilers, and GNATprove 16.1.
+  No physical hardware, hosted CI, ACPI/DT discovery, or other compiler claim is
+  made.
+- Licensing: tracked implementation is original MIT/Apache-2.0 clean-room work.
+  GNAT runtime source was neither copied nor used as an implementation input.
+  The external libgcc unwinder and GCC Runtime Library Exception are recorded in
+  `NOTICE` and the external-input lock.
+
+## Subtraction review
+
+There remains one task-state/current/ready/context authority and one RTS lock.
+No public Spawn, fiber, wait-token, scheduler, or task-creation API was added.
+The custom generic deallocation adapter was removed in favor of the compiler's
+intrinsic lowering and narrow `Stages.Free_Task` facade. Duplicate exception-
+frame registration, disconnected request smoke state, marker-only timer state,
+and server-side timed-call reclamation were removed rather than wrapped. C is
+limited to the unwind ABI and checked allocator metadata boundary.
+
+## Residual risks and unsupported claims
+
+- synchronization capability scheduling is cooperative at compiler/runtime safe boundaries. A CPU-bound
+  task that never reaches one is not asynchronously preempted or aborted. Full
+  interrupt-frame-to-task transfer and no-yield progress are preemption capability gates.
+- The retained synchronization surface is bounded. Entry families, requeue,
+  asynchronous select, multiple/guarded/else/delay selective alternatives,
+  timed selective wait, priority-ordered entry queues, and absolute-delay timed
+  protected calls are not implemented or claimed by the synchronization capability roadmap outcome.
+- Exception transfer preserves identity only. Messages, tracebacks, foreign
+  exception classes, and general `Exception_Occurrence` copying are unsupported.
+- Execution has 15 non-environment slots, activation chains are bounded at 32,
+  stable identities at 256, handler/propagation stacks at fixed depth, and heap
+  metadata/pool capacity are fixed. Stable identity reclamation is not claimed.
+- The proof covers deterministic kernels, not the concurrent RTS lock,
+  architecture interrupts, C unwinder, or complete GNARL orchestration.
+- The timer/machine evidence is QEMU-specific. No physical-hardware validation,
+  hosted CI, or independent clean-room reproduction has run. Shellcheck remains
+  unavailable; shell syntax/static checks still pass.
+
+## Decision
+
+synchronization capability is complete for the roadmap's bounded cross-core synchronization and
+abnormal-lifecycle outcome: protected objects, rendezvous, relative/absolute
+delays, dynamic priority and ceiling behavior, exact wakeups, collective
+termination, abort races, activation/exception cleanup, dynamic task
+destruction, execution-slot reuse, and bounded heap reclamation on both
+architectures at SMP1/4. This decision does not claim the unsupported breadth
+above or preemption capability interrupt-time preemption.

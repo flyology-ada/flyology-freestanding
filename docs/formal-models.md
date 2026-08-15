@@ -50,5 +50,5 @@ Run `scripts/test-tla-models.sh`. It requires the ignored external
 `downloads/tla2tools-1.8.0.jar` and the pinned OpenJDK 21 binary recorded in
 `docs/external-inputs.md`. The tool is external MIT-licensed material and is not
 linked into or shipped with the runtime. `scripts/verify-formal-models.sh`
-combines this exploration with GNATprove and all bounded Ada host models; M6 and
+combines this exploration with GNATprove and all bounded Ada host models; dispatching-domain capability and
 later milestone gates must invoke that aggregate before their target runs.

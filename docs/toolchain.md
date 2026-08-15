@@ -1,6 +1,6 @@
 # Reproducible toolchain contract
 
-M0 uses two independent Alire workspaces so selecting one cross-compiler cannot silently replace the other. `scripts/toolchain.sh` is the authoritative entry point.
+bootstrap-minimum checkpoint uses two independent Alire workspaces so selecting one cross-compiler cannot silently replace the other. `scripts/toolchain.sh` is the authoritative entry point.
 
 Pinned tools:
 
@@ -25,6 +25,6 @@ scripts/toolchain.sh exec x86_64 x86_64-elf-gnatls -v
 scripts/toolchain.sh exec aarch64 aarch64-elf-gnatls -v
 ```
 
-The compiler hashes above are the Alire origin hashes reported for Darwin/AArch64. Linux clean-room builder origins have distinct archives and must be recorded separately if that fallback is activated. An installed toolchain is necessary but not sufficient evidence for M0: the gate also records compiler/runtime identity, input hashes, both ELF inspections, and a second clean build with matching output hashes.
+The compiler hashes above are the Alire origin hashes reported for Darwin/AArch64. Linux clean-room builder origins have distinct archives and must be recorded separately if that fallback is activated. An installed toolchain is necessary but not sufficient evidence for bootstrap-minimum checkpoint: the gate also records compiler/runtime identity, input hashes, both ELF inspections, and a second clean build with matching output hashes.
 
 The current Alire index also offers native GNAT 16.1.0. That is not a substitute for the target compilers: as of this pin, both `gnat_x86_64_elf` and `gnat_aarch64_elf` top out at 15.3.1. Target code therefore uses GCC/GNAT 15.3.0 as packaged by the 15.3.1 Alire releases. The cross compilers intentionally provide no default Ada runtime; Flyology supplies an original clean-room compiler-compatible runtime rather than linking a hosted runtime.
