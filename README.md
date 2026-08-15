@@ -2,7 +2,11 @@
 
 Flyology Barebones is a freestanding GNAT Ada tasking runtime for the fixed QEMU x86-64 `q35` and AArch64 `virt` virtual-hardware contracts. It aims to supply the runtime core, full-GNARL tasking integration, SMP dispatcher, synchronization primitives, scheduler policies, and architecture support from which a system can be built. It is not an operating-system distribution.
 
-The first release is not complete. Work proceeds through the independently gated milestones in [ROADMAP.md](ROADMAP.md); no milestone is complete until its build, proof, review, and QEMU evidence is recorded.
+The first release is not complete. The independently gated milestones in
+[ROADMAP.md](ROADMAP.md) are historical capability checkpoints. The runtime is
+now being productized around responsibility-owned components under
+[ADR-0010](docs/adr/0010-productize-the-runtime.md); no capability is complete
+until its build, proof, review, and QEMU evidence is recorded.
 
 ## Product constraints
 
@@ -18,9 +22,14 @@ The first release is not complete. Work proceeds through the independently gated
 - `ROADMAP.md` — milestone gates and current status.
 - `docs/adr/` — durable design decisions.
 - `docs/reviews/` — evidence-based milestone reviews.
+- `docs/clean-room/` — normative compiler-interface methodology and evidence.
 - `scripts/` — authoritative build, test, proof, and reproducibility entry points (introduced during M0).
 - `runtime/` — original runtime/platform implementation (introduced incrementally).
 - `runtime/bootstrap/` — original minimal compiler-compatibility runtime used by early milestones.
+
+Milestone-named runtime and script paths are transitional. They remain supported
+only while capability-based Alire/GPR projects and gates are introduced and
+differentially verified; they do not define permanent product layers.
 
 ## Authoritative gates
 

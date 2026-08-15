@@ -1,0 +1,76 @@
+schema_version = 1
+license = "MIT OR Apache-2.0"
+methodology = "docs/clean-room/methodology.md"
+toolchain_lock = "docs/external-inputs.md"
+
+[[interface_set]]
+id = "bootstrap-system"
+compiler = "GNAT-FSF 15.3.0"
+architectures = ["x86_64-elf", "aarch64-elf"]
+record = "docs/clean-room/m0-compiler-interface.md"
+probe = "scripts/verify-m0.sh"
+implementation = "runtime/bootstrap"
+gate = "scripts/verify-m0.sh"
+status = "historical"
+claims = ["shape", "implementation"]
+proof_scope = "none"
+
+[[interface_set]]
+id = "binder-bootstrap"
+compiler = "GNAT-FSF 15.3.0"
+architectures = ["x86_64-elf", "aarch64-elf"]
+record = "docs/clean-room/m1-compiler-interface.md"
+probe = "scripts/verify-m1.sh"
+implementation = "runtime/bootstrap"
+gate = "scripts/verify-m1.sh"
+status = "supported"
+claims = ["shape", "implementation", "semantics"]
+proof_scope = "none"
+
+[[interface_set]]
+id = "tasking-lifecycle"
+compiler = "GNAT-FSF 15.3.0"
+architectures = ["x86_64-elf", "aarch64-elf"]
+record = "docs/clean-room/m3-tasking-interface.md"
+probe = "scripts/probe-m3-interface.sh"
+implementation = "runtime/m3"
+gate = "scripts/verify-m3.sh"
+status = "bounded"
+claims = ["shape", "implementation", "semantics", "proof"]
+proof_scope = "deterministic core models only; excludes Task_Core, the compiler facade, C, and assembly"
+
+[[interface_set]]
+id = "tasking-synchronization-and-exceptions"
+compiler = "GNAT-FSF 15.3.0"
+architectures = ["x86_64-elf", "aarch64-elf"]
+record = "docs/clean-room/m4-compiler-interface.md"
+probe = "scripts/probe-m4-interface.sh"
+implementation = "runtime/m3"
+gate = "scripts/verify-m4.sh"
+status = "bounded"
+claims = ["shape", "implementation", "semantics", "proof"]
+proof_scope = "deterministic synchronization, clock, allocator, queue, and arbitration kernels only; excludes Task_Core, the compiler facade, C, and assembly"
+
+[[interface_set]]
+id = "dispatching-policy"
+compiler = "GNAT-FSF 15.3.0"
+architectures = ["x86_64-elf", "aarch64-elf"]
+record = "docs/clean-room/m5-policy-interface.md"
+probe = "scripts/probe-m5-policy.sh"
+implementation = "runtime/m5"
+gate = "scripts/verify-m5.sh"
+status = "supported"
+claims = ["shape", "implementation", "semantics", "proof"]
+proof_scope = "deterministic scheduling and preemption models only; excludes the concurrent wrapper and interrupt assembly"
+
+[[interface_set]]
+id = "dispatching-domains"
+compiler = "GNAT-FSF 15.3.0"
+architectures = ["x86_64-elf", "aarch64-elf"]
+record = "docs/clean-room/m6-domain-interface.md"
+probe = "scripts/probe-m6-interface.sh"
+implementation = "runtime/m6"
+gate = "scripts/verify-m6.sh"
+status = "bounded"
+claims = ["shape", "implementation", "semantics", "proof"]
+proof_scope = "deterministic domain model only; excludes the concurrent wrapper and platform code"

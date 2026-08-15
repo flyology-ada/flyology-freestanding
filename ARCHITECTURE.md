@@ -12,6 +12,12 @@ This document is normative unless superseded by an accepted ADR.
 
 Dependencies point downward through typed contracts. Architecture code does not choose policy; policy code does not manipulate exception frames; GNARL does not directly program interrupt controllers.
 
+The responsibility-based product source and build structure is defined by
+[ADR-0010](docs/adr/0010-productize-the-runtime.md). Milestone-named paths are
+transitional historical structure, not additional architectural layers. During
+the migration, they may remain in supported project source paths only while a
+differential build or compatibility gate still requires them.
+
 ## Identity and topology
 
 `Core_Id` is a validated dense value in `0 .. CPU_Count - 1`. Limine `processor_id`, x86 LAPIC/x2APIC IDs, and AArch64 MPIDR values remain distinct hardware identities stored in topology records. Mapping validation rejects duplicates, capacity overflow, missing BSP identity, and unsupported CPU counts before AP release.
@@ -59,3 +65,10 @@ SPARK covers deterministic validation and policy kernels: extents/alignment, den
 ## Clean-room runtime boundary
 
 The tracked runtime is original Flyology work. It implements the compiler-facing GNARL/GNULL architecture without copying or adapting GNAT runtime source. Interface discovery is limited to the Ada Reference Manual, public compiler documentation, compiler-generated expanded Ada/binder output, symbol/ALI diagnostics, and black-box conformance tests. Evidence is recorded under `docs/clean-room/`. GCC/GNAT source archives may be pinned for toolchain provenance but are not runtime implementation inputs.
+
+The normative discovery and upgrade procedure is
+[`docs/clean-room/methodology.md`](docs/clean-room/methodology.md), and the
+machine-readable evidence index is
+[`docs/clean-room/interfaces.toml`](docs/clean-room/interfaces.toml). Compiler
+interface shape, implementation, target semantics, and formal proof are separate
+claims and require separate evidence.

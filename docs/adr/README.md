@@ -11,3 +11,4 @@ ADRs are numbered, immutable once accepted except for status links, and supersed
 - [ADR-0007: Pin the QEMU monotonic-clock and local-timer contract](0007-qemu-monotonic-clock-and-local-timers.md) — accepted.
 - [ADR-0008: Reclaim compiler heap objects under the RTS critical section](0008-bounded-reclaiming-allocator.md) — accepted.
 - [ADR-0009: Task-owned interrupt continuations and atomic dispatcher handoff](0009-interrupt-preemption-handoff.md) — accepted.
+- [ADR-0010: Productize the runtime around capabilities](0010-productize-the-runtime.md) — accepted.

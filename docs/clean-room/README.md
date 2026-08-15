@@ -1,40 +1,23 @@
 # Clean-room interface evidence
 
-This directory records the source of every compiler-facing runtime interface without consulting or reproducing GNAT runtime implementation source.
+This directory records the provenance and supported semantics of every
+compiler-facing runtime interface without consulting or reproducing GNAT runtime
+implementation source.
 
-Permitted evidence is the Ada Reference Manual, public compiler documentation, generated expanded Ada/binder/ALI output from Flyology-owned probes, compiler/linker diagnostics, and black-box conformance tests. Each record identifies the probe, tool version, observed required surface, and independently designed implementation contract.
+- [Methodology](methodology.md) is the normative discovery, implementation, and
+  upgrade procedure.
+- [Interface manifest](interfaces.toml) is the machine-readable evidence index.
+- [M0](m0-compiler-interface.md) records the minimal package `System` boundary.
+- [M1](m1-compiler-interface.md) records binder and diagnostic bootstrap shape.
+- [M3](m3-tasking-interface.md) records ordinary task activation, masters,
+  placement, identity, and completion.
+- [M4](m4-compiler-interface.md) records synchronization, delay, priority,
+  exception, abort, dynamic-task, and finalization surfaces.
+- [M5](m5-policy-interface.md) records standard dispatching-policy lowering.
+- [M6](m6-domain-interface.md) records standard dispatching-domain lowering.
 
-## M0 package `System` probe
-
-An isolated agent with no repository or GNAT-runtime-source context created this owned probe:
-
-```ada
-procedure Noop
-  with Export,
-       Convention    => C,
-       External_Name => "noop";
-
-procedure Noop is
-begin
-   null;
-end Noop;
-```
-
-With no `system.ads`, both compilers fail with `cannot locate file system.ads`. With the original empty declaration below, both compile successfully under `-gnat2022 -gnatg -nostdinc -I.`:
-
-```ada
-package System is
-end System;
-```
-
-Validated compilers and output:
-
-- `x86_64-elf-gcc (GNAT-FSF-builds) 15.3.0` produced an x86-64 ELF relocatable with global `noop` and `noop_E` symbols.
-- `aarch64-elf-gcc (GNAT-FSF-builds) 15.3.0` produced an AArch64 ELF relocatable with the same global symbols.
-- The `.ali` dependency list names the local `system.ads`, showing that the probe consumed it.
-
-No private target parameters, address types, priorities, or floating-point characteristics are required by this exact M0 program. They are therefore omitted. Later clean-room records must add only the surface demonstrated necessary by an owned language-feature probe. No GNAT runtime source was used in this evidence pass.
-
-M1 adds only the separately probed binder and diagnostic surface recorded in [m1-compiler-interface.md](m1-compiler-interface.md).
-
-M3 ordinary-task creation, activation, wrapper completion, placement values, and identity observations are recorded in [m3-tasking-interface.md](m3-tasking-interface.md).
+The milestone labels identify when evidence was discovered; they are historical
+record keys, not the product architecture. As the repository is productized,
+records may gain capability aliases but their original observations remain
+immutable. ADR-0004 and ADR-0006 define the clean-room decision; ADR-0010 defines
+the responsibility-based product migration.

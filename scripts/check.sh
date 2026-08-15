@@ -16,6 +16,8 @@ fi
 
 git diff --check
 
+scripts/check-clean-room.sh
+
 if find . -path './build' -prune -o -path './.git' -prune -o \
     -type f \( -name '*.o' -o -name '*.ali' -o -name '*.elf' -o \
     -name '*.iso' -o -name '*.img' -o -name '*.fd' \) -print | grep .; then
