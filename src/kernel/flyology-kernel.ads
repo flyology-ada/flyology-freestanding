@@ -4,7 +4,7 @@ with Flyology.Dispatcher_Model;
 with Flyology.Ceiling_Model;
 with Flyology.Clock_Model;
 with Flyology.Preemption_Model;
-with Flyology.Task_Primitives_Contract;
+with Flyology.Task_Primitives;
 with Flyology.Timer_Model;
 with Flyology.Wait_Arbitration_Model;
 with System;
@@ -24,7 +24,7 @@ package Flyology.Kernel is
    subtype Task_Slot is Dispatcher.Task_Slot range 0 .. Max_Tasks - 1;
    subtype Task_Ref is Dispatcher.Task_Ref;
    subtype Task_State is Dispatcher.Task_State;
-   subtype Wait_Token is Flyology.Task_Primitives_Contract.Wait_Token;
+   subtype Wait_Token is Flyology.Task_Primitives.Wait_Token;
    subtype Wait_Kind is Flyology.Wait_Arbitration_Model.Wait_Kind;
    subtype Wait_Resolution is Flyology.Wait_Arbitration_Model.Resolution;
    subtype Wait_Resolve_Status is

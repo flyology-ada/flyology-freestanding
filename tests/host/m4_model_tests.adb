@@ -8,7 +8,7 @@ with Flyology.Clock_Model;
 with Flyology.Dispatcher_Model;
 with Flyology.Exceptional_Completion_Model;
 with Flyology.Priority_Queue_Model;
-with Flyology.Task_Primitives_Contract;
+with Flyology.Task_Primitives;
 with Flyology.Termination_Model;
 with Flyology.Timer_Model;
 with Flyology.Wait_Arbitration_Model;
@@ -22,7 +22,7 @@ procedure M4_Model_Tests is
    package Dispatcher renames Flyology.Dispatcher_Model;
    package Completions renames Flyology.Exceptional_Completion_Model;
    package Priority renames Flyology.Priority_Queue_Model;
-   package Primitives renames Flyology.Task_Primitives_Contract;
+   package Primitives renames Flyology.Task_Primitives;
    package Termination renames Flyology.Termination_Model;
    package Timers renames Flyology.Timer_Model;
    package Waits renames Flyology.Wait_Arbitration_Model;

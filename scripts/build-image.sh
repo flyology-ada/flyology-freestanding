@@ -104,8 +104,8 @@ compile_ada src/primitives/flyology-dispatcher_model.adb \
     flyology-dispatcher_model.o
 compile_ada src/primitives/flyology-domain_model.adb flyology-domain_model.o
 compile_ada src/primitives/flyology-placement_model.adb flyology-placement_model.o
-compile_ada src/primitives/flyology-task_primitives_contract.ads \
-    flyology-task_primitives_contract.o
+compile_ada src/primitives/flyology-task_primitives.ads \
+    flyology-task_primitives.o
 compile_ada src/primitives/flyology-clock_model.adb flyology-clock_model.o
 compile_ada src/primitives/flyology-exceptional_completion_model.adb \
     flyology-exceptional_completion_model.o
@@ -237,7 +237,7 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/flyology-kernel.o" \
     "$output_directory/flyology-domain_model.o" \
     "$output_directory/flyology-placement_model.o" \
-    "$output_directory/flyology-task_primitives_contract.o" \
+    "$output_directory/flyology-task_primitives.o" \
     "$output_directory/flyology-clock_model.o" \
     "$output_directory/flyology-exceptional_completion_model.o" \
     "$output_directory/flyology-abort_closure_model.o" \

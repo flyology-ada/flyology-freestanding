@@ -1,11 +1,11 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
-with Flyology.Task_Primitives_Contract;
+with Flyology.Task_Primitives;
 
 package Flyology.Timer_Model
   with SPARK_Mode
 is
-   package Primitives renames Flyology.Task_Primitives_Contract;
+   package Primitives renames Flyology.Task_Primitives;
    package Dispatcher renames Primitives.Model;
    use type Dispatcher.Task_Ref;
    use type Dispatcher.Generation;

@@ -2,7 +2,7 @@
 
 with Ada.Finalization;
 with Flyology.Exceptional_Completion_Model;
-with Flyology.Task_Primitives_Contract;
+with Flyology.Task_Primitives;
 with Flyology.Wait_Queue_Model;
 
 package System.Tasking.Protected_Objects.Entries is
@@ -36,7 +36,7 @@ package System.Tasking.Protected_Objects.Entries is
      (Object : System.Address;
       Index  : Protected_Entry_Index) return Protected_Entry_Index;
 
-   subtype Wait_Token is Flyology.Task_Primitives_Contract.Wait_Token;
+   subtype Wait_Token is Flyology.Task_Primitives.Wait_Token;
 
    package Completions renames Flyology.Exceptional_Completion_Model;
    subtype Pending_Phase is Completions.Completion_Phase;

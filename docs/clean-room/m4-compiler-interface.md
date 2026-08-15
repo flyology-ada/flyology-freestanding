@@ -665,11 +665,12 @@ pinned hash. Every completion phase is checked for legal normal/exceptional
 completion, consumption, identity-presence, and abort-before-transferred-
 exception delivery invariants. The gate pins both
 the edge count and serialized-state hash so an accidental search reduction
-fails. GNATprove 16.1 reports all 403 generated checks proved across the
-SPARK-analyzed deterministic core units. The concurrent Task_Core facade, the
-imported `Task_Primitives_Contract` declarations, compiler-facing GNARL
-facades, architecture assembly, C unwinder, and allocator metadata/critical-
-section facade remain outside SPARK behind typed boundaries.
+fails. The current serialized GNATprove 16.1 gate reports all 476 generated
+checks proved across the
+SPARK-analyzed deterministic primitive units. The data-only `Task_Primitives`
+token package is analyzed, but the concurrent `Flyology.Kernel`,
+compiler-facing GNARL facades, architecture assembly, C unwinder, and allocator
+metadata/critical-section facade remain outside SPARK behind typed boundaries.
 
 `scripts/stress-m4.sh` complements that pure model with ten complete SMP4
 ordinary-Ada runs per architecture. Each run repeats cross-core delay wakeups,

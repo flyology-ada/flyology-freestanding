@@ -1,11 +1,11 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
-with Flyology.Task_Primitives_Contract;
+with Flyology.Task_Primitives;
 
 package Flyology.Wait_Queue_Model
   with SPARK_Mode => On
 is
-   package Primitives renames Flyology.Task_Primitives_Contract;
+   package Primitives renames Flyology.Task_Primitives;
    package Dispatcher renames Primitives.Model;
    use type Primitives.Wait_Token;
    use type Dispatcher.Task_Ref;
