@@ -58,7 +58,7 @@ compile_ada() {
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
         -c "$source" -o "$output_directory/$object" \
-        -nostdinc -Iruntime/bootstrap -Iruntime/core -Isrc/kernel -Isrc/rts \
+        -nostdinc -Iruntime/bootstrap -Isrc/primitives -Isrc/kernel -Isrc/rts \
         -Isrc/gnarl \
         -I"$m5_config_dir" -Iruntime/m5 \
         -I"$m6_config_dir" -Iruntime/m6 \
@@ -92,36 +92,36 @@ compile_ada src/gnarl/s-taprob.adb s-taprob.o yes
 compile_ada src/gnarl/s-tpoben.adb s-tpoben.o yes
 compile_ada src/gnarl/s-tpobop.adb s-tpobop.o yes
 compile_ada src/gnarl/s-tasren.adb s-tasren.o yes
-compile_ada runtime/core/flyology.ads flyology.o
+compile_ada src/primitives/flyology.ads flyology.o
 compile_ada "$m5_config_dir/flyology-m5_configuration.ads" \
     flyology-m5_configuration.o
 compile_ada "$m6_config_dir/flyology-m6_configuration.ads" \
     flyology-m6_configuration.o
 compile_ada "$m6_test_config_dir/flyology-m6_hook.adb" flyology-m6_hook.o
-compile_ada runtime/core/flyology-validation.adb flyology-validation.o
-compile_ada runtime/core/flyology-boot_validation.adb flyology-boot_validation.o
-compile_ada runtime/core/flyology-dispatcher_model.adb \
+compile_ada src/primitives/flyology-validation.adb flyology-validation.o
+compile_ada src/primitives/flyology-boot_validation.adb flyology-boot_validation.o
+compile_ada src/primitives/flyology-dispatcher_model.adb \
     flyology-dispatcher_model.o
-compile_ada runtime/core/flyology-domain_model.adb flyology-domain_model.o
-compile_ada runtime/core/flyology-placement_model.adb flyology-placement_model.o
-compile_ada runtime/core/flyology-task_primitives_contract.ads \
+compile_ada src/primitives/flyology-domain_model.adb flyology-domain_model.o
+compile_ada src/primitives/flyology-placement_model.adb flyology-placement_model.o
+compile_ada src/primitives/flyology-task_primitives_contract.ads \
     flyology-task_primitives_contract.o
-compile_ada runtime/core/flyology-clock_model.adb flyology-clock_model.o
-compile_ada runtime/core/flyology-exceptional_completion_model.adb \
+compile_ada src/primitives/flyology-clock_model.adb flyology-clock_model.o
+compile_ada src/primitives/flyology-exceptional_completion_model.adb \
     flyology-exceptional_completion_model.o
-compile_ada runtime/core/flyology-abort_closure_model.adb \
+compile_ada src/primitives/flyology-abort_closure_model.adb \
     flyology-abort_closure_model.o
-compile_ada runtime/core/flyology-termination_model.adb \
+compile_ada src/primitives/flyology-termination_model.adb \
     flyology-termination_model.o
-compile_ada runtime/core/flyology-timer_model.adb flyology-timer_model.o
-compile_ada runtime/core/flyology-ceiling_model.adb flyology-ceiling_model.o
-compile_ada runtime/core/flyology-priority_queue_model.adb \
+compile_ada src/primitives/flyology-timer_model.adb flyology-timer_model.o
+compile_ada src/primitives/flyology-ceiling_model.adb flyology-ceiling_model.o
+compile_ada src/primitives/flyology-priority_queue_model.adb \
     flyology-priority_queue_model.o
-compile_ada runtime/core/flyology-preemption_model.adb \
+compile_ada src/primitives/flyology-preemption_model.adb \
     flyology-preemption_model.o
-compile_ada runtime/core/flyology-wait_arbitration_model.adb \
+compile_ada src/primitives/flyology-wait_arbitration_model.adb \
     flyology-wait_arbitration_model.o
-compile_ada runtime/core/flyology-wait_queue_model.adb \
+compile_ada src/primitives/flyology-wait_queue_model.adb \
     flyology-wait_queue_model.o
 compile_ada "arch/$architecture/flyology-architecture_context.ads" \
     flyology-architecture_context.o
@@ -159,7 +159,7 @@ compile_ada tests/target/scenarios/flyology_m3.adb flyology_m3.o
 
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" -nostdinc -nostdlib -n -minimal \
-    -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
+    -I"$repository/runtime/bootstrap" -I"$repository/src/primitives" \
     -I"$repository/src/kernel" -I"$repository/src/rts" \
     -I"$repository/src/gnarl" -I"$repository/$m5_config_dir" \
     -I"$repository/runtime/m5" \

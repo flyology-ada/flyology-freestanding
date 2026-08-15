@@ -44,7 +44,7 @@ compile_ada() {
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
         -c "$source" -o "$output_directory/$object" \
-        -nostdinc -Iruntime/bootstrap -Iruntime/core -Iruntime/m2 \
+        -nostdinc -Iruntime/bootstrap -Isrc/primitives -Iruntime/m2 \
         -I"arch/$architecture" -I"$output_directory" \
         $style_flags -gnatw.X -gnato -gnatec=runtime/bootstrap/m1.adc \
         -ffunction-sections -fdata-sections \
@@ -53,14 +53,14 @@ compile_ada() {
 
 compile_ada runtime/bootstrap/system.ads system.o yes
 compile_ada runtime/bootstrap/s-stalib.adb s-stalib.o yes
-compile_ada runtime/core/flyology.ads flyology.o
-compile_ada runtime/core/flyology-validation.adb flyology-validation.o
-compile_ada runtime/core/flyology-boot_validation.adb flyology-boot_validation.o
-compile_ada runtime/core/flyology-dispatcher_model.adb \
+compile_ada src/primitives/flyology.ads flyology.o
+compile_ada src/primitives/flyology-validation.adb flyology-validation.o
+compile_ada src/primitives/flyology-boot_validation.adb flyology-boot_validation.o
+compile_ada src/primitives/flyology-dispatcher_model.adb \
     flyology-dispatcher_model.o
-compile_ada runtime/core/flyology-reschedule_model.adb \
+compile_ada src/primitives/flyology-reschedule_model.adb \
     flyology-reschedule_model.o
-compile_ada runtime/core/flyology-scheduler_contract.adb \
+compile_ada src/primitives/flyology-scheduler_contract.adb \
     flyology-scheduler_contract.o
 compile_ada "arch/$architecture/flyology-architecture_context.ads" \
     flyology-architecture_context.o
@@ -76,7 +76,7 @@ compile_ada runtime/m2/flyology_m2.adb flyology_m2.o
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" \
     -nostdinc -nostdlib -n -minimal \
-    -I../../../runtime/bootstrap -I../../../runtime/core \
+    -I../../../runtime/bootstrap -I../../../src/primitives \
     -I../../../runtime/m2 -I../../../arch/"$architecture" \
     -I. flyology_m2.ali
 

@@ -22,7 +22,8 @@ and commits them through `Flyology.Kernel`.
 
 The responsibility-based product source and build structure is defined by
 [ADR-0010](docs/adr/0010-productize-the-runtime.md). The state-owning kernel is
-in `src/kernel/`, and the GNARL semantic runtime is in `src/rts/`.
+in `src/kernel/`, the reusable deterministic algorithms are in
+`src/primitives/`, and the GNARL semantic runtime is in `src/rts/`.
 Milestone-named paths are transitional historical structure, not additional
 architectural layers. During the migration, they may remain in supported
 project source paths only while a differential build or compatibility gate

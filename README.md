@@ -30,7 +30,8 @@ until its build, proof, review, and QEMU evidence is recorded.
 - `src/gnarl/` — compiler-facing Ada and System predefined-unit facades whose
   exact surface is indexed by the clean-room evidence manifest.
 - `scripts/` — authoritative build, test, proof, and reproducibility entry points (introduced during M0).
-- `runtime/core/` — deterministic Ada/SPARK policy and validation primitives.
+- `src/primitives/` — reusable deterministic Ada/SPARK validation, lifecycle,
+  queueing, timing, placement, and scheduling-policy algorithms.
 - `runtime/m4/` and `runtime/m6/` — transitional C ABI, restriction, and
   capability-configuration inputs pending later ownership moves.
 - `runtime/bootstrap/` — original minimal compiler-compatibility runtime used by early milestones.

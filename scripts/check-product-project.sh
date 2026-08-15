@@ -62,6 +62,8 @@ fi
 test -f "$repository/src/kernel/flyology-kernel.adb"
 test -f "$repository/src/rts/flyology-rts.adb"
 test -f "$repository/src/gnarl/s-tassta.adb"
+test -f "$repository/src/primitives/flyology-dispatcher_model.adb"
 test ! -e "$repository/runtime/m3"
+test ! -e "$repository/runtime/core"
 
 echo 'FLYOLOGY:PRODUCT:PROJECT:PASS'

@@ -54,7 +54,7 @@ check_architecture() {
           "$output_directory"/*.rep \
           "$output_directory"/*.bin
 
-    common_flags="-nostdinc -Iruntime/bootstrap -Iruntime/core -Iarch/$architecture -I$output_directory -gnato"
+    common_flags="-nostdinc -Iruntime/bootstrap -Isrc/primitives -Iarch/$architecture -I$output_directory -gnato"
 
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
@@ -64,7 +64,7 @@ check_architecture() {
 
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-        -c runtime/core/flyology.ads \
+        -c src/primitives/flyology.ads \
         -o "$output_directory/flyology.o" \
         $common_flags -gnat2022 -gnatwa -gnatwe $architecture_flags
 
@@ -88,7 +88,7 @@ check_architecture() {
 
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-        -c runtime/core/flyology-clock_model.adb \
+        -c src/primitives/flyology-clock_model.adb \
         -o "$output_directory/flyology-clock_model.o" \
         $common_flags -gnat2022 -gnatwa -gnatwe $architecture_flags
 

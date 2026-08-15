@@ -53,7 +53,7 @@ compile_ada() {
     esac
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
         -c "$source" -o "$output_directory/$object" \
-        -nostdinc -Iruntime/bootstrap -Iruntime/core -Iruntime/m1 \
+        -nostdinc -Iruntime/bootstrap -Isrc/primitives -Iruntime/m1 \
         -I"$output_directory" $style_flags -gnatw.X -gnato \
         -gnatec=runtime/bootstrap/m1.adc \
         -ffunction-sections -fdata-sections \
@@ -62,9 +62,9 @@ compile_ada() {
 
 compile_ada runtime/bootstrap/system.ads system.o yes
 compile_ada runtime/bootstrap/s-stalib.adb s-stalib.o yes
-compile_ada runtime/core/flyology.ads flyology.o
-compile_ada runtime/core/flyology-validation.adb flyology-validation.o
-compile_ada runtime/core/flyology-boot_validation.adb flyology-boot_validation.o
+compile_ada src/primitives/flyology.ads flyology.o
+compile_ada src/primitives/flyology-validation.adb flyology-validation.o
+compile_ada src/primitives/flyology-boot_validation.adb flyology-boot_validation.o
 compile_ada runtime/bootstrap/flyology-binder_support.adb flyology-binder_support.o
 compile_ada runtime/m1/flyology-elaboration_probe.adb flyology-elaboration_probe.o
 compile_ada runtime/m1/flyology_m1.adb flyology_m1.o
@@ -74,7 +74,7 @@ compile_ada runtime/m1/flyology_last_chance_probe.adb \
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" \
     -nostdinc -nostdlib -n -minimal \
-    -I../../../runtime/bootstrap -I../../../runtime/core -I../../../runtime/m1 \
+    -I../../../runtime/bootstrap -I../../../src/primitives -I../../../runtime/m1 \
     -I. flyology_m1.ali
 
 compile_ada "$output_directory/b~flyology_m1.adb" b~flyology_m1.o generated

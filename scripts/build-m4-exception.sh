@@ -44,7 +44,7 @@ compile_ada() {
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
         -c "$source" -o "$output_directory/$object" \
-        -nostdinc -Iruntime/bootstrap -Iruntime/core -Iprobes/m4/interfaces \
+        -nostdinc -Iruntime/bootstrap -Isrc/primitives -Iprobes/m4/interfaces \
         -I"$output_directory" $style_flags -gnatw.X -gnatw.i -gnato \
         -gnatec=runtime/m4/m4.adc -ffunction-sections -fdata-sections \
         -fno-stack-protector -fno-pic -fno-pie $architecture_flags
@@ -52,16 +52,16 @@ compile_ada() {
 
 compile_ada runtime/bootstrap/system.ads system.o yes
 compile_ada runtime/bootstrap/s-stalib.adb s-stalib.o yes
-compile_ada runtime/core/flyology.ads flyology.o
-compile_ada runtime/core/flyology-validation.adb flyology-validation.o
-compile_ada runtime/core/flyology-boot_validation.adb flyology-boot_validation.o
+compile_ada src/primitives/flyology.ads flyology.o
+compile_ada src/primitives/flyology-validation.adb flyology-validation.o
+compile_ada src/primitives/flyology-boot_validation.adb flyology-boot_validation.o
 compile_ada runtime/bootstrap/flyology-binder_support.adb \
     flyology-binder_support.o
 compile_ada probes/m4/exception_probe.adb exception_probe.o
 
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" -nostdinc -nostdlib -n -minimal \
-    -I"$repository/runtime/bootstrap" -I"$repository/runtime/core" \
+    -I"$repository/runtime/bootstrap" -I"$repository/src/primitives" \
     -I"$repository/probes/m4/interfaces" -I. exception_probe.ali
 
 compile_ada "$output_directory/b~exception_probe.adb" \
