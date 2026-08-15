@@ -35,9 +35,12 @@ list runtime, platform, linker, or target sources. The complete example is
 [`examples/minimal`](../examples/minimal/); copying its small `minimal.gpr`
 requires no target-specific GPR configuration.
 
-The application source is an ordinary parameterless procedure:
+The application source is an ordinary parameterless procedure and declares
+its partition-wide initial scheduling policy with the standard Ada pragma:
 
 ```ada
+pragma Task_Dispatching_Policy (FIFO_Within_Priorities);
+
 with Flyology.Console;
 
 procedure My_Kernel is
@@ -64,6 +67,12 @@ FLYOLOGY_TEST_OBSERVATIONS=1 alr build
 Repository conformance images enable this switch independently because their
 serial markers are machine-checked test evidence, not a product logging API.
 
+The consumer build rejects an application that omits the policy pragma. This
+keeps scheduling semantics in reviewed Ada source rather than in an Alire
+action, environment variable, or shell profile. Round robin is selected with
+`Round_Robin_Within_Priorities`; when GNAT leaves its quantum unspecified,
+Flyology uses a documented 10 ms default.
+
 `alr build` builds both supported architectures by default. The output is
 deliberately shallow:
 
@@ -87,13 +96,14 @@ firmware, so they remain adjacent to the disk rather than being embedded in it.
 The runner copies the variables template before every launch because UEFI
 variable storage is mutable.
 
-Build one architecture or select another runtime profile explicitly:
+Build one architecture explicitly when needed:
 
 ```sh
 alr exec -- sh -c 'exec "$FLYOLOGY_BUILD_TOOL" "$@"' flyology-build x86_64
-alr exec -- sh -c 'exec "$FLYOLOGY_BUILD_TOOL" "$@"' flyology-build \
-  --profile preemptive-fifo aarch64
 ```
+
+Repository conformance profiles remain explicit test-matrix names. They are
+not a consumer configuration API.
 
 The example includes a relocatable `run.sh` wrapper. Run a built image with the
 pinned QEMU/EDK II contract:

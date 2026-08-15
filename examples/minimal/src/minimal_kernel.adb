@@ -1,5 +1,7 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
+pragma Task_Dispatching_Policy (Round_Robin_Within_Priorities);
+
 with Flyology.Console;
 with Minimal_Workers;
 

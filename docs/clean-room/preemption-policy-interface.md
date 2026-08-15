@@ -26,6 +26,15 @@ targets. The generated binders agree exactly:
   count is zero on both targets.
 
 The probe establishes configuration representation, not scheduler semantics.
+The same owned probe suite also places each standard policy pragma directly in
+an Ada compilation unit and binds without `-gnatec` or `-T`. Both target
+compilers export the requested `F`/`R` policy, FIFO slice zero, and the
+round-robin unspecified time-slice sentinel `-1`. Consumer applications
+therefore select their initial policy in Ada source. Flyology interprets the
+unspecified round-robin quantum as 10 ms;
+repository conformance configurations continue to pin the binder quantum so
+their historical policy evidence remains exact.
+
 The deterministic policy kernel and all existing SPARK units produce 434
 proved checks with no justified or unproved checks. The preemption capability host campaign pins
 611 policy/configuration/accounting/ready-position decisions and hash

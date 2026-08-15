@@ -2,15 +2,15 @@
 
 with Flyology.Conformance.Preemption;
 with Flyology.Conformance.Tasking;
-with Flyology.Scheduler_Configuration;
+with Flyology.Binder_Support;
 
 package body Flyology.Conformance_Profile is
    procedure Run is
    begin
       Flyology.Conformance.Tasking.Run;
-      if Flyology.Scheduler_Configuration.Enabled then
+      if Flyology.Binder_Support.Task_Dispatching_Policy /= ' ' then
          Flyology.Conformance.Preemption.Run
-           (Flyology.Scheduler_Configuration.Policy_Code);
+           (Flyology.Binder_Support.Task_Dispatching_Policy);
       end if;
    end Run;
 end Flyology.Conformance_Profile;

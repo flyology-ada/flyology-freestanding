@@ -46,6 +46,19 @@ grep -F '"flyology_launcher.adb"' \
     "$repository/gpr/flyology_image.gpr" >/dev/null
 grep -F 'Application_Directory := external ("FLYOLOGY_APPLICATION_DIR");' \
     "$repository/gpr/flyology_image.gpr" >/dev/null
+if rg -n 'FLYOLOGY_SCHEDULER_CONFIG_DIR|Scheduler_Directory' \
+    "$repository/gpr/flyology_image.gpr" \
+    "$repository/scripts/build-image.sh" \
+    "$repository/scripts/flyology-build" >/dev/null; then
+    echo 'consumer build still selects scheduler configuration' >&2
+    exit 1
+fi
+if rg -n -- '--profile|FLYOLOGY_PROFILE' \
+    "$repository/scripts/flyology-build" \
+    "$repository/scripts/flyology-run" >/dev/null; then
+    echo 'consumer tools still expose repository profiles' >&2
+    exit 1
+fi
 grep -F 'Generated_Directory := external ("FLYOLOGY_GENERATED_DIR");' \
     "$repository/gpr/flyology_image.gpr" >/dev/null
 grep -F '"flyology-validation.adb"' \
@@ -106,9 +119,10 @@ for profile in $profile_names; do
 done
 
 direct_product_callers=$(rg -l -F 'scripts/build-image.sh' \
-    "$repository/scripts" --glob '*.sh' \
+    "$repository/scripts" --glob '*.sh' --glob 'flyology-build' \
     --glob '!check-product-project.sh' | sort)
-test "$direct_product_callers" = "$repository/scripts/build-product.sh"
+test "$direct_product_callers" = "$repository/scripts/build-product.sh
+$repository/scripts/flyology-build"
 
 if find "$repository/src" -type f \
     \( -name '*_demo.ads' -o -name '*_demo.adb' \) -print | grep .; then
@@ -154,8 +168,9 @@ if rg -n 'FLYOLOGY_M[0-9]|flyology_m[0-9]|FLYOLOGY:M[0-9]:|\bm[0-9]_' \
     exit 1
 fi
 
-if git -C "$repository" ls-files -z | xargs -0 rg -n -i \
-    '(^|[^[:alnum:]])m[0-9]([^[:digit:]]|$)' >/dev/null; then
+if git -C "$repository" grep -n -i -E \
+    '(^|[^[:alnum:]])m[0-9]([^[:digit:]]|$)' -- . \
+    ':(exclude)build/**' >/dev/null; then
     echo 'numbered-stage identifier found in maintained content' >&2
     exit 1
 fi
@@ -179,7 +194,8 @@ test ! -e "$repository/scripts/build-domain-image.sh"
 test ! -e "$repository/scripts/build-preemption-image.sh"
 test ! -e "$repository/scripts/inspect-bootstrap-minimum.sh"
 test -f "$repository/config/restrictions/product.adc"
-test -f "$repository/config/scheduler/fifo/flyology-scheduler_configuration.ads"
+test -f "$repository/config/scheduler/fifo.adc"
+test -f "$repository/config/scheduler/round_robin.adc"
 test -f "$repository/config/domains/on/flyology-domain_configuration.ads"
 
 echo 'FLYOLOGY:PRODUCT:PROJECT:PASS'

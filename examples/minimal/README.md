@@ -4,7 +4,9 @@ This is a complete Alire application crate. Its ordinary Ada application
 procedure invokes a small worker package containing eight tasks: two pinned to
 each of four Ada CPUs. Every worker checks the standard `Get_CPU` observation
 and rendezvouses with a printer task, which emits one complete line per accepted
-call. `flyology_barebones` contributes the runtime, platform code, linker
+call. The application root explicitly declares the standard
+`Round_Robin_Within_Priorities` policy; it is not selected by the build action.
+`flyology_barebones` contributes the runtime, platform code, linker
 scripts, boot-media builder, and the post-build image action.
 
 ```sh

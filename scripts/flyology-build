@@ -6,7 +6,6 @@ application_root=${FLYOLOGY_APPLICATION_ROOT:-$PWD}
 application_directory=${FLYOLOGY_APPLICATION_DIR:-$application_root/src}
 application_unit=${FLYOLOGY_APPLICATION_UNIT:-}
 output_root=${FLYOLOGY_OUTPUT_ROOT:-$application_root/build}
-profile=${FLYOLOGY_PROFILE:-tasking}
 test_observations=${FLYOLOGY_TEST_OBSERVATIONS:-0}
 case "$test_observations" in
     0|1) ;;
@@ -15,7 +14,7 @@ esac
 
 usage() {
     cat >&2 <<'EOF'
-usage: flyology-build [--profile PROFILE] [x86_64|aarch64 ...]
+usage: flyology-build [x86_64|aarch64 ...]
 
 Build the current Alire application's deployable Flyology UEFI images.  With
 no architecture arguments, both supported architectures are built.
@@ -28,11 +27,6 @@ EOF
 
 while test "$#" -gt 0; do
     case "$1" in
-        --profile)
-            test "$#" -ge 2 || usage
-            profile=$2
-            shift 2
-            ;;
         --help|-h) usage ;;
         --*) usage ;;
         *) break ;;
@@ -62,15 +56,15 @@ for architecture in "$@"; do
         FLYOLOGY_APPLICATION_DIR="$application_directory" \
         FLYOLOGY_APPLICATION_UNIT="$application_unit" \
         FLYOLOGY_TEST_OBSERVATIONS="$test_observations" \
-        FLYOLOGY_FLAT_OUTPUT=1 \
-        FLYOLOGY_PRODUCT_OUTPUT_ROOT="$output_root" \
-            scripts/build-product.sh "$architecture" "$profile"
+        FLYOLOGY_REQUIRE_APPLICATION_POLICY=1 \
+        FLYOLOGY_IMAGE_OUTPUT_ROOT="$output_root" \
+            scripts/build-image.sh "$architecture"
         scripts/bundle-uefi-firmware.sh \
             "$architecture" "$output_root/$architecture"
     )
 done
 
-printf 'FLYOLOGY:APPLICATION:BUILD:PASS:%s\n' "$profile"
+printf 'FLYOLOGY:APPLICATION:BUILD:PASS\n'
 for architecture in "$@"; do
     printf '%s\n' "$output_root/$architecture/flyology-$architecture.fat"
 done

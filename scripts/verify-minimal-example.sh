@@ -6,6 +6,8 @@ example="$repository/examples/minimal"
 repro_root="$example/build/repro"
 
 alr -n -C "$example" build
+grep -F 'pragma Task_Dispatching_Policy (Round_Robin_Within_Priorities);' \
+    "$example/src/minimal_kernel.adb" >/dev/null
 if grep -qE '^FLYOLOGY_APPLICATION_(ROOT|DIR)\.' "$example/alire.toml"; then
     echo 'minimal example redundantly configures conventional directories' >&2
     exit 1
@@ -37,6 +39,10 @@ for architecture in x86_64 aarch64; do
         secondary_hash=$(shasum -a 256 "$secondary/$name" | awk '{print $1}')
         test "$primary_hash" = "$secondary_hash"
     done
+    grep -F "Task_Dispatching_Policy := 'R';" \
+        "$primary/b~flyology_launcher.adb" >/dev/null
+    grep -F 'Time_Slice_Value := -1;' \
+        "$primary/b~flyology_launcher.adb" >/dev/null
 
     case "$architecture" in
         x86_64)

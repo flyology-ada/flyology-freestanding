@@ -40,8 +40,8 @@ conformance scenario. Build it through the capability entry point:
 scripts/build-product.sh ARCH PROFILE
 ```
 
-`ARCH` is `x86_64` or `aarch64`. The profiles are defined in
-`config/profiles.toml`:
+`ARCH` is `x86_64` or `aarch64`. Repository conformance profiles are defined
+in `config/profiles.toml`:
 
 | Profile | Capability |
 | --- | --- |
@@ -50,14 +50,20 @@ scripts/build-product.sh ARCH PROFILE
 | `preemptive-round-robin` | timer/IPI preemption with round-robin-within-priorities |
 | `domains` | scheduling domains with the currently gated domain configuration |
 
+These names select repository scenarios, expected markers, and artifact roots;
+they are not exposed by the consumer builder. An independent application
+declares `Task_Dispatching_Policy` in Ada. The binder value derived from that
+source selects the initial runtime policy and whether the image links the
+interrupt-to-dispatch path.
+
 The stable image name is `build/product/PROFILE/ARCH/flyology.elf`; the FAT image
 is adjacent. The builder uses the pinned per-target Alire workspaces, explicit
 GNAT binder step, target linker script, external `libgcc` unwinder, and pinned
 Limine/firmware image construction.
 
 Ada compilation is owned by `gpr/flyology_image.gpr`. Its source directories
-are the responsibility-owned runtime roots plus exactly one selected scheduler,
-domain, configuration view, and application directory. A generated
+are the responsibility-owned runtime roots plus exactly one selected domain,
+configuration view, and application directory. A generated
 `Flyology_Launcher` is the binder main: it explicitly validates RTS elaboration
 and invokes the selected ordinary-Ada application procedure. Runtime authority,
 standard-library finalization, and the two validation bodies are explicit
@@ -96,8 +102,8 @@ produce both architecture bundles. The dependency does not mutate `PATH`, so
 Alire's generated build inputs do not capture developer-machine path entries.
 
 Consumer artifacts use `build/ARCH/` rather than the repository's deeper
-profile matrix. A selected profile is one build configuration and intentionally
-does not appear in the default consumer path. The repository gates retain
+profile matrix. The source-selected policy intentionally does not appear in
+the consumer path. The repository gates retain
 `build/product/PROFILE/ARCH/` because they compare several profiles side by
 side.
 

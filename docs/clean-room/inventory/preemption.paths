@@ -11,5 +11,7 @@ src/primitives/flyology-preemption_model.ads
 src/primitives/flyology-preemption_model.adb
 src/kernel/flyology-kernel.ads
 src/kernel/flyology-kernel.adb
-config/scheduler/fifo/flyology-scheduler_configuration.ads
-config/scheduler/round_robin/flyology-scheduler_configuration.ads
+config/scheduler/fifo.adc
+config/scheduler/round_robin.adc
+probes/preemption/policy_fifo_source_probe.adb
+probes/preemption/policy_round_robin_source_probe.adb

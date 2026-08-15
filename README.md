@@ -73,7 +73,8 @@ alr build
 The build emits shallow `build/x86_64/` and `build/aarch64/` directories. Each
 contains a Limine UEFI FAT disk, the kernel ELF, and validated TianoCore/EDK II
 code and variables firmware. See [application crates](docs/application-crates.md)
-for the small manifest contract and profile/CPU options.
+for the small manifest contract, source-selected initial policy, and CPU runner
+options.
 
 ## Authoritative gates
 

@@ -26,26 +26,20 @@ case "$profile" in
             scripts/build-image.sh "$architecture"
         ;;
     preemptive-fifo)
-        FLYOLOGY_PREEMPTION=1 \
         FLYOLOGY_PRODUCT_CONFIG=config/scheduler/fifo.adc \
-        FLYOLOGY_SCHEDULER_CONFIG_DIR=config/scheduler/fifo \
         FLYOLOGY_BINDER_FLAGS=-T0 \
         FLYOLOGY_IMAGE_OUTPUT_ROOT="$profile_root" \
             scripts/build-image.sh "$architecture"
         ;;
     preemptive-round-robin)
-        FLYOLOGY_PREEMPTION=1 \
         FLYOLOGY_PRODUCT_CONFIG=config/scheduler/round_robin.adc \
-        FLYOLOGY_SCHEDULER_CONFIG_DIR=config/scheduler/round_robin \
         FLYOLOGY_BINDER_FLAGS=-T10 \
         FLYOLOGY_IMAGE_OUTPUT_ROOT="$profile_root" \
             scripts/build-image.sh "$architecture"
         ;;
     domains)
-        FLYOLOGY_PREEMPTION=1 \
         FLYOLOGY_DOMAINS=1 \
         FLYOLOGY_PRODUCT_CONFIG=config/scheduler/fifo.adc \
-        FLYOLOGY_SCHEDULER_CONFIG_DIR=config/scheduler/fifo \
         FLYOLOGY_DOMAIN_CONFIG_DIR=config/domains/on \
         FLYOLOGY_CONFORMANCE_CONFIG_DIR=tests/target/config/domains/on \
         FLYOLOGY_BINDER_FLAGS=-T0 \

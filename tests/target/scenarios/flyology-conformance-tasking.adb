@@ -6,7 +6,7 @@ with Ada.Task_Identification;
 with Ada.Unchecked_Deallocation;
 with Flyology.Conformance.Observations;
 with Flyology.RTS;
-with Flyology.Scheduler_Configuration;
+with Flyology.Binder_Support;
 with System.Multiprocessors;
 
 package body Flyology.Conformance.Tasking is
@@ -1881,7 +1881,7 @@ package body Flyology.Conformance.Tasking is
          abort Worker;
       end;
       Protected_Gate.Close;
-      if (not Flyology.Scheduler_Configuration.Enabled
+      if (Flyology.Binder_Support.Task_Dispatching_Policy = ' '
           and then (Exception_Abort_Protected_Caught
                     or else Exception_Abort_Protected_Continued))
         or else (Exception_Abort_Protected_Continued

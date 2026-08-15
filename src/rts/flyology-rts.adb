@@ -8,7 +8,6 @@ with Flyology.Domain_Model;
 with Flyology.Exceptional_Completion_Model;
 with Flyology.Binder_Support;
 with Flyology.Domain_Configuration;
-with Flyology.Scheduler_Configuration;
 with Flyology.Kernel;
 with Flyology.Termination_Model;
 with Flyology.Wait_Arbitration_Model;
@@ -1842,33 +1841,30 @@ package body Flyology.RTS is
       Enter_Kernel;
       Core.Register_Environment_Locked (To_Reference (Environment));
       Leave_Kernel;
-      case Flyology.Scheduler_Configuration.Policy_Code is
+      case Flyology.Binder_Support.Task_Dispatching_Policy is
          when ' ' =>
-            if Flyology.Scheduler_Configuration.Enabled then
-               Stop;
-            end if;
+            --  A blank binder policy is retained only for repository
+            --  cooperative conformance images.  Consumer images require an
+            --  explicit standard Task_Dispatching_Policy pragma.
             Core.Configure_Dispatching
               (Core.FIFO_Within_Priorities, 0);
          when 'F' =>
-            if not Flyology.Scheduler_Configuration.Enabled
-              or else Flyology.Binder_Support.Task_Dispatching_Policy /= 'F'
-              or else Flyology.Binder_Support.Time_Slice_Value /= 0
-            then
+            if Flyology.Binder_Support.Time_Slice_Value /= 0 then
                Stop;
             end if;
             Core.Configure_Dispatching
               (Core.FIFO_Within_Priorities, 0);
          when 'R' =>
-            if not Flyology.Scheduler_Configuration.Enabled
-              or else Flyology.Binder_Support.Task_Dispatching_Policy /= 'R'
-              or else Flyology.Binder_Support.Time_Slice_Value /= 10_000
+            if Flyology.Binder_Support.Time_Slice_Value not in -1 | 10_000
             then
                Stop;
             end if;
             Core.Configure_Dispatching
               (Core.Round_Robin_Within_Priorities,
                Core.Binder_Time_Slice
-                 (Flyology.Binder_Support.Time_Slice_Value));
+                 (if Flyology.Binder_Support.Time_Slice_Value = -1
+                  then 10_000
+                  else Flyology.Binder_Support.Time_Slice_Value));
          when others =>
             Stop;
       end case;

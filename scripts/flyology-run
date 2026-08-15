@@ -4,12 +4,11 @@ set -eu
 runtime_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 application_root=${FLYOLOGY_APPLICATION_ROOT:-$PWD}
 output_root=${FLYOLOGY_OUTPUT_ROOT:-$application_root/build}
-profile=${FLYOLOGY_PROFILE:-tasking}
 cpu_count=${FLYOLOGY_CPUS:-1}
 
 usage() {
     cat >&2 <<'EOF'
-usage: flyology-run [--profile PROFILE] [--cpus 1..4] [--gui] [--timeout SECONDS] ARCH
+usage: flyology-run [--cpus 1..4] [--gui] [--timeout SECONDS] ARCH
 
 Boot a previously built Flyology UEFI FAT image with the pinned QEMU machine
 and EDK II firmware contract. The default is headless; --gui enables QEMU's
@@ -23,11 +22,6 @@ timeout_seconds=0
 gui=0
 while test "$#" -gt 0; do
     case "$1" in
-        --profile)
-            test "$#" -ge 2 || usage
-            profile=$2
-            shift 2
-            ;;
         --cpus)
             test "$#" -ge 2 || usage
             cpu_count=$2

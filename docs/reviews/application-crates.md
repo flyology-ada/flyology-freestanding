@@ -27,7 +27,8 @@ target-specific GPR sources or linker inputs.
   It delegates to one narrow platform serial boundary and exposes no task,
   scheduler, context, or wait authority.
 - The default post-build action produces both supported architectures. A caller
-  may select one architecture or an existing runtime profile explicitly.
+  may select one architecture; scheduling policy is declared in consumer Ada,
+  not selected through this action.
 - `flyology-run` accepts the architecture and CPU count, uses the pinned fixed
   QEMU machine, copies the mutable UEFI variables template per run, and supports
   a bounded timeout for automation. Its default remains headless; an explicit
