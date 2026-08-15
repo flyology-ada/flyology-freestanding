@@ -1,0 +1,15 @@
+library project Flyology_Primitives is
+   for Languages use ("Ada");
+   for Source_Dirs use ("../runtime/core");
+   for Excluded_Source_Files use
+     ("flyology-task_core.ads", "flyology-task_core.adb");
+   for Object_Dir use "../build/alire/obj";
+   for Library_Dir use "../build/alire/lib";
+   for Library_Name use "flyology_primitives";
+   for Library_Kind use "static";
+
+   package Compiler is
+      for Default_Switches ("Ada") use
+        ("-gnat2022", "-gnatwa", "-gnatwe", "-gnatVa", "-gnato");
+   end Compiler;
+end Flyology_Primitives;

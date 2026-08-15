@@ -1,0 +1,16 @@
+name = "flyology_barebones"
+description = "Freestanding GNAT Ada tasking runtime and verified primitive library"
+version = "0.1.0-dev"
+
+authors = ["Flyology Barebones contributors"]
+maintainers = ["Flyology Barebones contributors <maintainers@flyology.invalid>"]
+maintainers-logins = []
+licenses = "MIT OR Apache-2.0"
+website = ""
+tags = ["ada", "spark", "freestanding", "tasking", "smp"]
+project-files = ["flyology.gpr"]
+
+[configuration]
+generate_ada = false
+generate_c = false
+generate_gpr = false

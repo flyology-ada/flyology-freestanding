@@ -1,0 +1,25 @@
+schema_version = 1
+
+[[profile]]
+name = "tasking"
+scheduling = "cooperative"
+domains = false
+legacy_builder = "scripts/build-m3.sh"
+
+[[profile]]
+name = "preemptive-fifo"
+scheduling = "fifo-within-priorities"
+domains = false
+legacy_builder = "scripts/build-m5.sh"
+
+[[profile]]
+name = "preemptive-round-robin"
+scheduling = "round-robin-within-priorities"
+domains = false
+legacy_builder = "scripts/build-m5.sh"
+
+[[profile]]
+name = "domains"
+scheduling = "per-domain"
+domains = true
+legacy_builder = "scripts/build-m6.sh"

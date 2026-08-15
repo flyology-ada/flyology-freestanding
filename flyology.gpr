@@ -1,0 +1,3 @@
+aggregate project Flyology is
+   for Project_Files use ("gpr/flyology_primitives.gpr");
+end Flyology;

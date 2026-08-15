@@ -23,6 +23,7 @@ until its build, proof, review, and QEMU evidence is recorded.
 - `docs/adr/` — durable design decisions.
 - `docs/reviews/` — evidence-based milestone reviews.
 - `docs/clean-room/` — normative compiler-interface methodology and evidence.
+- `docs/build.md` — Alire primitive-library and freestanding image builds.
 - `scripts/` — authoritative build, test, proof, and reproducibility entry points (introduced during M0).
 - `runtime/` — original runtime/platform implementation (introduced incrementally).
 - `runtime/bootstrap/` — original minimal compiler-compatibility runtime used by early milestones.
@@ -32,6 +33,14 @@ only while capability-based Alire/GPR projects and gates are introduced and
 differentially verified; they do not define permanent product layers.
 
 ## Authoritative gates
+
+- `alr build` builds the host-side `libflyology_primitives.a` from the
+  deterministic Ada/SPARK kernel packages. Freestanding images are composed by
+  `scripts/build-product.sh ARCH PROFILE` using the pinned per-target Alire
+  workspaces and explicit binder/link/image steps.
+- `scripts/verify-product-build.sh` differentially rebuilds the `domains`
+  product profile through the capability and historical build entry points for
+  both targets and requires identical ELF and FAT-image hashes.
 
 - `scripts/verify-m0.sh` builds and inspects the M0 ELF probes.
 - `scripts/verify-m1.sh` builds both Limine images, boots each at one and four CPUs, and boots both injected last-chance variants.

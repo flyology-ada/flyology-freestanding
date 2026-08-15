@@ -17,6 +17,7 @@ fi
 git diff --check
 
 scripts/check-clean-room.sh
+scripts/check-product-project.sh
 
 if find . -path './build' -prune -o -path './.git' -prune -o \
     -type f \( -name '*.o' -o -name '*.ali' -o -name '*.elf' -o \
