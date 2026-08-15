@@ -69,14 +69,14 @@ compile_ada "$output_directory/b~exception_probe.adb" \
 
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c "arch/$architecture/m1_entry.S" \
+    -c "src/platform/$architecture/m1_entry.S" \
     -o "$output_directory/exception_entry.o" \
     -DFLYOLOGY_EXCEPTION -ffreestanding -fno-stack-protector \
     -fno-pic -fno-pie $architecture_flags
 
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c "arch/$architecture/limine_requests.S" \
+    -c "src/platform/$architecture/limine_requests.S" \
     -o "$output_directory/limine_requests.o" -ffreestanding \
     -fno-stack-protector -fno-pic -fno-pie $architecture_flags
 
@@ -96,7 +96,7 @@ printf '%s  %s\n' "$libgcc_digest" "$libgcc" | \
 scripts/toolchain.sh exec "$architecture" "$target-ld" \
     --build-id=none --fatal-warnings --gc-sections -z noexecstack \
     -Map "$output_directory/exception.map" \
-    -T "arch/$architecture/exception.ld" \
+    -T "src/platform/$architecture/exception.ld" \
     -o "$output_directory/flyology-m4-exception.elf" \
     "$output_directory/exception_entry.o" \
     "$output_directory/limine_requests.o" \

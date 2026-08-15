@@ -13,14 +13,14 @@ output_directory=${2:-build/m0/$architecture}
 case "$architecture" in
     x86_64)
         target=x86_64-elf
-        entry=arch/x86_64/m0_entry.S
-        linker_script=arch/x86_64/m0.ld
+        entry=src/platform/x86_64/m0_entry.S
+        linker_script=src/platform/x86_64/m0.ld
         architecture_flags="-mno-red-zone -mcmodel=kernel"
         ;;
     aarch64)
         target=aarch64-elf
-        entry=arch/aarch64/m0_entry.S
-        linker_script=arch/aarch64/m0.ld
+        entry=src/platform/aarch64/m0_entry.S
+        linker_script=src/platform/aarch64/m0.ld
         architecture_flags="-mgeneral-regs-only"
         ;;
     *)

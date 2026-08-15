@@ -64,7 +64,7 @@ compile_ada() {
         -I"$m6_config_dir" -Iruntime/m6 \
         -I"$m6_test_config_dir" \
         -Itests/target/scenarios \
-        -I"arch/$architecture" -I"$output_directory" \
+        -I"src/platform/$architecture" -I"$output_directory" \
         $style_flags -gnatw.X -gnatw.i -gnato \
         -gnatec="$product_config" \
         -ffunction-sections -fdata-sections \
@@ -123,11 +123,11 @@ compile_ada src/primitives/flyology-wait_arbitration_model.adb \
     flyology-wait_arbitration_model.o
 compile_ada src/primitives/flyology-wait_queue_model.adb \
     flyology-wait_queue_model.o
-compile_ada "arch/$architecture/flyology-architecture_context.ads" \
+compile_ada "src/platform/$architecture/flyology-architecture_context.ads" \
     flyology-architecture_context.o
-compile_ada "arch/$architecture/flyology-interrupt_frames.ads" \
+compile_ada "src/platform/$architecture/flyology-interrupt_frames.ads" \
     flyology-interrupt_frames.o
-compile_ada "arch/$architecture/flyology-m2_architecture.adb" \
+compile_ada "src/platform/$architecture/flyology-m2_architecture.adb" \
     flyology-m2_architecture.o
 compile_ada src/kernel/flyology-kernel.adb flyology-kernel.o generated
 compile_ada src/rts/flyology-rts.adb flyology-rts.o generated
@@ -166,21 +166,21 @@ scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     -I"$repository/$m6_config_dir" \
     -I"$repository/$m6_test_config_dir" \
     -I"$repository/tests/target/scenarios" \
-    -I"$repository/arch/$architecture" \
+    -I"$repository/src/platform/$architecture" \
     -I. $binder_flags flyology_m3.ali
 
 compile_ada "$output_directory/b~flyology_m3.adb" b~flyology_m3.o generated
 
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c "arch/$architecture/m1_entry.S" -o "$output_directory/m3_entry.o" \
+    -c "src/platform/$architecture/m1_entry.S" -o "$output_directory/m3_entry.o" \
     $assembly_defines -ffreestanding \
     -fno-stack-protector -fno-pic -fno-pie $architecture_flags
 
 for source in context memory limine_requests; do
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-        -c "arch/$architecture/$source.S" \
+        -c "src/platform/$architecture/$source.S" \
         -o "$output_directory/$source.o" \
         -ffreestanding -fno-stack-protector -fno-pic -fno-pie \
         $architecture_flags
@@ -210,7 +210,7 @@ printf '%s  %s\n' "$libgcc_digest" "$libgcc" | \
 
 scripts/toolchain.sh exec "$architecture" "$target-ld" \
     --build-id=none --fatal-warnings --gc-sections -z noexecstack \
-    -T "arch/$architecture/m1.ld" \
+    -T "src/platform/$architecture/m1.ld" \
     -o "$output_directory/flyology-m3.elf" \
     "$output_directory/m3_entry.o" \
     "$output_directory/context.o" \

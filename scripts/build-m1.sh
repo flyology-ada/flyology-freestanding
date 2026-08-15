@@ -80,19 +80,19 @@ scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
 compile_ada "$output_directory/b~flyology_m1.adb" b~flyology_m1.o generated
 
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c "arch/$architecture/m1_entry.S" \
+    -c "src/platform/$architecture/m1_entry.S" \
     -o "$output_directory/m1_entry.o" \
     -ffreestanding -fno-stack-protector -fno-pic -fno-pie \
     $assembly_flags $architecture_flags
 
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c "arch/$architecture/limine_requests.S" \
+    -c "src/platform/$architecture/limine_requests.S" \
     -o "$output_directory/limine_requests.o" \
     -ffreestanding -fno-stack-protector -fno-pic -fno-pie $architecture_flags
 
 scripts/toolchain.sh exec "$architecture" "$target-ld" \
     --build-id=none --fatal-warnings --gc-sections -z noexecstack \
-    -T "arch/$architecture/m1.ld" \
+    -T "src/platform/$architecture/m1.ld" \
     -o "$output_directory/flyology-m1.elf" \
     "$output_directory/m1_entry.o" \
     "$output_directory/limine_requests.o" \

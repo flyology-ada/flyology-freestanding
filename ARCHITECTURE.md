@@ -10,7 +10,10 @@ This document is normative unless superseded by an accepted ADR.
    ownership, context transfer, preemption control, interrupt return, remote
    reschedule requests, and idle entry.
 3. **Scheduler policy** owns eligibility ordering, ready structures, priorities/quantum accounting, and next-task selection. It never switches contexts.
-4. **Architecture code** owns exception frames, local timers, interrupt controllers, IPIs/SGIs, privileged registers, machine-state normalization, and the minimum assembly required by entry/context ABIs.
+4. **Platform code** in `src/platform/<architecture>/` owns exception frames,
+   local timers, interrupt controllers, IPIs/SGIs, privileged registers,
+   machine-state normalization, linker layout, and the minimum assembly
+   required by entry/context ABIs.
 5. **Limine** owns loading, initial mappings/stacks, machine description, and MP bootstrap handoff only.
 
 Dependencies point downward through typed contracts. Architecture code does not choose policy; policy code does not manipulate exception frames; GNARL does not directly program interrupt controllers.

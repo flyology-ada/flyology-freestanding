@@ -38,6 +38,8 @@ until its build, proof, review, and QEMU evidence is recorded.
   support required before the full GNARL facade is available.
 - `src/abi/` — narrow documented C boundaries for exception unwinding and the
   compiler allocator ABI.
+- `src/platform/{x86_64,aarch64}/` — target context, interrupt, timer, memory,
+  Limine request, and linker implementations.
 - `tests/target/scenarios/` — ordinary-Ada conformance image and behavioral workloads.
 
 Milestone-named runtime and script paths are transitional. They remain supported

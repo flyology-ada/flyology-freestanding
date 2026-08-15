@@ -45,7 +45,7 @@ compile_ada() {
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
         -c "$source" -o "$output_directory/$object" \
         -nostdinc -Isrc/bootstrap -Isrc/primitives -Iruntime/m2 \
-        -I"arch/$architecture" -I"$output_directory" \
+        -I"src/platform/$architecture" -I"$output_directory" \
         $style_flags -gnatw.X -gnato -gnatec=src/bootstrap/m1.adc \
         -ffunction-sections -fdata-sections \
         -fno-stack-protector -fno-pic -fno-pie $architecture_flags
@@ -62,11 +62,12 @@ compile_ada src/primitives/flyology-reschedule_model.adb \
     flyology-reschedule_model.o
 compile_ada src/primitives/flyology-scheduler_contract.adb \
     flyology-scheduler_contract.o
-compile_ada "arch/$architecture/flyology-architecture_context.ads" \
+compile_ada src/primitives/flyology-clock_model.adb flyology-clock_model.o
+compile_ada "src/platform/$architecture/flyology-architecture_context.ads" \
     flyology-architecture_context.o
-compile_ada "arch/$architecture/flyology-interrupt_frames.ads" \
+compile_ada "src/platform/$architecture/flyology-interrupt_frames.ads" \
     flyology-interrupt_frames.o
-compile_ada "arch/$architecture/flyology-m2_architecture.adb" \
+compile_ada "src/platform/$architecture/flyology-m2_architecture.adb" \
     flyology-m2_architecture.o
 compile_ada runtime/m2/flyology-m2_runtime.adb flyology-m2_runtime.o
 compile_ada src/bootstrap/flyology-binder_support.adb \
@@ -77,42 +78,42 @@ scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" \
     -nostdinc -nostdlib -n -minimal \
     -I../../../src/bootstrap -I../../../src/primitives \
-    -I../../../runtime/m2 -I../../../arch/"$architecture" \
+    -I../../../runtime/m2 -I../../../src/platform/"$architecture" \
     -I. flyology_m2.ali
 
 compile_ada "$output_directory/b~flyology_m2.adb" b~flyology_m2.o generated
 
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c "arch/$architecture/m1_entry.S" \
+    -c "src/platform/$architecture/m1_entry.S" \
     -o "$output_directory/m2_entry.o" \
     -DFLYOLOGY_M2 -ffreestanding -fno-stack-protector -fno-pic -fno-pie \
     $architecture_flags
 
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c "arch/$architecture/context.S" \
+    -c "src/platform/$architecture/context.S" \
     -o "$output_directory/context.o" \
     -ffreestanding -fno-stack-protector -fno-pic -fno-pie \
     $architecture_flags
 
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c "arch/$architecture/memory.S" \
+    -c "src/platform/$architecture/memory.S" \
     -o "$output_directory/memory.o" \
     -ffreestanding -fno-stack-protector -fno-pic -fno-pie \
     $architecture_flags
 
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c "arch/$architecture/limine_requests.S" \
+    -c "src/platform/$architecture/limine_requests.S" \
     -o "$output_directory/limine_requests.o" \
     -ffreestanding -fno-stack-protector -fno-pic -fno-pie \
     $architecture_flags
 
 scripts/toolchain.sh exec "$architecture" "$target-ld" \
     --build-id=none --fatal-warnings --gc-sections -z noexecstack \
-    -T "arch/$architecture/m1.ld" \
+    -T "src/platform/$architecture/m1.ld" \
     -o "$output_directory/flyology-m2.elf" \
     "$output_directory/m2_entry.o" \
     "$output_directory/context.o" \
@@ -124,6 +125,7 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/flyology-m2_architecture.o" \
     "$output_directory/flyology-architecture_context.o" \
     "$output_directory/flyology-interrupt_frames.o" \
+    "$output_directory/flyology-clock_model.o" \
     "$output_directory/flyology-scheduler_contract.o" \
     "$output_directory/flyology-reschedule_model.o" \
     "$output_directory/flyology-dispatcher_model.o" \

@@ -65,9 +65,12 @@ test -f "$repository/src/gnarl/s-tassta.adb"
 test -f "$repository/src/primitives/flyology-dispatcher_model.adb"
 test -f "$repository/src/bootstrap/system.ads"
 test -f "$repository/src/abi/exception_runtime.c"
+test -f "$repository/src/platform/x86_64/m1_entry.S"
+test -f "$repository/src/platform/aarch64/m1_entry.S"
 test ! -e "$repository/runtime/m3"
 test ! -e "$repository/runtime/core"
 test ! -e "$repository/runtime/bootstrap"
 test ! -e "$repository/runtime/m4/exception_runtime.c"
+test ! -e "$repository/arch"
 
 echo 'FLYOLOGY:PRODUCT:PROJECT:PASS'

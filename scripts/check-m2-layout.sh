@@ -54,7 +54,7 @@ check_architecture() {
           "$output_directory"/*.rep \
           "$output_directory"/*.bin
 
-    common_flags="-nostdinc -Isrc/bootstrap -Isrc/primitives -Iarch/$architecture -I$output_directory -gnato"
+    common_flags="-nostdinc -Isrc/bootstrap -Isrc/primitives -Isrc/platform/$architecture -I$output_directory -gnato"
 
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
@@ -72,7 +72,7 @@ check_architecture() {
     # view of every Ada record clause used by the assembly ABI.
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-        -c "arch/$architecture/flyology-architecture_context.ads" \
+        -c "src/platform/$architecture/flyology-architecture_context.ads" \
         -o "$output_directory/flyology-architecture_context.o" \
         $common_flags -gnat2022 -gnatwa -gnatwe -gnatR2 \
         $architecture_flags \
@@ -80,7 +80,7 @@ check_architecture() {
 
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-        -c "arch/$architecture/flyology-interrupt_frames.ads" \
+        -c "src/platform/$architecture/flyology-interrupt_frames.ads" \
         -o "$output_directory/flyology-interrupt_frames.o" \
         $common_flags -gnat2022 -gnatwa -gnatwe -gnatR2 \
         $architecture_flags \
@@ -96,7 +96,7 @@ check_architecture() {
     # records into the task-owned storage consumed by the transfer assembly.
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-        -c "arch/$architecture/flyology-m2_architecture.adb" \
+        -c "src/platform/$architecture/flyology-m2_architecture.adb" \
         -o "$output_directory/flyology-m2_architecture.o" \
         $common_flags -gnat2022 -gnatwa -gnatwe -gnatR2 \
         $architecture_flags \
@@ -104,7 +104,7 @@ check_architecture() {
 
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-        -c "arch/$architecture/context.S" \
+        -c "src/platform/$architecture/context.S" \
         -o "$output_directory/context.o" \
         -ffreestanding -fno-stack-protector -fno-pic -fno-pie \
         $architecture_flags
@@ -151,7 +151,7 @@ flyology_task_start'
     # emitted beside the exact offsets used by its save/restore instructions.
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-        -c "arch/$architecture/m1_entry.S" \
+        -c "src/platform/$architecture/m1_entry.S" \
         -o "$output_directory/interrupt-entry.o" \
         -DFLYOLOGY_M2 -ffreestanding -fno-stack-protector -fno-pic -fno-pie \
         $architecture_flags
