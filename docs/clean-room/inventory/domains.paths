@@ -15,4 +15,5 @@ src/rts/flyology-rts.adb
 src/rts/flyology-rts-domain_operations.adb
 src/kernel/flyology-kernel.ads
 src/kernel/flyology-kernel.adb
+src/kernel/flyology-kernel-domain_operations.adb
 config/domains/on/flyology-domain_configuration.ads

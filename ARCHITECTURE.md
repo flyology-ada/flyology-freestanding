@@ -29,6 +29,10 @@ API or mutable authority. In particular,
 `flyology-rts-domain_operations.adb` owns dispatching-domain aliases, creation,
 freezing, queries, and the domain snapshot used by activation planning; the
 state it mutates remains declared once in the `Flyology.RTS` parent body.
+`flyology-kernel-domain_operations.adb` owns the corresponding checked kernel
+configuration, creation commit, core ownership, and task-domain queries while
+the domain/core/task arrays remain declared once in the `Flyology.Kernel`
+parent body.
 
 The minimal binder and root predefined-unit substrate lives in
 `src/bootstrap/`. The only C production sources live in `src/abi/`, where they
