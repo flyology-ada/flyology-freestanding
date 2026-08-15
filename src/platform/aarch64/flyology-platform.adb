@@ -1,6 +1,6 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
-package body Flyology.M2_Architecture is
+package body Flyology.Platform is
    package Contexts renames Flyology.Architecture_Context;
    use type System.Address;
 
@@ -13,19 +13,15 @@ package body Flyology.M2_Architecture is
    is
    begin
       Item :=
-        (RBX           => 0,
-         RBP           => 0,
-         R12           => Contexts.Unsigned_64 (Core_Value),
-         R13           => 0,
-         R14           => 0,
-         R15           => 0,
+        (X19_To_X30    => [others => 0],
          Stack_Pointer => Contexts.Unsigned_64
            (Stack_Top and not (Stack_Alignment - 1)),
-         Instruction   => Contexts.Unsigned_64 (Contexts.Start'Address),
-         MXCSR         => 16#1F80#,
-         X87_Control   => 16#037F#,
          Reserved      => 0,
-         FS_Base       => 0);
+         D8_To_D15     => [others => 0],
+         FPCR          => 0,
+         FPSR          => 0);
+      Item.X19_To_X30 (0) := Contexts.Unsigned_64 (Core_Value);
+      Item.X19_To_X30 (11) := Contexts.Unsigned_64 (Contexts.Start'Address);
    end Initialize;
 
    procedure Initialize_Dispatcher
@@ -35,20 +31,16 @@ package body Flyology.M2_Architecture is
    is
    begin
       Item :=
-        (RBX           => 0,
-         RBP           => 0,
-         R12           => Contexts.Unsigned_64 (Core_Value),
-         R13           => 0,
-         R14           => 0,
-         R15           => 0,
+        (X19_To_X30    => [others => 0],
          Stack_Pointer => Contexts.Unsigned_64
            (Stack_Top and not (Stack_Alignment - 1)),
-         Instruction   => Contexts.Unsigned_64
-           (Contexts.Dispatcher_Start'Address),
-         MXCSR         => 16#1F80#,
-         X87_Control   => 16#037F#,
          Reserved      => 0,
-         FS_Base       => 0);
+         D8_To_D15     => [others => 0],
+         FPCR          => 0,
+         FPSR          => 0);
+      Item.X19_To_X30 (0) := Contexts.Unsigned_64 (Core_Value);
+      Item.X19_To_X30 (11) :=
+        Contexts.Unsigned_64 (Contexts.Dispatcher_Start'Address);
    end Initialize_Dispatcher;
 
    procedure Switch
@@ -59,21 +51,15 @@ package body Flyology.M2_Architecture is
       Contexts.Switch (Outgoing, Incoming);
    end Switch;
 
-   procedure Capture_Raw
-     (Destination : System.Address;
-      Source      : System.Address)
-   with Import, Convention => C,
-        External_Name => "flyology_context_capture_full";
-
    procedure Capture_Full_Context
      (Item   : out Full_Context;
       Source : Interrupt_Frame)
    is
    begin
-      Capture_Raw (Item'Address, Source'Address);
+      Item.Frame := Source;
    end Capture_Full_Context;
 
    function Interrupted_Stack
      (Source : Interrupt_Frame) return System.Address
-   is (System.Address (Source.Stack_Pointer));
-end Flyology.M2_Architecture;
+   is (System.Address (Source.Interrupted_SP));
+end Flyology.Platform;

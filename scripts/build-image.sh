@@ -127,8 +127,8 @@ compile_ada "src/platform/$architecture/flyology-architecture_context.ads" \
     flyology-architecture_context.o
 compile_ada "src/platform/$architecture/flyology-interrupt_frames.ads" \
     flyology-interrupt_frames.o
-compile_ada "src/platform/$architecture/flyology-m2_architecture.adb" \
-    flyology-m2_architecture.o
+compile_ada "src/platform/$architecture/flyology-platform.adb" \
+    flyology-platform.o
 compile_ada src/kernel/flyology-kernel.adb flyology-kernel.o generated
 compile_ada src/rts/flyology-rts.adb flyology-rts.o generated
 compile_ada src/gnarl/s-multip.adb s-multip.o yes
@@ -172,7 +172,7 @@ compile_ada "$output_directory/b~flyology_m3.adb" b~flyology_m3.o generated
 
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c "src/platform/$architecture/m1_entry.S" -o "$output_directory/m3_entry.o" \
+    -c "src/platform/$architecture/entry.S" -o "$output_directory/entry.o" \
     $assembly_defines -ffreestanding \
     -fno-stack-protector -fno-pic -fno-pie $architecture_flags
 
@@ -209,9 +209,9 @@ printf '%s  %s\n' "$libgcc_digest" "$libgcc" | \
 
 scripts/toolchain.sh exec "$architecture" "$target-ld" \
     --build-id=none --fatal-warnings --gc-sections -z noexecstack \
-    -T "src/platform/$architecture/m1.ld" \
+    -T "src/platform/$architecture/image.ld" \
     -o "$output_directory/flyology-m3.elf" \
-    "$output_directory/m3_entry.o" \
+    "$output_directory/entry.o" \
     "$output_directory/context.o" \
     "$output_directory/memory.o" \
     "$output_directory/limine_requests.o" \
@@ -268,7 +268,7 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/s-stoele.o" \
     "$output_directory/ada.o" \
     "$output_directory/a-except.o" \
-    "$output_directory/flyology-m2_architecture.o" \
+    "$output_directory/flyology-platform.o" \
     "$output_directory/flyology-architecture_context.o" \
     "$output_directory/flyology-binder_support.o" \
     "$output_directory/flyology-boot_validation.o" \

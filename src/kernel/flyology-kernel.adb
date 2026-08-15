@@ -1,6 +1,6 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
-with Flyology.M2_Architecture;
+with Flyology.Platform;
 with Flyology.Ceiling_Model;
 with Flyology.Domain_Model;
 with Flyology.Preemption_Model;
@@ -9,7 +9,7 @@ with Flyology.Timer_Model;
 with Flyology.Wait_Arbitration_Model;
 
 package body Flyology.Kernel is
-   package Architecture renames Flyology.M2_Architecture;
+   package Architecture renames Flyology.Platform;
    package Ceilings renames Flyology.Ceiling_Model;
    package Domains renames Flyology.Domain_Model;
    package Preemption renames Flyology.Preemption_Model;

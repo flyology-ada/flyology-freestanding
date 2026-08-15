@@ -1,12 +1,12 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Flyology.Dispatcher_Model;
-with Flyology.M2_Architecture;
+with Flyology.Platform;
 with Flyology.Scheduler_Contract;
 
 package body Flyology.M2_Runtime is
    package Model renames Flyology.Dispatcher_Model;
-   package Architecture renames Flyology.M2_Architecture;
+   package Architecture renames Flyology.Platform;
    package Scheduler renames Flyology.Scheduler_Contract;
    use type Model.Task_Incarnation;
    use type Model.Generation;

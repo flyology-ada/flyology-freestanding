@@ -68,8 +68,8 @@ compile_ada "src/platform/$architecture/flyology-architecture_context.ads" \
     flyology-architecture_context.o
 compile_ada "src/platform/$architecture/flyology-interrupt_frames.ads" \
     flyology-interrupt_frames.o
-compile_ada "src/platform/$architecture/flyology-m2_architecture.adb" \
-    flyology-m2_architecture.o
+compile_ada "src/platform/$architecture/flyology-platform.adb" \
+    flyology-platform.o
 compile_ada tests/legacy/checkpoints/m2/flyology-m2_runtime.adb \
     flyology-m2_runtime.o
 compile_ada src/bootstrap/flyology-binder_support.adb \
@@ -88,7 +88,7 @@ compile_ada "$output_directory/b~flyology_m2.adb" b~flyology_m2.o generated
 
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c "src/platform/$architecture/m1_entry.S" \
+    -c "src/platform/$architecture/entry.S" \
     -o "$output_directory/m2_entry.o" \
     -DFLYOLOGY_M2 -ffreestanding -fno-stack-protector -fno-pic -fno-pie \
     $architecture_flags
@@ -116,7 +116,7 @@ scripts/toolchain.sh exec "$architecture" "$target-gcc" \
 
 scripts/toolchain.sh exec "$architecture" "$target-ld" \
     --build-id=none --fatal-warnings --gc-sections -z noexecstack \
-    -T "src/platform/$architecture/m1.ld" \
+    -T "src/platform/$architecture/image.ld" \
     -o "$output_directory/flyology-m2.elf" \
     "$output_directory/m2_entry.o" \
     "$output_directory/context.o" \
@@ -125,7 +125,7 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/b~flyology_m2.o" \
     "$output_directory/flyology_m2.o" \
     "$output_directory/flyology-m2_runtime.o" \
-    "$output_directory/flyology-m2_architecture.o" \
+    "$output_directory/flyology-platform.o" \
     "$output_directory/flyology-architecture_context.o" \
     "$output_directory/flyology-interrupt_frames.o" \
     "$output_directory/flyology-clock_model.o" \

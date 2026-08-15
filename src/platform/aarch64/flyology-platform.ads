@@ -5,7 +5,7 @@ with Flyology.Clock_Model;
 with Flyology.Interrupt_Frames;
 with System;
 
-package Flyology.M2_Architecture is
+package Flyology.Platform is
    subtype Context is Flyology.Architecture_Context.Voluntary_Context;
    subtype Interrupt_Frame is Flyology.Interrupt_Frames.Interrupt_Frame;
    subtype Tick is Flyology.Clock_Model.Tick;
@@ -80,4 +80,4 @@ package Flyology.M2_Architecture is
    procedure Retry_Interrupt
    with Import, Convention => C,
         External_Name => "flyology_m5_retry_interrupt";
-end Flyology.M2_Architecture;
+end Flyology.Platform;

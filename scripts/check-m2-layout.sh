@@ -96,8 +96,8 @@ check_architecture() {
     # records into the task-owned storage consumed by the transfer assembly.
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-        -c "src/platform/$architecture/flyology-m2_architecture.adb" \
-        -o "$output_directory/flyology-m2_architecture.o" \
+        -c "src/platform/$architecture/flyology-platform.adb" \
+        -o "$output_directory/flyology-platform.o" \
         $common_flags -gnat2022 -gnatwa -gnatwe -gnatR2 \
         $architecture_flags \
         >"$output_directory/full-context.rep" 2>&1
@@ -151,7 +151,7 @@ flyology_task_start'
     # emitted beside the exact offsets used by its save/restore instructions.
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-        -c "src/platform/$architecture/m1_entry.S" \
+        -c "src/platform/$architecture/entry.S" \
         -o "$output_directory/interrupt-entry.o" \
         -DFLYOLOGY_M2 -ffreestanding -fno-stack-protector -fno-pic -fno-pie \
         $architecture_flags
