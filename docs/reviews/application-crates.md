@@ -30,7 +30,8 @@ target-specific GPR sources or linker inputs.
   may select one architecture or an existing runtime profile explicitly.
 - `flyology-run` accepts the architecture and CPU count, uses the pinned fixed
   QEMU machine, copies the mutable UEFI variables template per run, and supports
-  a bounded timeout for automation.
+  a bounded timeout for automation. Its default remains headless; an explicit
+  `--gui` option enables QEMU's host display without changing the guest image.
 
 Consumer outputs are deliberately shallow:
 

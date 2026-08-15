@@ -89,7 +89,13 @@ pinned QEMU/EDK II contract:
 ```sh
 ./run.sh x86_64
 ./run.sh --cpus 4 aarch64
+./run.sh --gui x86_64
 ```
+
+Runs are headless by default for deterministic terminal use and automation.
+`--gui` leaves QEMU's host display enabled while retaining serial output in the
+terminal. It prepares the runner for a future guest framebuffer; it does not by
+itself add or initialize a framebuffer device in the Ada application.
 
 The dependency exports `FLYOLOGY_BUILD_TOOL` and `FLYOLOGY_RUN_TOOL` as paths
 relative to its own Alire crate root. It does not prepend its scripts directory
@@ -100,7 +106,7 @@ Returning from the application procedure performs binder finalization and
 terminates the environment task. With no remaining Ready tasks, each core
 enters the architecture idle instruction (`hlt` or `wfi`). The interactive
 runner therefore remains attached until interrupted; `--timeout SECONDS` is
-available for bounded automation.
+available for bounded automation in either display mode.
 
 ## Boundary and clean-room status
 

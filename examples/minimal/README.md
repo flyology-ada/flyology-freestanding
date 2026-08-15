@@ -30,10 +30,13 @@ Run either image directly from the crate:
 ```sh
 ./run.sh x86_64
 ./run.sh aarch64
+./run.sh --gui x86_64
 ```
 
-This example sets `FLYOLOGY_CPUS=4`, so both commands start four virtual CPUs.
+This example sets `FLYOLOGY_CPUS=4`, so these commands start four virtual CPUs.
 The default interactive run stays attached after the application enters idle;
 press Ctrl-C to stop QEMU. The wrapper resolves the dependency-provided runner
 through `FLYOLOGY_RUN_TOOL`; neither the manifest nor the script contains an
-absolute checkout or tool path.
+absolute checkout or tool path. Runs are headless by default; `--gui` opens
+QEMU's host display while continuing to send the kernel console to the
+terminal.

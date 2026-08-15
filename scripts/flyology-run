@@ -9,16 +9,18 @@ cpu_count=${FLYOLOGY_CPUS:-1}
 
 usage() {
     cat >&2 <<'EOF'
-usage: flyology-run [--profile PROFILE] [--cpus 1..4] [--timeout SECONDS] ARCH
+usage: flyology-run [--profile PROFILE] [--cpus 1..4] [--gui] [--timeout SECONDS] ARCH
 
 Boot a previously built Flyology UEFI FAT image with the pinned QEMU machine
-and EDK II firmware contract.  Without --timeout QEMU remains attached to the
-terminal; press Ctrl-C after the application reaches its halt/idle state.
+and EDK II firmware contract. The default is headless; --gui enables QEMU's
+host display. Without --timeout QEMU remains attached to the terminal; press
+Ctrl-C after the application reaches its halt/idle state.
 EOF
     exit 64
 }
 
 timeout_seconds=0
+gui=0
 while test "$#" -gt 0; do
     case "$1" in
         --profile)
@@ -30,6 +32,10 @@ while test "$#" -gt 0; do
             test "$#" -ge 2 || usage
             cpu_count=$2
             shift 2
+            ;;
+        --gui)
+            gui=1
+            shift
             ;;
         --timeout)
             test "$#" -ge 2 || usage
@@ -48,6 +54,7 @@ image="$output_root/$architecture/flyology-$architecture.fat"
 state="$output_root/run/$architecture-smp$cpu_count"
 bundle="$output_root/$architecture"
 FLYOLOGY_QEMU_TIMEOUT_SECONDS="$timeout_seconds" \
+FLYOLOGY_QEMU_GUI="$gui" \
 FLYOLOGY_UEFI_BUNDLE_DIRECTORY="$bundle" \
     "$runtime_root/scripts/run-uefi-image.sh" \
     "$architecture" "$cpu_count" "$image" "$state"

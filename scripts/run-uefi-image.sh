@@ -69,6 +69,11 @@ cp "$vars_template" "$vars"
 serial=${FLYOLOGY_QEMU_SERIAL:-stdio}
 qemu_log=${FLYOLOGY_QEMU_LOG:-}
 timeout_seconds=${FLYOLOGY_QEMU_TIMEOUT_SECONDS:-0}
+gui=${FLYOLOGY_QEMU_GUI:-0}
+case "$gui" in
+    0|1) ;;
+    *) echo "unsupported GUI setting: $gui" >&2; exit 64 ;;
+esac
 
 set -- "$qemu" \
     -machine "$machine" -accel tcg,thread=multi -cpu "$cpu_model" \
@@ -76,8 +81,13 @@ set -- "$qemu" \
     -drive "if=pflash,format=raw,unit=0,readonly=on,file=$code" \
     -drive "if=pflash,format=raw,unit=1,file=$vars" \
     -drive "if=none,id=bootdisk,format=raw,readonly=on,file=$image" \
-    -device virtio-blk-pci,drive=bootdisk,bootindex=1 \
-    -display none -monitor none -serial "$serial" -no-reboot -no-shutdown
+    -device virtio-blk-pci,drive=bootdisk,bootindex=1
+
+if test "$gui" = 0; then
+    set -- "$@" -display none
+fi
+
+set -- "$@" -monitor none -serial "$serial" -no-reboot -no-shutdown
 
 if test "$timeout_seconds" = 0; then
     if test -n "$qemu_log"; then

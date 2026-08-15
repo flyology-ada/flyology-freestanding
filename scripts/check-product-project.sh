@@ -23,6 +23,12 @@ test -x "$repository/scripts/inspect-image.sh"
 test -x "$repository/scripts/run-product.sh"
 test -x "$repository/scripts/verify-product-runtime.sh"
 
+grep -F -- '--gui)' "$repository/scripts/flyology-run" >/dev/null
+grep -F 'FLYOLOGY_QEMU_GUI="$gui"' \
+    "$repository/scripts/flyology-run" >/dev/null
+grep -F 'if test "$gui" = 0; then' \
+    "$repository/scripts/run-uefi-image.sh" >/dev/null
+
 grep -F 'name = "flyology_barebones"' "$manifest" >/dev/null
 grep -F 'project-files = ["flyology.gpr"]' "$manifest" >/dev/null
 grep -F 'for Project_Files use ("gpr/flyology_primitives.gpr");' \
