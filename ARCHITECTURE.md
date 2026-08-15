@@ -33,6 +33,10 @@ state it mutates remains declared once in the `Flyology.RTS` parent body.
 configuration, creation commit, core ownership, and task-domain queries while
 the domain/core/task arrays remain declared once in the `Flyology.Kernel`
 parent body.
+`flyology-rts-rendezvous_operations.adb` owns FIFO entry-call admission,
+conditional and timed calls, accept, normal/exceptional completion, and the
+currently supported selective-wait surface. It inherits the RTS call table and
+exact-wait authority; the subunit introduces no second queue or public API.
 
 The minimal binder and root predefined-unit substrate lives in
 `src/bootstrap/`. The only C production sources live in `src/abi/`, where they

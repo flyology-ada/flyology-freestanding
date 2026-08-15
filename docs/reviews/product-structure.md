@@ -148,6 +148,14 @@ full product image cannot isolate. The applications now live under
 `tests/platform/`; product project hygiene proves they are absent from supported
 source paths and rejects reintroduction of `tests/legacy/`.
 
+### Medium — rendezvous semantics remain embedded in the RTS lifecycle body
+
+Disposition: fixed by the responsibility-owned
+`flyology-rts-rendezvous_operations.adb` subunit. Entry-call admission,
+conditional/timed waits, FIFO acceptance, exceptional completion, and selective
+wait remain inside the single RTS state and lock authority, but no longer make
+task lifecycle and master cleanup share one implementation file.
+
 ## Residual limits
 
 - The primitive archive is an internal `0.1.0-dev` engineering library; package

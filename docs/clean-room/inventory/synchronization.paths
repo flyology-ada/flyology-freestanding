@@ -26,5 +26,6 @@ src/abi/allocator_runtime.c
 src/abi/exception_runtime.c
 src/rts/flyology-rts.ads
 src/rts/flyology-rts.adb
+src/rts/flyology-rts-rendezvous_operations.adb
 src/kernel/flyology-kernel.ads
 src/kernel/flyology-kernel.adb
