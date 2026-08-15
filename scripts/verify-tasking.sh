@@ -8,14 +8,13 @@ scripts/probe-tasking-interface.sh
 scripts/probe-synchronization-interface.sh
 scripts/check-interrupt-layout.sh
 scripts/verify-tasking-reproducible.sh
-FLYOLOGY_IMAGE_OUTPUT_ROOT=build/tasking scripts/build-image.sh x86_64 >/dev/null
-FLYOLOGY_IMAGE_OUTPUT_ROOT=build/tasking scripts/build-image.sh aarch64 >/dev/null
-FLYOLOGY_IMAGE_OUTPUT_ROOT=build/tasking scripts/inspect-image.sh x86_64 tasking
-FLYOLOGY_IMAGE_OUTPUT_ROOT=build/tasking scripts/inspect-image.sh aarch64 tasking
-FLYOLOGY_IMAGE_OUTPUT_ROOT=build/tasking scripts/run-image.sh x86_64 1 tasking
-FLYOLOGY_IMAGE_OUTPUT_ROOT=build/tasking scripts/run-image.sh x86_64 4 tasking
-FLYOLOGY_IMAGE_OUTPUT_ROOT=build/tasking scripts/run-image.sh aarch64 1 tasking
-FLYOLOGY_IMAGE_OUTPUT_ROOT=build/tasking scripts/run-image.sh aarch64 4 tasking
+for architecture in x86_64 aarch64; do
+    scripts/build-product.sh "$architecture" tasking >/dev/null
+    FLYOLOGY_IMAGE_OUTPUT_ROOT=build/product/tasking \
+        scripts/inspect-image.sh "$architecture" tasking
+    scripts/run-product.sh "$architecture" 1 tasking
+    scripts/run-product.sh "$architecture" 4 tasking
+done
 scripts/stress-tasking.sh
 
 echo 'FLYOLOGY:TASKING:GATE:PASS'

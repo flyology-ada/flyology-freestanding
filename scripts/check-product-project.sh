@@ -86,6 +86,11 @@ for profile in $profile_names; do
     grep -F "    $profile)" "$repository/scripts/build-product.sh" >/dev/null
 done
 
+direct_product_callers=$(rg -l -F 'scripts/build-image.sh' \
+    "$repository/scripts" --glob '*.sh' \
+    --glob '!check-product-project.sh' | sort)
+test "$direct_product_callers" = "$repository/scripts/build-product.sh"
+
 if find "$repository/src" -type f \
     \( -name '*_demo.ads' -o -name '*_demo.adb' \) -print | grep .; then
     echo 'target conformance scenario found under src/' >&2

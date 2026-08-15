@@ -16,24 +16,17 @@ for architecture in x86_64 aarch64; do
     scripts/run-exception-probe.sh "$architecture" 4
 done
 scripts/verify-tasking-reproducible.sh
-FLYOLOGY_IMAGE_OUTPUT_ROOT=build/tasking scripts/build-image.sh x86_64 >/dev/null
-FLYOLOGY_IMAGE_OUTPUT_ROOT=build/tasking scripts/build-image.sh aarch64 >/dev/null
-FLYOLOGY_IMAGE_OUTPUT_ROOT=build/tasking scripts/inspect-image.sh x86_64 tasking
-FLYOLOGY_IMAGE_OUTPUT_ROOT=build/tasking scripts/inspect-image.sh aarch64 tasking
-scripts/check-unwind.sh x86_64
-scripts/check-unwind.sh aarch64
-FLYOLOGY_IMAGE_OUTPUT_ROOT=build/tasking \
-FLYOLOGY_IMAGE_TEST_TAG=synchronization-gate \
-    scripts/run-image.sh x86_64 1 tasking
-FLYOLOGY_IMAGE_OUTPUT_ROOT=build/tasking \
-FLYOLOGY_IMAGE_TEST_TAG=synchronization-gate \
-    scripts/run-image.sh x86_64 4 tasking
-FLYOLOGY_IMAGE_OUTPUT_ROOT=build/tasking \
-FLYOLOGY_IMAGE_TEST_TAG=synchronization-gate \
-    scripts/run-image.sh aarch64 1 tasking
-FLYOLOGY_IMAGE_OUTPUT_ROOT=build/tasking \
-FLYOLOGY_IMAGE_TEST_TAG=synchronization-gate \
-    scripts/run-image.sh aarch64 4 tasking
+for architecture in x86_64 aarch64; do
+    scripts/build-product.sh "$architecture" tasking >/dev/null
+    FLYOLOGY_IMAGE_OUTPUT_ROOT=build/product/tasking \
+        scripts/inspect-image.sh "$architecture" tasking
+    FLYOLOGY_IMAGE_OUTPUT_ROOT=build/product/tasking \
+        scripts/check-unwind.sh "$architecture"
+    FLYOLOGY_PRODUCT_TEST_TAG=synchronization-gate \
+        scripts/run-product.sh "$architecture" 1 tasking
+    FLYOLOGY_PRODUCT_TEST_TAG=synchronization-gate \
+        scripts/run-product.sh "$architecture" 4 tasking
+done
 scripts/stress-synchronization.sh
 
 echo 'FLYOLOGY:RTS:GATE:PASS'
