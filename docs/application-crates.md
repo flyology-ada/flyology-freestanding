@@ -15,14 +15,17 @@ Add the dependency and identify the application procedure in `alire.toml`:
 flyology_barebones = "*"
 
 [environment]
-FLYOLOGY_APPLICATION_ROOT.set = "${CRATE_ROOT}"
-FLYOLOGY_APPLICATION_DIR.set = "${CRATE_ROOT}/src"
 FLYOLOGY_APPLICATION_UNIT.set = "my_kernel"
 
 [[actions]]
 type = "post-build"
 command = ["sh", "-c", "exec \"$FLYOLOGY_BUILD_TOOL\""]
 ```
+
+The tools infer the application root from the directory in which Alire runs
+and use its conventional `src/` directory. `FLYOLOGY_APPLICATION_ROOT` and
+`FLYOLOGY_APPLICATION_DIR` are optional overrides for nonstandard layouts;
+ordinary crates should not repeat those paths in their manifests.
 
 During local development a normal Alire path pin can select a checkout. A
 published crate does not retain that pin.

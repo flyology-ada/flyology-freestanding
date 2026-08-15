@@ -16,8 +16,6 @@ flyology_barebones = "*"
 flyology_barebones = { path = "../.." }
 
 [environment]
-FLYOLOGY_APPLICATION_ROOT.set = "${CRATE_ROOT}"
-FLYOLOGY_APPLICATION_DIR.set = "${CRATE_ROOT}/src"
 FLYOLOGY_APPLICATION_UNIT.set = "minimal_kernel"
 FLYOLOGY_CPUS.set = "4"
 

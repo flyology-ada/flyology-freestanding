@@ -6,6 +6,10 @@ example="$repository/examples/minimal"
 repro_root="$example/build/repro"
 
 alr -n -C "$example" build
+if grep -qE '^FLYOLOGY_APPLICATION_(ROOT|DIR)\.' "$example/alire.toml"; then
+    echo 'minimal example redundantly configures conventional directories' >&2
+    exit 1
+fi
 test -f "$example/alire/build_hash_inputs"
 if grep -nE '/Users/|/home/|/private/var/folders/|[A-Za-z]:\\' \
     "$example/alire/build_hash_inputs"; then

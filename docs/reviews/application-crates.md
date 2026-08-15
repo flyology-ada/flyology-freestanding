@@ -18,10 +18,11 @@ target-specific GPR sources or linker inputs.
 
 - The dependency exports `flyology-build` and `flyology-run` through its Alire
   environment.
-- The consumer supplies `FLYOLOGY_APPLICATION_ROOT`,
-  `FLYOLOGY_APPLICATION_DIR`, and `FLYOLOGY_APPLICATION_UNIT`; the generated
-  `Flyology_Launcher` is the binder main and invokes that procedure after the
-  RTS elaboration closure.
+- The consumer supplies `FLYOLOGY_APPLICATION_UNIT`; the tools infer the crate
+  root and conventional `src/` directory from their invocation context.
+  `FLYOLOGY_APPLICATION_ROOT` and `FLYOLOGY_APPLICATION_DIR` remain optional
+  overrides for nonstandard layouts. The generated `Flyology_Launcher` is the
+  binder main and invokes that procedure after the RTS elaboration closure.
 - `Flyology.Console.Put_Line` is the only new application-facing runtime API.
   It delegates to one narrow platform serial boundary and exposes no task,
   scheduler, context, or wait authority.
