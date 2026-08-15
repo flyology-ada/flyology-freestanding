@@ -37,6 +37,13 @@ personality.
 `scripts/build-exception-probe.sh` builds a zero-unresolved freestanding image.
 `scripts/run-exception-probe.sh` requires a caught Program_Error pass and unique
 online-core markers under the pinned QEMU/UEFI contract for SMP1 and SMP4.
+The Ada closure is owned by `gpr/flyology_exception_probe.gpr`; the shell retains
+only binder, architecture, C unwinder, linker, and boot-media composition. The
+authoritative `scripts/verify-synchronization.sh` gate builds and runs all four
+architecture/SMP cells, so this evidence cannot silently become documentary
+only. The isolated image executes the allocator/unwinder probe only on the BSP;
+its test-only allocator-lock adapter is therefore single-caller. Product images
+link the same allocator arithmetic to the SMP runtime lock instead.
 
 Removing only `No_Exception_Propagation` from the product configuration adds
 one exact compiler-required source boundary on both targets:

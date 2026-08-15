@@ -9,6 +9,7 @@ test -f "$manifest"
 test -f "$repository/flyology.gpr"
 test -f "$repository/gpr/flyology_primitives.gpr"
 test -f "$repository/gpr/flyology_image.gpr"
+test -f "$repository/gpr/flyology_exception_probe.gpr"
 test -f "$repository/gpr/flyology_cross.cgpr"
 test -f "$profiles"
 test -f "$repository/tests/target/scenarios/flyology_conformance.adb"
@@ -34,6 +35,15 @@ grep -F '"flyology-boot_validation.adb"' \
     "$repository/gpr/flyology_image.gpr" >/dev/null
 grep -F 'for Driver ("Ada") use Ada_Driver;' \
     "$repository/gpr/flyology_cross.cgpr" >/dev/null
+grep -F 'for Main use' \
+    "$repository/gpr/flyology_exception_probe.gpr" >/dev/null
+grep -F 'gprbuild -c -p -P gpr/flyology_exception_probe.gpr' \
+    "$repository/scripts/build-exception-probe.sh" >/dev/null
+if rg -n 'compile_ada' \
+    "$repository/scripts/build-exception-probe.sh" >/dev/null; then
+    echo 'exception probe shell duplicates its Ada project source graph' >&2
+    exit 1
+fi
 
 profile_names=$(awk -F ' *= *' '$1 == "name" {
     gsub(/^"|"$/, "", $2)

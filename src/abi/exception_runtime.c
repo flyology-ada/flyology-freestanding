@@ -52,7 +52,7 @@ static char release_location[128];
 
 extern const u8 __eh_frame_start[];
 extern void __register_frame(const void *);
-extern void flyology_task_root_invoke(void *, void *);
+extern void flyology_task_root_invoke(void *, void *) __attribute__((weak));
 extern uptr flyology_exception_task_slot(void) __attribute__((weak));
 extern void __gnat_last_chance_handler(void *, int) __attribute__((noreturn));
 
@@ -616,7 +616,8 @@ _Unwind_Reason_Code __gnat_personality_v0
                     cleanup_match = 0;
                 } else if (exception->identity == &abort_signal ||
                            exception->identity == &terminate_signal) {
-                    matched = identity == &__gnat_others_value &&
+                    matched = flyology_task_root_invoke != 0 &&
+                        identity == &__gnat_others_value &&
                         region_start == (uptr)flyology_task_root_invoke;
                 } else {
                     matched = identity == exception->identity ||

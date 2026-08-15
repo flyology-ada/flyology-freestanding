@@ -27,46 +27,49 @@ mkdir -p "$output_directory"
 rm -f "$output_directory"/*.ali "$output_directory"/*.o \
       "$output_directory"/b~exception_probe.ad? \
       "$output_directory/flyology-exception-probe.elf"
+output_directory=$(CDPATH= cd -- "$output_directory" && pwd)
+probe_config="$repository/config/restrictions/exception-probe.adc"
 
 export LC_ALL=C
 export SOURCE_DATE_EPOCH=1786502400
 
-compile_ada() {
-    source=$1
-    object=$2
-    runtime_mode=${3:-no}
-    case "$runtime_mode" in
-        yes) style_flags='-gnatg -gnat2022 -gnatwa -gnatwe' ;;
-        generated) style_flags='-gnat2022 -gnatws' ;;
-        no) style_flags='-gnat2022 -gnatwa -gnatwe' ;;
-        *) echo "invalid Ada compile mode: $runtime_mode" >&2; exit 64 ;;
-    esac
-    # shellcheck disable=SC2086
-    scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-        -c "$source" -o "$output_directory/$object" \
-        -nostdinc -Isrc/bootstrap -Isrc/primitives -Iprobes/synchronization/interfaces \
-        -I"$output_directory" $style_flags -gnatw.X -gnatw.i -gnato \
-        -gnatec=config/restrictions/exception-probe.adc \
-        -ffunction-sections -fdata-sections \
-        -fno-stack-protector -fno-pic -fno-pie $architecture_flags
-}
+scripts/toolchain.sh exec "$architecture" sh -c '
+    target=$1
+    architecture=$2
+    object_directory=$3
+    probe_config=$4
+    driver=$(command -v "$target-gcc")
+    archiver=$(command -v "$target-ar")
+    archive_indexer=$(command -v "$target-ranlib")
+    exec gprbuild -c -p -P gpr/flyology_exception_probe.gpr \
+        --config=gpr/flyology_cross.cgpr \
+        -XFLYOLOGY_TARGET="$target" \
+        -XFLYOLOGY_ADA_DRIVER="$driver" \
+        -XFLYOLOGY_ARCHIVER="$archiver" \
+        -XFLYOLOGY_ARCHIVE_INDEXER="$archive_indexer" \
+        -XFLYOLOGY_ARCHITECTURE="$architecture" \
+        -XFLYOLOGY_OBJECT_DIR="$object_directory" \
+        -XFLYOLOGY_PROBE_CONFIG="$probe_config"
+' sh "$target" "$architecture" "$output_directory" "$probe_config"
 
-compile_ada src/bootstrap/system.ads system.o yes
-compile_ada src/bootstrap/s-stalib.adb s-stalib.o yes
-compile_ada src/primitives/flyology.ads flyology.o
-compile_ada src/primitives/flyology-validation.adb flyology-validation.o
-compile_ada src/primitives/flyology-boot_validation.adb flyology-boot_validation.o
-compile_ada src/bootstrap/flyology-binder_support.adb \
-    flyology-binder_support.o
-compile_ada probes/synchronization/exception_probe.adb exception_probe.o
+ada_objects_file="$output_directory/ada-objects.list"
+find "$output_directory" -maxdepth 1 -type f -name '*.o' -print | \
+    LC_ALL=C sort >"$ada_objects_file"
 
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" -nostdinc -nostdlib -n -minimal \
     -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
-    -I"$repository/probes/synchronization/interfaces" -I. exception_probe.ali
+    -I"$repository/probes/synchronization" -I. exception_probe.ali
 
-compile_ada "$output_directory/b~exception_probe.adb" \
-    b~exception_probe.o generated
+#  Binder output is the sole Ada source compiled outside the project graph.
+# shellcheck disable=SC2086
+scripts/toolchain.sh exec "$architecture" "$target-gcc" \
+    -c "$output_directory/b~exception_probe.adb" \
+    -o "$output_directory/b~exception_probe.o" \
+    -nostdinc -Isrc/bootstrap -Isrc/primitives -Iprobes/synchronization \
+    -I"$output_directory" -gnat2022 -gnatws -gnatw.X -gnatw.i -gnato \
+    -gnatec="$probe_config" -ffunction-sections -fdata-sections \
+    -fno-stack-protector -fno-pic -fno-pie $architecture_flags
 
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
@@ -89,6 +92,22 @@ scripts/toolchain.sh exec "$architecture" "$target-gcc" \
     -ffunction-sections -fdata-sections -funwind-tables \
     -Wall -Wextra -Werror $architecture_flags
 
+# shellcheck disable=SC2086
+scripts/toolchain.sh exec "$architecture" "$target-gcc" \
+    -c tests/platform/exception-boundary/allocator_lock.c \
+    -o "$output_directory/allocator_lock.o" -ffreestanding \
+    -fno-stack-protector -fno-pic -fno-pie -fno-builtin \
+    -ffunction-sections -fdata-sections \
+    -Wall -Wextra -Werror $architecture_flags
+
+# shellcheck disable=SC2086
+scripts/toolchain.sh exec "$architecture" "$target-gcc" \
+    -c src/abi/allocator_runtime.c \
+    -o "$output_directory/allocator_runtime.o" -ffreestanding \
+    -fno-stack-protector -fno-pic -fno-pie -fno-builtin \
+    -ffunction-sections -fdata-sections -funwind-tables \
+    -Wall -Wextra -Werror $architecture_flags
+
 libgcc=$(scripts/toolchain.sh exec "$architecture" \
     "$target-gcc" -print-libgcc-file-name)
 printf '%s  %s\n' "$libgcc_digest" "$libgcc" | \
@@ -102,14 +121,10 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/exception_entry.o" \
     "$output_directory/limine_requests.o" \
     "$output_directory/b~exception_probe.o" \
-    "$output_directory/exception_probe.o" \
     "$output_directory/exception_runtime.o" \
-    "$output_directory/flyology-binder_support.o" \
-    "$output_directory/flyology-boot_validation.o" \
-    "$output_directory/flyology-validation.o" \
-    "$output_directory/flyology.o" \
-    "$output_directory/s-stalib.o" \
-    "$output_directory/system.o" \
+    "$output_directory/allocator_runtime.o" \
+    "$output_directory/allocator_lock.o" \
+    @"$ada_objects_file" \
     --start-group "$libgcc" --end-group
 
 test -z "$(scripts/toolchain.sh exec "$architecture" \

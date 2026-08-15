@@ -10,6 +10,11 @@ scripts/test-abort-exception.sh
 scripts/probe-tasking-interface.sh
 scripts/probe-synchronization-interface.sh
 scripts/check-interrupt-layout.sh
+for architecture in x86_64 aarch64; do
+    scripts/build-exception-probe.sh "$architecture"
+    scripts/run-exception-probe.sh "$architecture" 1
+    scripts/run-exception-probe.sh "$architecture" 4
+done
 scripts/verify-tasking-reproducible.sh
 FLYOLOGY_IMAGE_OUTPUT_ROOT=build/tasking scripts/build-image.sh x86_64 >/dev/null
 FLYOLOGY_IMAGE_OUTPUT_ROOT=build/tasking scripts/build-image.sh aarch64 >/dev/null

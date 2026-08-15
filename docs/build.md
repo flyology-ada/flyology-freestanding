@@ -86,3 +86,9 @@ configuration in `config/profiles.toml`, then configures one
 consume that same path; there is no parallel product graph.
 `scripts/verify-product-build.sh` rebuilds every profile in two independent
 output roots for both targets and requires identical ELF and FAT SHA-256 values.
+
+The isolated exception-boundary image is a verification client rather than a
+product profile. Its Ada closure is nevertheless project-owned by
+`gpr/flyology_exception_probe.gpr`; `scripts/build-exception-probe.sh` performs
+only the corresponding freestanding binder/link/media composition. The
+synchronization gate runs that image on both targets at SMP1 and SMP4.
