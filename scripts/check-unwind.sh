@@ -10,7 +10,14 @@ architecture=$1
 output_root=${FLYOLOGY_IMAGE_OUTPUT_ROOT:-build/tasking}
 profile=${FLYOLOGY_UNWIND_PROFILE:-synchronization}
 case "$architecture" in
-    x86_64|aarch64) target=$architecture-elf ;;
+    x86_64)
+        target=$architecture-elf
+        root_relocation_count=2
+        ;;
+    aarch64)
+        target=$architecture-elf
+        root_relocation_count=1
+        ;;
     *) exit 64 ;;
 esac
 case "$profile" in
@@ -81,7 +88,8 @@ relocations=$(scripts/toolchain.sh exec "$architecture" \
 test "$(printf '%s\n' "$relocations" | \
     grep -c '[[:space:]]__eh_frame_start$')" -eq 1
 test "$(printf '%s\n' "$relocations" | \
-    grep -c '[[:space:]]flyology_task_root_invoke$')" -eq 1
+    grep -c '[[:space:]]flyology_task_root_invoke$')" \
+    -eq "$root_relocation_count"
 test "$(printf '%s\n' "$relocations" | \
     grep -c '__eh_frame_probe_start')" -eq 0
 

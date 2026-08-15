@@ -22,7 +22,10 @@ src/gnarl/s-tpoben.ads
 src/gnarl/s-tpoben.adb
 src/gnarl/s-tpobop.ads
 src/gnarl/s-tpobop.adb
-src/abi/allocator_runtime.c
+src/primitives/flyology-allocator.ads
+src/primitives/flyology-allocator.adb
+src/abi/flyology-allocator_abi.ads
+src/abi/flyology-allocator_abi.adb
 src/abi/exception_runtime.c
 src/rts/flyology-rts.ads
 src/rts/flyology-rts.adb

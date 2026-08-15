@@ -22,17 +22,24 @@ unit, live-count arithmetic, and interior metadata before clearing the run.
 Null release is harmless. Interior, stale, duplicate, and foreign pointers fail
 closed without mutating the map.
 
-All allocator metadata changes occur under the existing recursive RTS critical
-section. No allocator-owned lock, task-state authority, or public allocation
-API is introduced. The compiler-facing surface remains only the observed
-`malloc`, `free`, `__gnat_malloc`, and `__gnat_free` symbols. Stable Ada
-`Task_Id` tombstones, reusable execution slots/stacks, and reclaimable heap
-objects remain separate lifetimes.
+The exact allocator state and first-fit transition engine are implemented in
+SPARK package `Flyology.Allocator`. A thin Ada package
+`Flyology.Allocator_ABI` owns the statically aligned byte pool, converts between
+addresses and checked byte offsets, and exports only the observed `malloc`,
+`free`, `__gnat_malloc`, and `__gnat_free` symbols. All metadata transitions
+occur under the existing recursive RTS critical section. No allocator-owned
+lock, task-state authority, public allocation API, or C allocator is introduced.
+Stable Ada `Task_Id` tombstones, reusable execution slots/stacks, and
+reclaimable heap objects remain separate lifetimes.
 
-SPARK proves alignment/capacity arithmetic, first-fit minimality, exact range
-marking, and matching range restoration in a bounded state model. The C ABI and
-concurrent metadata mutation remain outside SPARK and are checked by the exact-
-source native concurrency/reuse gate plus both target QEMU images.
+SPARK proves runtime safety plus the stated rounding, result-geometry,
+accounting, and rejected-state frame contracts of the exact production state
+engine. The smaller bounded `Allocator_Model` separately proves first-fit
+minimality and exact mark/release range functions. An Ada host concurrency and
+reuse gate exercises first-fit and reclamation on the exact 4,096-unit
+production state. The synchronized address-to-offset facade and architecture
+lock remain outside SPARK, and both target QEMU images exercise the exported
+compiler ABI.
 
 ## Consequences
 

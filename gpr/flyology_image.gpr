@@ -27,6 +27,7 @@ project Flyology_Image is
    for Source_Dirs use
      ("../src/bootstrap",
       "../src/primitives",
+      "../src/abi",
       "../src/kernel",
       "../src/rts",
       "../src/gnarl",
@@ -46,6 +47,7 @@ project Flyology_Image is
    for Main use
      ("flyology_launcher.adb",
       "flyology-rts.adb",
+      "flyology-allocator_abi.adb",
       "flyology-kernel.adb",
       "flyology-binder_support.adb",
       "s-stalib.adb",

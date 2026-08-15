@@ -39,9 +39,11 @@ currently supported selective-wait surface. It inherits the RTS call table and
 exact-wait authority; the subunit introduces no second queue or public API.
 
 The minimal binder and root predefined-unit substrate lives in
-`src/bootstrap/`. The only C production sources live in `src/abi/`, where they
-implement the documented compiler allocator and exception-unwinding ABIs; C is
-not used for scheduler or task-state policy.
+`src/bootstrap/`. The deterministic bounded allocator lives in
+`src/primitives/` and its compiler-facing ABI facade is Ada in `src/abi/`. The
+only C production source is the documented two-phase exception personality and
+generic-unwinder bridge in `src/abi/`; C is not used for allocation policy,
+scheduling, or task-state policy.
 
 Restriction sets and compile-time policy/domain selections live under
 `config/`. They select implementations and compiler behavior; they never own

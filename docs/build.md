@@ -21,9 +21,10 @@ alr build --release
 The archive is written to `build/alire/lib/`. It contains deterministic
 validation, task-state, wait, timer, priority, domain, allocator, and scheduling
 algorithms. It is useful independently for proof, host exploration, and future
-kernel composition. It does not contain the concurrent dispatcher, GNARL facade,
-foreign exception/allocator ABI, boot code, or target assembly, and therefore is
-not itself a freestanding Ada runtime image.
+kernel composition. It contains the exact allocator state engine, but not its
+compiler-facing synchronized address facade. It also excludes the concurrent
+dispatcher, GNARL facade, foreign exception ABI, boot code, and target assembly,
+and therefore is not itself a freestanding Ada runtime image.
 
 Alire workspace state remains generated and ignored. The source manifest is
 `alire.toml`; exact compiler and builder inputs remain governed by the external
@@ -74,8 +75,8 @@ and contains no developer-machine toolchain path.
 
 After GPR compilation, `scripts/build-image.sh` generates a sorted response file
 from the project objects. It still performs the explicit GNAT binder step,
-compiles the generated binder body, compiles the narrow assembly/C platform and
-ABI objects, invokes the architecture linker script with pinned `libgcc`, and
+compiles the generated binder body, compiles the narrow assembly platform and C
+exception-ABI objects, invokes the architecture linker script with pinned `libgcc`, and
 constructs the Limine FAT image. Those are freestanding ABI and image-composition
 responsibilities; they are not an alternate Ada build graph.
 

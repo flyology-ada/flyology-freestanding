@@ -59,6 +59,7 @@ find "$output_directory" -maxdepth 1 -type f -name '*.o' -print | \
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" -nostdinc -nostdlib -n -minimal \
     -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
+    -I"$repository/src/abi" -I"$repository/src/gnarl" \
     -I"$repository/probes/synchronization" -I. exception_probe.ali
 
 #  Binder output is the sole Ada source compiled outside the project graph.
@@ -66,7 +67,8 @@ scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
     -c "$output_directory/b~exception_probe.adb" \
     -o "$output_directory/b~exception_probe.o" \
-    -nostdinc -Isrc/bootstrap -Isrc/primitives -Iprobes/synchronization \
+    -nostdinc -Isrc/bootstrap -Isrc/primitives -Isrc/abi -Isrc/gnarl \
+    -Iprobes/synchronization \
     -I"$output_directory" -gnat2022 -gnatws -gnatw.X -gnatw.i -gnato \
     -gnatec="$probe_config" -ffunction-sections -fdata-sections \
     -fno-stack-protector -fno-pic -fno-pie $architecture_flags
@@ -92,22 +94,6 @@ scripts/toolchain.sh exec "$architecture" "$target-gcc" \
     -ffunction-sections -fdata-sections -funwind-tables \
     -Wall -Wextra -Werror $architecture_flags
 
-# shellcheck disable=SC2086
-scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c tests/platform/exception-boundary/allocator_lock.c \
-    -o "$output_directory/allocator_lock.o" -ffreestanding \
-    -fno-stack-protector -fno-pic -fno-pie -fno-builtin \
-    -ffunction-sections -fdata-sections \
-    -Wall -Wextra -Werror $architecture_flags
-
-# shellcheck disable=SC2086
-scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c src/abi/allocator_runtime.c \
-    -o "$output_directory/allocator_runtime.o" -ffreestanding \
-    -fno-stack-protector -fno-pic -fno-pie -fno-builtin \
-    -ffunction-sections -fdata-sections -funwind-tables \
-    -Wall -Wextra -Werror $architecture_flags
-
 libgcc=$(scripts/toolchain.sh exec "$architecture" \
     "$target-gcc" -print-libgcc-file-name)
 printf '%s  %s\n' "$libgcc_digest" "$libgcc" | \
@@ -122,8 +108,6 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/limine_requests.o" \
     "$output_directory/b~exception_probe.o" \
     "$output_directory/exception_runtime.o" \
-    "$output_directory/allocator_runtime.o" \
-    "$output_directory/allocator_lock.o" \
     @"$ada_objects_file" \
     --start-group "$libgcc" --end-group
 

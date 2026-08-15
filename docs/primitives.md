@@ -15,7 +15,7 @@ encoded as a second production state authority.
 
 | Responsibility | Packages | Boundary |
 | --- | --- | --- |
-| Checked values and boot geometry | `Validation`, `Boot_Validation`, `Clock_Model`, `Allocator_Model` | Pure validation, conversion, extent, and arithmetic decisions. |
+| Checked values and boot geometry | `Validation`, `Boot_Validation`, `Clock_Model`, `Allocator_Model`, `Allocator` | Pure validation and conversion plus the exact bounded first-fit allocator state engine used by the freestanding ABI facade. |
 | Task lifecycle | `Dispatcher_Model`, `Activation_Model`, `Termination_Model`, `Placement_Model` | Legal task states, activation groups, retirement, ownership, and placement decisions. |
 | Waiting and notification | `Wait_Arbitration_Model`, `Wait_Queue_Model`, `Timer_Model`, `Reschedule_Model` | Exact references/generations, one-winner outcomes, bounded deadlines, and request epochs. |
 | Scheduling | `Scheduler_Contract`, `Priority_Queue_Model`, `Preemption_Model`, `Ceiling_Model` | Ready ordering, priority changes, budgets, preemption decisions, and ceiling arithmetic. Policy selects; it never transfers a context. |

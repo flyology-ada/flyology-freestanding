@@ -34,7 +34,7 @@ The intended source and project boundaries are:
 src/kernel/       task state, waits, timers, domains, ready queues, dispatcher
 src/rts/          activation, masters, abort, rendezvous, protected objects
 src/gnarl/        Ada and System compiler-compatibility units
-src/abi/          unavoidable C/unwind/allocator ABI boundaries
+src/abi/          narrow Ada compiler ABI facades and unavoidable C unwinder
 src/platform/     common contract plus x86_64 and aarch64 implementations
 src/bootstrap/    binder and root predefined-unit substrate
 boot/             Limine image configuration

@@ -158,8 +158,10 @@ task lifecycle and master cleanup share one implementation file.
 
 - The primitive archive is an internal `0.1.0-dev` engineering library; package
   API stability is not promised before the first release.
-- The concurrent kernel, GNARL facade, C allocator/unwinder, assembly, MMIO, and
-  QEMU virtual hardware remain outside the SPARK proof boundary.
+- The concurrent kernel, GNARL facade, synchronized allocator address facade,
+  C unwinder, assembly, MMIO, and QEMU virtual hardware remain outside the
+  SPARK proof boundary. The allocator state engine was subsequently migrated
+  into the proved primitive library without changing these ownership boundaries.
 - TLA+ models explore design-level bounded state spaces and are not a refinement
   proof of the Ada/C/assembly implementation.
 - Same-host, two-output-root reproducibility is demonstrated; independently

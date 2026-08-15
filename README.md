@@ -37,8 +37,9 @@ until its build, proof, review, and QEMU evidence is recorded.
   queueing, timing, placement, and scheduling-policy algorithms.
 - `src/bootstrap/` — minimal binder, Standard Library, and root `System`
   support required before the full GNARL facade is available.
-- `src/abi/` — narrow documented C boundaries for exception unwinding and the
-  compiler allocator ABI.
+- `src/abi/` — narrow documented ABI facades. The compiler allocator facade is
+  Ada; the exception personality and generic-unwinder bridge are the sole C
+  production boundary.
 - `src/platform/{x86_64,aarch64}/` — target context, interrupt, timer, memory,
   Limine request, and linker implementations.
 - `config/` — named restriction, scheduler-policy, scheduling-domain, and

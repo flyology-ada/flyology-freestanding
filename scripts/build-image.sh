@@ -121,6 +121,7 @@ find "$output_directory" -maxdepth 1 -type f -name '*.o' -print | \
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" -nostdinc -nostdlib -n -minimal \
     -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
+    -I"$repository/src/abi" \
     -I"$repository/src/kernel" -I"$repository/src/rts" \
     -I"$repository/src/gnarl" -I"$scheduler_config_directory" \
     -I"$domain_config_directory" \
@@ -136,7 +137,8 @@ scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
     -c "$output_directory/b~flyology_launcher.adb" \
     -o "$output_directory/b~flyology_launcher.o" \
-    -nostdinc -Isrc/bootstrap -Isrc/primitives -Isrc/kernel -Isrc/rts \
+    -nostdinc -Isrc/bootstrap -Isrc/primitives -Isrc/abi \
+    -Isrc/kernel -Isrc/rts \
     -Isrc/gnarl -Isrc/application -I"$scheduler_config_directory" \
     -I"$domain_config_directory" -I"$conformance_config_directory" \
     -I"$application_directory" -I"$output_directory" \
@@ -169,14 +171,6 @@ scripts/toolchain.sh exec "$architecture" "$target-gcc" \
     -ffunction-sections -fdata-sections -funwind-tables \
     -Wall -Wextra -Werror $architecture_flags
 
-# shellcheck disable=SC2086
-scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c src/abi/allocator_runtime.c \
-    -o "$output_directory/allocator_runtime.o" -ffreestanding \
-    -fno-stack-protector -fno-pic -fno-pie -fno-builtin \
-    -ffunction-sections -fdata-sections -funwind-tables \
-    -Wall -Wextra -Werror $architecture_flags
-
 libgcc=$(scripts/toolchain.sh exec "$architecture" \
     "$target-gcc" -print-libgcc-file-name)
 printf '%s  %s\n' "$libgcc_digest" "$libgcc" | \
@@ -191,7 +185,6 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     "$output_directory/memory.o" \
     "$output_directory/limine_requests.o" \
     "$output_directory/exception_runtime.o" \
-    "$output_directory/allocator_runtime.o" \
     "$output_directory/b~flyology_launcher.o" \
     @"$ada_objects_file" \
     --start-group "$libgcc" --end-group

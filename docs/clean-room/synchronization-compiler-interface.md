@@ -34,6 +34,13 @@ registration root. The C runtime is compiled with `-funwind-tables`; omitting
 it is a negative condition that prevents AArch64 from reaching the Ada
 personality.
 
+The task-root symbol is weak so the isolated exception probe can omit the full
+tasking runtime. With the pinned C compilers, x86-64 emits two relocations to
+`flyology_task_root_invoke` for the availability check and region-start
+comparison, while AArch64 folds the same expression into one relocation. The
+unwind gate pins those target-specific shapes and still requires exactly one
+`__register_frame` call.
+
 `scripts/build-exception-probe.sh` builds a zero-unresolved freestanding image.
 `scripts/run-exception-probe.sh` requires a caught Program_Error pass and unique
 online-core markers under the pinned QEMU/UEFI contract for SMP1 and SMP4.
@@ -371,20 +378,27 @@ ordinary-Ada QEMU scenario exercises a raised task-body declarative initializer;
 the false body-elaboration predicate is compiler-interface and checked-runtime
 evidence, not a separately forced product-cell claim.
 
-The allocator is a bounded 64-KiB pool divided into 4,096 16-byte units. Under
-the existing recursive RTS critical section, deterministic first-fit selection
-marks a complete free run and records its exact head and length. Raw free
+The allocator is a bounded 64-KiB pool divided into 4,096 16-byte units. The
+production `Flyology.Allocator` SPARK package owns the exact occupancy, head
+length, live-count, and live-byte state. Under the existing recursive RTS
+critical section, its deterministic first-fit selection marks a complete free
+run and records its exact head and length. Raw free
 accepts null, but rejects an interior, stale, out-of-pool, or double-free
 pointer before changing metadata; a valid release clears the exact run, so
 adjacent free ranges are immediately reusable without a second free-list
 authority. A zero-size request consumes one unit. Exhaustion enters the
 compiler's `Storage_Error` check path instead of returning null.
 
-The exact production C source passes a pinned native eight-thread test covering
-alignment, pairwise-disjoint simultaneously live allocations, first-fit hole
-reuse, exact live-byte accounting, whole-pool recovery after fragmentation,
-capacity edges, zero-size uniqueness, null free, and unchanged state after
-invalid or duplicate frees. Both target QEMU images catch `Storage_Error` from
+The thin Ada `Flyology.Allocator_ABI` package owns the aligned byte pool,
+converts raw addresses to checked offsets, serializes state transitions with the
+existing RTS lock, and exports the observed `malloc`, `free`, `__gnat_malloc`,
+and `__gnat_free` C conventions. It contains no independent selection or
+metadata algorithm. A pinned native Ada eight-task test uses the exact
+production state package and covers alignment, pairwise-disjoint simultaneously
+live allocations, first-fit hole reuse, exact live-byte accounting, whole-pool
+recovery after fragmentation, capacity edges, zero-size uniqueness, and
+unchanged state after invalid or duplicate releases. Both target QEMU images
+catch `Storage_Error` from
 an ordinary Ada 65,537-byte allocator request, release a small object through
 compiler-lowered `Ada.Unchecked_Deallocation`, then allocate, validate, and
 release forty 4-KiB objects sequentially. The cumulative traffic exceeds the
@@ -672,12 +686,13 @@ pinned hash. Every completion phase is checked for legal normal/exceptional
 completion, consumption, identity-presence, and abort-before-transferred-
 exception delivery invariants. The gate pins both
 the edge count and serialized-state hash so an accidental search reduction
-fails. The current serialized GNATprove 16.1 gate reports all 476 generated
+fails. The current serialized GNATprove 16.1 gate reports all 537 generated
 checks proved across the
-SPARK-analyzed deterministic primitive units. The data-only `Task_Primitives`
-token package is analyzed, but the concurrent `Flyology.Kernel`,
-compiler-facing GNARL facades, architecture assembly, C unwinder, and allocator
-metadata/critical-section facade remain outside SPARK behind typed boundaries.
+SPARK-analyzed deterministic primitive units, including the exact allocator
+state engine. The data-only `Task_Primitives` token package is analyzed, but the
+concurrent `Flyology.Kernel`, compiler-facing GNARL facades, architecture
+assembly, C unwinder, and synchronized allocator address/critical-section
+facade remain outside SPARK behind typed boundaries.
 
 `scripts/stress-synchronization.sh` complements that pure model with ten complete SMP4
 ordinary-Ada runs per architecture. Each run repeats cross-core delay wakeups,
