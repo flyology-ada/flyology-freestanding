@@ -19,7 +19,7 @@ case "$architecture" in
     *) echo "unsupported architecture: $architecture" >&2; exit 64 ;;
 esac
 
-elf="build/bootstrap/$architecture/flyology-bootstrap.elf"
+elf="build/bootstrap/$architecture/flyology_freestanding-bootstrap.elf"
 test -f "$elf" || {
     echo "missing bootstrap ELF: $elf" >&2
     exit 66
@@ -40,10 +40,10 @@ if printf '%s\n' "$program_output" | grep -E 'INTERP|DYNAMIC|TLS|RWE' >/dev/null
     exit 1
 fi
 
-for symbol in _start adainit _ada_flyology_boot_checkpoint \
-    __gnat_last_chance_handler flyology_memory_entry_is_valid \
-    flyology_memory_entries_are_disjoint \
-    flyology_topology_identities_are_distinct \
+for symbol in _start adainit _ada_flyology_freestanding_boot_checkpoint \
+    __gnat_last_chance_handler flyology_freestanding_memory_entry_is_valid \
+    flyology_freestanding_memory_entries_are_disjoint \
+    flyology_freestanding_topology_identities_are_distinct \
     limine_base_revision limine_stack_size_request limine_hhdm_request \
     limine_paging_mode_request limine_memmap_request \
     limine_executable_address_request limine_mp_request; do
@@ -52,7 +52,7 @@ done
 
 if test "$architecture" = aarch64; then
     printf '%s\n' "$nm_output" | \
-        grep -E '[[:space:]]flyology_executable_translation_is_valid$' >/dev/null
+        grep -E '[[:space:]]flyology_freestanding_executable_translation_is_valid$' >/dev/null
 fi
 
 test -z "$(scripts/toolchain.sh exec "$architecture" "$target-nm" -u "$elf")"

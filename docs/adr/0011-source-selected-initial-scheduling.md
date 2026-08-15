@@ -23,7 +23,7 @@ can run.
 
 The runtime must consequently establish a valid initial policy for the system
 dispatching domain before any task-owning library unit elaborates. Requiring
-every such unit to call or depend on a Flyology-specific initialization API
+every such unit to call or depend on a Flyology Freestanding-specific initialization API
 would be order-sensitive and could be bypassed by an ordinary predefined or
 third-party unit. It would also create a second, non-Ada convention for a
 property already represented in compiler-generated partition metadata.
@@ -34,8 +34,8 @@ Independent applications declare `Task_Dispatching_Policy` in Ada source. The
 consumer builder requires that declaration, binds the application, and derives
 the architecture interrupt-to-dispatch composition from the binder's `F` or
 `R` value. The runtime consumes that same binder value directly; it has no
-parallel Flyology scheduler-configuration package. An unspecified GNAT
-round-robin quantum maps to the checked Flyology default of 10 ms.
+parallel Flyology Freestanding scheduler-configuration package. An unspecified GNAT
+round-robin quantum maps to the checked Flyology Freestanding default of 10 ms.
 
 Repository profiles remain explicit conformance-matrix fixtures. A blank
 binder policy remains available only to the cooperative repository checkpoint,
@@ -43,10 +43,10 @@ not to independent application crates.
 
 The binder is authoritative only for this initial pre-elaboration policy. It
 does not permanently own scheduling configuration. Once elaboration and
-dispatcher startup establish the live task set, checked Flyology runtime
+dispatcher startup establish the live task set, checked Flyology Freestanding runtime
 operations may change global, domain, or per-core policy at synchronized
 dispatcher boundaries. Those transitions neither rewrite binder globals nor
-alter the meaning of `Task_Dispatching_Policy`; they are an explicit Flyology
+alter the meaning of `Task_Dispatching_Policy`; they are an explicit Flyology Freestanding
 extension over a standard initial partition configuration.
 
 ## Consequences
@@ -54,6 +54,6 @@ extension over a standard initial partition configuration.
 Policy choice is visible in reviewed consumer Ada and cannot silently disagree
 with the compiler-generated partition metadata. Adding a new scheduling
 algorithm requires compiler/clean-room evidence or an explicitly named
-Flyology extension; it cannot be smuggled in as a build flag. Live domain
+Flyology Freestanding extension; it cannot be smuggled in as a build flag. Live domain
 policy transitions are a separate runtime capability and do not change the
 meaning of this initial partition declaration.

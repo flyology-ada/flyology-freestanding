@@ -4,8 +4,8 @@ set -eu
 shell_files=$(find scripts examples -type d -name build -prune -o \
     -type f -name '*.sh' -print | sort)
 shell_files="$shell_files
-scripts/flyology-build
-scripts/flyology-run"
+scripts/flyology-freestanding-build
+scripts/flyology-freestanding-run"
 test -n "$shell_files"
 
 # shellcheck disable=SC2086

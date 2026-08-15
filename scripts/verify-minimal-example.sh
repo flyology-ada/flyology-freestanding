@@ -8,7 +8,7 @@ repro_root="$example/build/repro"
 alr -n -C "$example" build
 grep -F 'pragma Task_Dispatching_Policy (Round_Robin_Within_Priorities);' \
     "$example/src/minimal_kernel.adb" >/dev/null
-if grep -qE '^FLYOLOGY_APPLICATION_(ROOT|DIR)\.' "$example/alire.toml"; then
+if grep -qE '^FLYOLOGY_FREESTANDING_APPLICATION_(ROOT|DIR)\.' "$example/alire.toml"; then
     echo 'minimal example redundantly configures conventional directories' >&2
     exit 1
 fi
@@ -18,9 +18,9 @@ if grep -nE '/Users/|/home/|/private/var/folders/|[A-Za-z]:\\' \
     echo 'absolute developer path in generated example build inputs' >&2
     exit 1
 fi
-FLYOLOGY_OUTPUT_ROOT="$repro_root" \
+FLYOLOGY_FREESTANDING_OUTPUT_ROOT="$repro_root" \
     alr -n -C "$example" exec -- sh -c \
-    'exec "$FLYOLOGY_BUILD_TOOL"' flyology-build
+    'exec "$FLYOLOGY_FREESTANDING_BUILD_TOOL"' flyology-freestanding-build
 
 check_digest() {
     expected=$1
@@ -31,7 +31,7 @@ check_digest() {
 for architecture in x86_64 aarch64; do
     primary="$example/build/$architecture"
     secondary="$repro_root/$architecture"
-    for name in flyology.elf "flyology-$architecture.fat" \
+    for name in flyology-freestanding.elf "flyology-freestanding-$architecture.fat" \
         uefi-code.fd uefi-vars-template.fd; do
         test -f "$primary/$name"
         test -f "$secondary/$name"
@@ -40,9 +40,9 @@ for architecture in x86_64 aarch64; do
         test "$primary_hash" = "$secondary_hash"
     done
     grep -F "Task_Dispatching_Policy := 'R';" \
-        "$primary/b~flyology_launcher.adb" >/dev/null
+        "$primary/b~flyology_freestanding_launcher.adb" >/dev/null
     grep -F 'Time_Slice_Value := -1;' \
-        "$primary/b~flyology_launcher.adb" >/dev/null
+        "$primary/b~flyology_freestanding_launcher.adb" >/dev/null
 
     case "$architecture" in
         x86_64)
@@ -63,8 +63,8 @@ for architecture in x86_64 aarch64; do
     qemu="$test_root/qemu.log"
     : >"$serial"
     : >"$qemu"
-    FLYOLOGY_QEMU_SERIAL="file:$serial" \
-    FLYOLOGY_QEMU_LOG="$qemu" \
+    FLYOLOGY_FREESTANDING_QEMU_SERIAL="file:$serial" \
+    FLYOLOGY_FREESTANDING_QEMU_LOG="$qemu" \
         "$example/run.sh" --cpus 4 --timeout 12 "$architecture"
 
     normalized="$test_root/serial.normalized"

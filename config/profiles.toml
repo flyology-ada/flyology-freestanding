@@ -5,29 +5,29 @@ name = "tasking"
 scheduling = "cooperative"
 domains = false
 image_builder = "scripts/build-image.sh"
-image_project = "gpr/flyology_image.gpr"
-toolchain_config = "gpr/flyology_cross.cgpr"
+image_project = "gpr/flyology_freestanding_image.gpr"
+toolchain_config = "gpr/flyology_freestanding_cross.cgpr"
 
 [[profile]]
 name = "preemptive-fifo"
 scheduling = "fifo-within-priorities"
 domains = false
 image_builder = "scripts/build-image.sh"
-image_project = "gpr/flyology_image.gpr"
-toolchain_config = "gpr/flyology_cross.cgpr"
+image_project = "gpr/flyology_freestanding_image.gpr"
+toolchain_config = "gpr/flyology_freestanding_cross.cgpr"
 
 [[profile]]
 name = "preemptive-round-robin"
 scheduling = "round-robin-within-priorities"
 domains = false
 image_builder = "scripts/build-image.sh"
-image_project = "gpr/flyology_image.gpr"
-toolchain_config = "gpr/flyology_cross.cgpr"
+image_project = "gpr/flyology_freestanding_image.gpr"
+toolchain_config = "gpr/flyology_freestanding_cross.cgpr"
 
 [[profile]]
 name = "domains"
 scheduling = "per-domain"
 domains = true
 image_builder = "scripts/build-image.sh"
-image_project = "gpr/flyology_image.gpr"
-toolchain_config = "gpr/flyology_cross.cgpr"
+image_project = "gpr/flyology_freestanding_image.gpr"
+toolchain_config = "gpr/flyology_freestanding_cross.cgpr"

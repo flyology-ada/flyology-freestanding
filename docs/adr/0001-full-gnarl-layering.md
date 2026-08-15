@@ -5,7 +5,7 @@
 
 ## Context
 
-Flyology Barebones must support ordinary Ada task declarations and the full GNARL architecture on SMP. A convenient public spawn/fiber API or a Ravenscar-only runtime would reduce initial implementation effort but change the language/runtime contract and foreclose required semantics.
+Flyology Freestanding must support ordinary Ada task declarations and the full GNARL architecture on SMP. A convenient public spawn/fiber API or a Ravenscar-only runtime would reduce initial implementation effort but change the language/runtime contract and foreclose required semantics.
 
 ## Decision
 

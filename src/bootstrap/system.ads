@@ -1,7 +1,7 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 --
---  Clean-room minimum discovered by compiling Flyology's bootstrap no-op
---  probe on both pinned targets. Add declarations only when an owned probe
+--  Clean-room minimum discovered by compiling the Flyology_Freestanding
+--  bootstrap no-op probe on both pinned targets. Add declarations when a probe
 --  proves that a later language feature requires them.
 
 package System is

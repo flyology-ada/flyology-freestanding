@@ -1,18 +1,18 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Ada.Text_IO;
-with Flyology.Clock_Model;
-with Flyology.Dispatcher_Model;
-with Flyology.Preemption_Model;
-with Flyology.Priority_Queue_Model;
-with Flyology.Scheduling_Configuration_Model;
+with Flyology_Freestanding.Clock_Model;
+with Flyology_Freestanding.Dispatcher_Model;
+with Flyology_Freestanding.Preemption_Model;
+with Flyology_Freestanding.Priority_Queue_Model;
+with Flyology_Freestanding.Scheduling_Configuration_Model;
 
 procedure Preemption_Policy_Tests is
-   package Clock renames Flyology.Clock_Model;
-   package Dispatcher renames Flyology.Dispatcher_Model;
-   package Preemption renames Flyology.Preemption_Model;
-   package Ready_Queues renames Flyology.Priority_Queue_Model;
-   package Live renames Flyology.Scheduling_Configuration_Model;
+   package Clock renames Flyology_Freestanding.Clock_Model;
+   package Dispatcher renames Flyology_Freestanding.Dispatcher_Model;
+   package Preemption renames Flyology_Freestanding.Preemption_Model;
+   package Ready_Queues renames Flyology_Freestanding.Priority_Queue_Model;
+   package Live renames Flyology_Freestanding.Scheduling_Configuration_Model;
 
    use type Clock.Tick;
    use type Dispatcher.Priority;

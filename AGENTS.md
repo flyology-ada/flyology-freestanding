@@ -1,7 +1,7 @@
-# Flyology Barebones contributor rules
+# Flyology Freestanding contributor rules
 
-- This repository is the only permitted edit scope. Do not modify any other Flyology checkout.
-- Flyology Barebones is a freestanding GNAT Ada tasking runtime, not an OS distribution.
+- This repository is the only permitted edit scope. Do not modify any other Flyology Freestanding checkout.
+- Flyology Freestanding is a freestanding GNAT Ada tasking runtime, not an OS distribution.
 - Preserve ordinary Ada task declarations and full-GNARL architecture. Do not add a public spawn, fiber, or alternate task dialect.
 - Keep GNARL semantics, task primitives/dispatcher, scheduler policy, architecture code, and Limine boot responsibilities separate.
 - Treat SMP as foundational. Applicable gates cover x86-64 QEMU q35 and AArch64 QEMU virt with both `-smp 1` and `-smp 4`.

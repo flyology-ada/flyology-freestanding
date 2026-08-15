@@ -1,16 +1,16 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Ada.Text_IO;
-with Flyology.Activation_Model;
-with Flyology.Dispatcher_Model;
-with Flyology.Placement_Model;
-with Flyology.Scheduler_Contract;
+with Flyology_Freestanding.Activation_Model;
+with Flyology_Freestanding.Dispatcher_Model;
+with Flyology_Freestanding.Placement_Model;
+with Flyology_Freestanding.Scheduler_Contract;
 
 procedure Tasking_Model_Tests is
-   package Activation renames Flyology.Activation_Model;
-   package Dispatcher renames Flyology.Dispatcher_Model;
-   package Placement renames Flyology.Placement_Model;
-   package Scheduler renames Flyology.Scheduler_Contract;
+   package Activation renames Flyology_Freestanding.Activation_Model;
+   package Dispatcher renames Flyology_Freestanding.Dispatcher_Model;
+   package Placement renames Flyology_Freestanding.Placement_Model;
+   package Scheduler renames Flyology_Freestanding.Scheduler_Contract;
    use type Activation.Activation_Chain;
    use type Activation.Task_Table;
    use type Dispatcher.Task_Ref;

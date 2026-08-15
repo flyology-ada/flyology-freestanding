@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-temporary_directory=$(mktemp -d /tmp/flyology-bootstrap-minimum-verify.XXXXXX)
+temporary_directory=$(mktemp -d /tmp/flyology_freestanding-bootstrap-minimum-verify.XXXXXX)
 trap 'rm -rf -- "$temporary_directory"' EXIT HUP INT TERM
 
 verify_architecture() {
@@ -20,8 +20,8 @@ verify_architecture() {
         *) exit 64 ;;
     esac
 
-    primary="build/bootstrap-minimum/$architecture/flyology-bootstrap-minimum.elf"
-    reproduction="$temporary_directory/$architecture/flyology-bootstrap-minimum.elf"
+    primary="build/bootstrap-minimum/$architecture/flyology_freestanding-bootstrap-minimum.elf"
+    reproduction="$temporary_directory/$architecture/flyology_freestanding-bootstrap-minimum.elf"
 
     scripts/build-bootstrap-minimum.sh "$architecture"
     scripts/build-bootstrap-minimum.sh "$architecture" "$temporary_directory/$architecture"
@@ -59,7 +59,7 @@ verify_architecture() {
     symbols=$(scripts/toolchain.sh exec "$architecture" \
         "$target-nm" -n "$primary")
     printf '%s\n' "$symbols" | grep -E ' T _start$'
-    printf '%s\n' "$symbols" | grep -E ' T flyology_ada_main$'
+    printf '%s\n' "$symbols" | grep -E ' T flyology_freestanding_ada_main$'
     shasum -a 256 "$primary"
 }
 

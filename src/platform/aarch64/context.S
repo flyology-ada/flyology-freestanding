@@ -2,7 +2,7 @@
 
 /*
  * Voluntary AAPCS64 context. The exact 192-byte layout is mirrored by
- * flyology-architecture_context.ads.
+ * flyology_freestanding-architecture_context.ads.
  */
 .section .text, "ax", %progbits
 .equ CTX_X19_X20, 0
@@ -88,31 +88,31 @@
     ret
 .endm
 
-.global flyology_context_switch
-.type flyology_context_switch, %function
-flyology_context_switch:
+.global flyology_freestanding_context_switch
+.type flyology_freestanding_context_switch, %function
+flyology_freestanding_context_switch:
     /* Voluntary paths execute with SPSel=0. Accessing SP_EL0 through MRS/MSR
        while it is current is undefined; the architectural SP operand is the
        same task stack and is valid in this state. */
     save_voluntary x0
     restore_voluntary x1
 
-.global flyology_context_switch_to_task
-.type flyology_context_switch_to_task, %function
-flyology_context_switch_to_task:
+.global flyology_freestanding_context_switch_to_task
+.type flyology_freestanding_context_switch_to_task, %function
+flyology_freestanding_context_switch_to_task:
     save_voluntary x0
     restore_voluntary x1, 1
 
-.global flyology_context_restore_from_interrupt
-.type flyology_context_restore_from_interrupt, %function
-flyology_context_restore_from_interrupt:
+.global flyology_freestanding_context_restore_from_interrupt
+.type flyology_freestanding_context_restore_from_interrupt, %function
+flyology_freestanding_context_restore_from_interrupt:
     add sp, sp, #FULL_CONTEXT_SIZE
     msr spsel, #0
     restore_voluntary x0
 
-.global flyology_context_switch_to_full
-.type flyology_context_switch_to_full, %function
-flyology_context_switch_to_full:
+.global flyology_freestanding_context_switch_to_full
+.type flyology_freestanding_context_switch_to_full, %function
+flyology_freestanding_context_switch_to_full:
     save_voluntary x0
     mov x18, x1
     tst x18, #15
@@ -177,34 +177,34 @@ flyology_context_switch_to_full:
     brk #0
     b 99b
 
-.section .text.flyology_context_start, "ax", %progbits
-.global flyology_context_start
-.type flyology_context_start, %function
-flyology_context_start:
+.section .text.flyology_freestanding_context_start, "ax", %progbits
+.global flyology_freestanding_context_start
+.type flyology_freestanding_context_start, %function
+flyology_freestanding_context_start:
     mov x0, x19
-    bl flyology_task_start
+    bl flyology_freestanding_task_start
 1:
     brk #0
     b 1b
 
-.section .text.flyology_dispatcher_context_start, "ax", %progbits
-.global flyology_dispatcher_context_start
-.type flyology_dispatcher_context_start, %function
-flyology_dispatcher_context_start:
+.section .text.flyology_freestanding_dispatcher_context_start, "ax", %progbits
+.global flyology_freestanding_dispatcher_context_start
+.type flyology_freestanding_dispatcher_context_start, %function
+flyology_freestanding_dispatcher_context_start:
     mov x0, x19
-    bl flyology_dispatcher_start
+    bl flyology_freestanding_dispatcher_start
 2:
     brk #0
     b 2b
 
-.section .rodata.flyology_context_layout, "a", %progbits
+.section .rodata.flyology_freestanding_context_layout, "a", %progbits
 .balign 2
 .short CTX_SIZE, CTX_X19_X20, CTX_X21_X22, CTX_X23_X24
 .short CTX_X25_X26, CTX_X27_X28, CTX_X29_X30, CTX_SP_EL0
 .short CTX_D8_D9, CTX_D10_D11, CTX_D12_D13, CTX_D14_D15
 .short CTX_FPCR, CTX_FPSR
 
-.section .rodata.flyology_full_context_layout, "a", %progbits
+.section .rodata.flyology_freestanding_full_context_layout, "a", %progbits
 .balign 2
 .short FULL_CONTEXT_SIZE, 0, FULL_SP_EL0, FULL_ELR, FULL_SPSR
 .short FULL_TPIDR_EL0, FULL_FPCR, FULL_FPSR, FULL_SIMD

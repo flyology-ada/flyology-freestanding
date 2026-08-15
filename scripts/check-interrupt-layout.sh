@@ -64,40 +64,40 @@ check_architecture() {
 
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-        -c src/primitives/flyology.ads \
-        -o "$output_directory/flyology.o" \
+        -c src/primitives/flyology_freestanding.ads \
+        -o "$output_directory/flyology_freestanding.o" \
         $common_flags -gnat2022 -gnatwa -gnatwe $architecture_flags
 
     # GNAT's generated representation report is an independently compiled
     # view of every Ada record clause used by the assembly ABI.
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-        -c "src/platform/$architecture/flyology-architecture_context.ads" \
-        -o "$output_directory/flyology-architecture_context.o" \
+        -c "src/platform/$architecture/flyology_freestanding-architecture_context.ads" \
+        -o "$output_directory/flyology_freestanding-architecture_context.o" \
         $common_flags -gnat2022 -gnatwa -gnatwe -gnatR2 \
         $architecture_flags \
         >"$output_directory/voluntary.rep" 2>&1
 
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-        -c "src/platform/$architecture/flyology-interrupt_frames.ads" \
-        -o "$output_directory/flyology-interrupt_frames.o" \
+        -c "src/platform/$architecture/flyology_freestanding-interrupt_frames.ads" \
+        -o "$output_directory/flyology_freestanding-interrupt_frames.o" \
         $common_flags -gnat2022 -gnatwa -gnatwe -gnatR2 \
         $architecture_flags \
         >"$output_directory/interrupt.rep" 2>&1
 
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-        -c src/primitives/flyology-clock_model.adb \
-        -o "$output_directory/flyology-clock_model.o" \
+        -c src/primitives/flyology_freestanding-clock_model.adb \
+        -o "$output_directory/flyology_freestanding-clock_model.o" \
         $common_flags -gnat2022 -gnatwa -gnatwe $architecture_flags
 
     # The architecture package composes the voluntary and complete frame
     # records into the task-owned storage consumed by the transfer assembly.
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-        -c "src/platform/$architecture/flyology-platform.adb" \
-        -o "$output_directory/flyology-platform.o" \
+        -c "src/platform/$architecture/flyology_freestanding-platform.adb" \
+        -o "$output_directory/flyology_freestanding-platform.o" \
         $common_flags -gnat2022 -gnatwa -gnatwe -gnatR2 \
         $architecture_flags \
         >"$output_directory/full-context.rep" 2>&1
@@ -116,8 +116,8 @@ check_architecture() {
 
     unresolved=$(scripts/toolchain.sh exec "$architecture" "$target-nm" \
         -u "$output_directory/context.o" | awk '{print $NF}')
-    expected_unresolved='flyology_dispatcher_start
-flyology_task_start'
+    expected_unresolved='flyology_freestanding_dispatcher_start
+flyology_freestanding_task_start'
     test "$unresolved" = "$expected_unresolved" || {
         echo "unexpected context unresolved symbols: $unresolved" >&2
         exit 1
@@ -125,7 +125,7 @@ flyology_task_start'
 
     scripts/toolchain.sh exec "$architecture" "$target-objcopy" \
         --dump-section \
-        ".rodata.flyology_context_layout=$output_directory/layout.bin" \
+        ".rodata.flyology_freestanding_context_layout=$output_directory/layout.bin" \
         "$output_directory/context.o"
     # Both fixed QEMU targets are little endian. The assembly emits a compact
     # table from the same constants used by its load/store instructions.
@@ -138,7 +138,7 @@ flyology_task_start'
 
     scripts/toolchain.sh exec "$architecture" "$target-objcopy" \
         --dump-section \
-        ".rodata.flyology_full_context_layout=$output_directory/full-layout.bin" \
+        ".rodata.flyology_freestanding_full_context_layout=$output_directory/full-layout.bin" \
         "$output_directory/context.o"
     # shellcheck disable=SC2046
     set -- $(od -An -tu2 "$output_directory/full-layout.bin")
@@ -153,12 +153,12 @@ flyology_task_start'
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
         -c "src/platform/$architecture/entry.S" \
         -o "$output_directory/interrupt-entry.o" \
-        -DFLYOLOGY_INTERRUPTS -ffreestanding -fno-stack-protector \
+        -DFLYOLOGY_FREESTANDING_INTERRUPTS -ffreestanding -fno-stack-protector \
         -fno-pic -fno-pie \
         $architecture_flags
     scripts/toolchain.sh exec "$architecture" "$target-objcopy" \
         --dump-section \
-        ".rodata.flyology_interrupt_layout=$output_directory/interrupt-layout.bin" \
+        ".rodata.flyology_freestanding_interrupt_layout=$output_directory/interrupt-layout.bin" \
         "$output_directory/interrupt-entry.o"
     # shellcheck disable=SC2046
     set -- $(od -An -tu2 "$output_directory/interrupt-layout.bin")

@@ -1,14 +1,14 @@
 # Build the runtime
 
-Flyology has three complementary build products: a reusable host-side archive
+Flyology Freestanding has three complementary build products: a reusable host-side archive
 of deterministic primitives, repository conformance images, and freestanding
 images supplied by independent application crates. They share sources and
 contracts but have different toolchain and linking needs.
 
 ## Deterministic primitive library
 
-The root Alire crate builds `libflyology_primitives.a` from the Ada/SPARK
-packages in `src/primitives`. The concurrent `Flyology.Kernel` authority lives
+The root Alire crate builds `libflyology_freestanding_primitives.a` from the Ada/SPARK
+packages in `src/primitives`. The concurrent `Flyology_Freestanding.Kernel` authority lives
 separately under `src/kernel` and is not part of this host archive. Select the
 pinned native tools recorded in `docs/external-inputs.md`,
 then build:
@@ -56,15 +56,15 @@ declares `Task_Dispatching_Policy` in Ada. The binder value derived from that
 source selects the initial runtime policy and whether the image links the
 interrupt-to-dispatch path.
 
-The stable image name is `build/product/PROFILE/ARCH/flyology.elf`; the FAT image
+The stable image name is `build/product/PROFILE/ARCH/flyology-freestanding.elf`; the FAT image
 is adjacent. The builder uses the pinned per-target Alire workspaces, explicit
 GNAT binder step, target linker script, external `libgcc` unwinder, and pinned
 Limine/firmware image construction.
 
-Ada compilation is owned by `gpr/flyology_image.gpr`. Its source directories
+Ada compilation is owned by `gpr/flyology_freestanding_image.gpr`. Its source directories
 are the responsibility-owned runtime roots plus exactly one selected domain,
 configuration view, and application directory. A generated
-`Flyology_Launcher` is the binder main: it explicitly validates RTS elaboration
+`Flyology_Freestanding_Launcher` is the binder main: it explicitly validates RTS elaboration
 and invokes the selected ordinary-Ada application procedure. Runtime authority,
 standard-library finalization, and the two validation bodies are explicit
 project roots because architecture entry code and foreign binder boundaries
@@ -73,7 +73,7 @@ dependencies; the shell builder does not carry a second Ada source or object
 list.
 
 The cross compilers intentionally ship without an installed default Ada
-runtime. `gpr/flyology_cross.cgpr` therefore describes the unit-based compiler
+runtime. `gpr/flyology_freestanding_cross.cgpr` therefore describes the unit-based compiler
 protocol without naming a runtime directory. `scripts/toolchain.sh` supplies
 the concrete compiler, archiver, and indexer paths from the pinned Alire
 workspace as external project values. The configuration file is relocatable
@@ -93,8 +93,8 @@ assertion and do not enlarge the product API.
 
 ## Independent application crates
 
-The root Alire manifest contributes relocatable `FLYOLOGY_BUILD_TOOL` and
-`FLYOLOGY_RUN_TOOL` values to a dependent crate's build environment. The
+The root Alire manifest contributes relocatable `FLYOLOGY_FREESTANDING_BUILD_TOOL` and
+`FLYOLOGY_FREESTANDING_RUN_TOOL` values to a dependent crate's build environment. The
 consumer identifies one source directory and parameterless Ada procedure; it
 does not name target sources, predefined units, linker scripts, firmware, or
 QEMU options. `alr build` may use the dependency-provided post-build action to
@@ -110,15 +110,15 @@ side.
 Each consumer architecture directory contains the ELF, Limine FAT disk, and
 copies of the pinned TianoCore code/variables firmware. The firmware is kept
 adjacent because it belongs to the emulated machine, not to the guest disk.
-`scripts/flyology-run` uses those copies and creates a private mutable variables
+`scripts/flyology-freestanding-run` uses those copies and creates a private mutable variables
 file for each run. The complete contract and example are in
 [`docs/application-crates.md`](application-crates.md).
 
-Consumer builds set `FLYOLOGY_TEST_OBSERVATIONS=0` by default, suppressing
+Consumer builds set `FLYOLOGY_FREESTANDING_TEST_OBSERVATIONS=0` by default, suppressing
 machine-readable conformance `PASS` and core-online telemetry while preserving
 application output and fatal diagnostics. Repository conformance builds keep
 the observation define enabled. A consumer may opt in for a diagnostic build
-by exporting `FLYOLOGY_TEST_OBSERVATIONS=1` before `alr build`.
+by exporting `FLYOLOGY_FREESTANDING_TEST_OBSERVATIONS=1` before `alr build`.
 
 Each capability profile records the same target project and cross-toolchain
 configuration in `config/profiles.toml`, then configures one
@@ -129,6 +129,6 @@ output roots for both targets and requires identical ELF and FAT SHA-256 values.
 
 The isolated exception-boundary image is a verification client rather than a
 product profile. Its Ada closure is nevertheless project-owned by
-`gpr/flyology_exception_probe.gpr`; `scripts/build-exception-probe.sh` performs
+`gpr/flyology_freestanding_exception_probe.gpr`; `scripts/build-exception-probe.sh` performs
 only the corresponding freestanding binder/link/media composition. The
 synchronization gate runs that image on both targets at SMP1 and SMP4.

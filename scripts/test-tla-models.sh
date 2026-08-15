@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 
-java_command=${FLYOLOGY_JAVA:-/opt/homebrew/Cellar/openjdk@21/21.0.11/libexec/openjdk.jdk/Contents/Home/bin/java}
-tla_jar=${FLYOLOGY_TLA2TOOLS_JAR:-downloads/tla2tools-1.8.0.jar}
+java_command=${FLYOLOGY_FREESTANDING_JAVA:-/opt/homebrew/Cellar/openjdk@21/21.0.11/libexec/openjdk.jdk/Contents/Home/bin/java}
+tla_jar=${FLYOLOGY_FREESTANDING_TLA2TOOLS_JAR:-downloads/tla2tools-1.8.0.jar}
 java_digest=04005388bac0c272ea914210ca519ce94b2f873ea3962b9874a6859f74d7f279
 tla_digest=ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f
 
@@ -14,11 +14,11 @@ check_digest() {
 }
 
 test -x "$java_command" || {
-    echo "pinned OpenJDK not found; set FLYOLOGY_JAVA" >&2
+    echo "pinned OpenJDK not found; set FLYOLOGY_FREESTANDING_JAVA" >&2
     exit 69
 }
 test -f "$tla_jar" || {
-    echo "TLA+ tools not found; place the pinned jar at $tla_jar or set FLYOLOGY_TLA2TOOLS_JAR" >&2
+    echo "TLA+ tools not found; place the pinned jar at $tla_jar or set FLYOLOGY_FREESTANDING_TLA2TOOLS_JAR" >&2
     exit 69
 }
 check_digest "$java_digest" "$java_command"

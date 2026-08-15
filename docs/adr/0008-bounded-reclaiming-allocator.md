@@ -23,8 +23,8 @@ Null release is harmless. Interior, stale, duplicate, and foreign pointers fail
 closed without mutating the map.
 
 The exact allocator state and first-fit transition engine are implemented in
-SPARK package `Flyology.Allocator`. A thin Ada package
-`Flyology.Allocator_ABI` owns the statically aligned byte pool, converts between
+SPARK package `Flyology_Freestanding.Allocator`. A thin Ada package
+`Flyology_Freestanding.Allocator_ABI` owns the statically aligned byte pool, converts between
 addresses and checked byte offsets, and exports only the observed `malloc`,
 `free`, `__gnat_malloc`, and `__gnat_free` symbols. All metadata transitions
 occur under the existing recursive RTS critical section. No allocator-owned

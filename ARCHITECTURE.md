@@ -5,7 +5,7 @@ This document is normative unless superseded by an accepted ADR.
 ## Layer ownership
 
 1. **GNARL** owns Ada language tasking semantics: activation, masters, rendezvous, protected objects, abort, delay, task attributes, priorities, and termination.
-2. **Task primitives and core dispatcher** (`Flyology.Kernel`) own atomic
+2. **Task primitives and core dispatcher** (`Flyology_Freestanding.Kernel`) own atomic
    task-state transitions, block-and-unlock, exact wakeups, current-task
    ownership, context transfer, preemption control, interrupt return, remote
    reschedule requests, and idle entry.
@@ -19,21 +19,21 @@ This document is normative unless superseded by an accepted ADR.
 Dependencies point downward through typed contracts. Architecture code does not choose policy; policy code does not manipulate exception frames; GNARL does not directly program interrupt controllers.
 
 The compiler-facing predefined units in `src/gnarl/` delegate Ada tasking
-semantics to `Flyology.RTS`. `Flyology.RTS` is semantic glue, not a second
+semantics to `Flyology_Freestanding.RTS`. `Flyology_Freestanding.RTS` is semantic glue, not a second
 task-state or ready-queue authority: it validates GNARL lifecycle operations
-and commits them through `Flyology.Kernel`.
+and commits them through `Flyology_Freestanding.Kernel`.
 
 Large runtime bodies are decomposed with Ada subunits by semantic responsibility.
 Subunits inherit their parent's private state and do not create another package
 API or mutable authority. In particular,
-`flyology-rts-domain_operations.adb` owns dispatching-domain aliases, creation,
+`flyology_freestanding-rts-domain_operations.adb` owns dispatching-domain aliases, creation,
 freezing, queries, and the domain snapshot used by activation planning; the
-state it mutates remains declared once in the `Flyology.RTS` parent body.
-`flyology-kernel-domain_operations.adb` owns the corresponding checked kernel
+state it mutates remains declared once in the `Flyology_Freestanding.RTS` parent body.
+`flyology_freestanding-kernel-domain_operations.adb` owns the corresponding checked kernel
 configuration, creation commit, core ownership, and task-domain queries while
-the domain/core/task arrays remain declared once in the `Flyology.Kernel`
+the domain/core/task arrays remain declared once in the `Flyology_Freestanding.Kernel`
 parent body.
-`flyology-rts-rendezvous_operations.adb` owns FIFO entry-call admission,
+`flyology_freestanding-rts-rendezvous_operations.adb` owns FIFO entry-call admission,
 conditional and timed calls, accept, normal/exceptional completion, and the
 currently supported selective-wait surface. It inherits the RTS call table and
 exact-wait authority; the subunit introduces no second queue or public API.
@@ -103,7 +103,7 @@ SPARK covers deterministic validation and policy kernels: extents/alignment, den
 
 ## Clean-room runtime boundary
 
-The tracked runtime is original Flyology work. It implements the compiler-facing GNARL/GNULL architecture without copying or adapting GNAT runtime source. Interface discovery is limited to the Ada Reference Manual, public compiler documentation, compiler-generated expanded Ada/binder output, symbol/ALI diagnostics, and black-box conformance tests. Evidence is recorded under `docs/clean-room/`. GCC/GNAT source archives may be pinned for toolchain provenance but are not runtime implementation inputs.
+The tracked runtime is original Flyology Freestanding work. It implements the compiler-facing GNARL/GNULL architecture without copying or adapting GNAT runtime source. Interface discovery is limited to the Ada Reference Manual, public compiler documentation, compiler-generated expanded Ada/binder output, symbol/ALI diagnostics, and black-box conformance tests. Evidence is recorded under `docs/clean-room/`. GCC/GNAT source archives may be pinned for toolchain provenance but are not runtime implementation inputs.
 
 The normative discovery and upgrade procedure is
 [`docs/clean-room/methodology.md`](docs/clean-room/methodology.md), and the

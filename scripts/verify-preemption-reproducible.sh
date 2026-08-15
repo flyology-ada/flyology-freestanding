@@ -10,19 +10,19 @@ for policy in fifo round_robin; do
             fifo) profile=preemptive-fifo ;;
             round_robin) profile=preemptive-round-robin ;;
         esac
-        FLYOLOGY_PRODUCT_OUTPUT_ROOT=$first \
+        FLYOLOGY_FREESTANDING_PRODUCT_OUTPUT_ROOT=$first \
             scripts/build-product.sh "$architecture" "$profile" >/dev/null
-        FLYOLOGY_PRODUCT_OUTPUT_ROOT=$second \
+        FLYOLOGY_FREESTANDING_PRODUCT_OUTPUT_ROOT=$second \
             scripts/build-product.sh "$architecture" "$profile" >/dev/null
 
         first_elf=$(shasum -a 256 \
-            "$first/$profile/$architecture/flyology.elf")
+            "$first/$profile/$architecture/flyology-freestanding.elf")
         second_elf=$(shasum -a 256 \
-            "$second/$profile/$architecture/flyology.elf")
+            "$second/$profile/$architecture/flyology-freestanding.elf")
         first_disk=$(shasum -a 256 \
-            "$first/$profile/$architecture/flyology-$architecture.fat")
+            "$first/$profile/$architecture/flyology-freestanding-$architecture.fat")
         second_disk=$(shasum -a 256 \
-            "$second/$profile/$architecture/flyology-$architecture.fat")
+            "$second/$profile/$architecture/flyology-freestanding-$architecture.fat")
 
         test "${first_elf%% *}" = "${second_elf%% *}"
         test "${first_disk%% *}" = "${second_disk%% *}"

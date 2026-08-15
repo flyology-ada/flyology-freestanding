@@ -1,10 +1,10 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Ada.Text_IO;
-with Flyology.Allocator;
+with Flyology_Freestanding.Allocator;
 
 procedure Allocator_Tests is
-   package Allocator renames Flyology.Allocator;
+   package Allocator renames Flyology_Freestanding.Allocator;
    use type Allocator.Byte_Count;
    use type Allocator.Operation_Status;
 

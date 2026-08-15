@@ -1,32 +1,32 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Ada.Text_IO;
-with Flyology.Abort_Closure_Model;
-with Flyology.Allocator_Model;
-with Flyology.Ceiling_Model;
-with Flyology.Clock_Model;
-with Flyology.Dispatcher_Model;
-with Flyology.Exceptional_Completion_Model;
-with Flyology.Priority_Queue_Model;
-with Flyology.Task_Primitives;
-with Flyology.Termination_Model;
-with Flyology.Timer_Model;
-with Flyology.Wait_Arbitration_Model;
-with Flyology.Wait_Queue_Model;
+with Flyology_Freestanding.Abort_Closure_Model;
+with Flyology_Freestanding.Allocator_Model;
+with Flyology_Freestanding.Ceiling_Model;
+with Flyology_Freestanding.Clock_Model;
+with Flyology_Freestanding.Dispatcher_Model;
+with Flyology_Freestanding.Exceptional_Completion_Model;
+with Flyology_Freestanding.Priority_Queue_Model;
+with Flyology_Freestanding.Task_Primitives;
+with Flyology_Freestanding.Termination_Model;
+with Flyology_Freestanding.Timer_Model;
+with Flyology_Freestanding.Wait_Arbitration_Model;
+with Flyology_Freestanding.Wait_Queue_Model;
 
 procedure Synchronization_Model_Tests is
-   package Abort_Closure renames Flyology.Abort_Closure_Model;
-   package Allocator renames Flyology.Allocator_Model;
-   package Ceiling renames Flyology.Ceiling_Model;
-   package Clock renames Flyology.Clock_Model;
-   package Dispatcher renames Flyology.Dispatcher_Model;
-   package Completions renames Flyology.Exceptional_Completion_Model;
-   package Priority renames Flyology.Priority_Queue_Model;
-   package Primitives renames Flyology.Task_Primitives;
-   package Termination renames Flyology.Termination_Model;
-   package Timers renames Flyology.Timer_Model;
-   package Waits renames Flyology.Wait_Arbitration_Model;
-   package Wait_Queue renames Flyology.Wait_Queue_Model;
+   package Abort_Closure renames Flyology_Freestanding.Abort_Closure_Model;
+   package Allocator renames Flyology_Freestanding.Allocator_Model;
+   package Ceiling renames Flyology_Freestanding.Ceiling_Model;
+   package Clock renames Flyology_Freestanding.Clock_Model;
+   package Dispatcher renames Flyology_Freestanding.Dispatcher_Model;
+   package Completions renames Flyology_Freestanding.Exceptional_Completion_Model;
+   package Priority renames Flyology_Freestanding.Priority_Queue_Model;
+   package Primitives renames Flyology_Freestanding.Task_Primitives;
+   package Termination renames Flyology_Freestanding.Termination_Model;
+   package Timers renames Flyology_Freestanding.Timer_Model;
+   package Waits renames Flyology_Freestanding.Wait_Arbitration_Model;
+   package Wait_Queue renames Flyology_Freestanding.Wait_Queue_Model;
 
    use type Ceiling.Enter_Status;
    use type Allocator.Byte_Count;

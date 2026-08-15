@@ -21,7 +21,7 @@ package body System.Secondary_Stack is
 
    function Current_Task_Slot return System.Address
    with Import, Convention => C,
-        External_Name => "flyology_exception_task_slot";
+        External_Name => "flyology_freestanding_exception_task_slot";
 
    procedure Raise_Storage_Error (Location : System.Address; Line : Integer)
    with Import, Convention => C,

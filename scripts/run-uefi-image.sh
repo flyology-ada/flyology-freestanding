@@ -15,9 +15,9 @@ case "$cpu_count" in
     *) echo "unsupported CPU count: $cpu_count" >&2; exit 64 ;;
 esac
 
-qemu_root=${FLYOLOGY_QEMU_ROOT:-/opt/homebrew/Cellar/qemu/10.2.0}
+qemu_root=${FLYOLOGY_FREESTANDING_QEMU_ROOT:-/opt/homebrew/Cellar/qemu/10.2.0}
 firmware_root="$qemu_root/share/qemu"
-bundle_directory=${FLYOLOGY_UEFI_BUNDLE_DIRECTORY:-}
+bundle_directory=${FLYOLOGY_FREESTANDING_UEFI_BUNDLE_DIRECTORY:-}
 case "$architecture" in
     x86_64)
         qemu="$qemu_root/bin/qemu-system-x86_64"
@@ -66,10 +66,10 @@ test "$("$qemu" --version | sed -n '1p')" = 'QEMU emulator version 10.2.0'
 mkdir -p "$state_directory"
 vars="$state_directory/vars.fd"
 cp "$vars_template" "$vars"
-serial=${FLYOLOGY_QEMU_SERIAL:-stdio}
-qemu_log=${FLYOLOGY_QEMU_LOG:-}
-timeout_seconds=${FLYOLOGY_QEMU_TIMEOUT_SECONDS:-0}
-gui=${FLYOLOGY_QEMU_GUI:-0}
+serial=${FLYOLOGY_FREESTANDING_QEMU_SERIAL:-stdio}
+qemu_log=${FLYOLOGY_FREESTANDING_QEMU_LOG:-}
+timeout_seconds=${FLYOLOGY_FREESTANDING_QEMU_TIMEOUT_SECONDS:-0}
+gui=${FLYOLOGY_FREESTANDING_QEMU_GUI:-0}
 case "$gui" in
     0|1) ;;
     *) echo "unsupported GUI setting: $gui" >&2; exit 64 ;;
@@ -97,7 +97,7 @@ if test "$timeout_seconds" = 0; then
     fi
 fi
 
-timeout_command=${FLYOLOGY_TIMEOUT:-/opt/homebrew/bin/gtimeout}
+timeout_command=${FLYOLOGY_FREESTANDING_TIMEOUT:-/opt/homebrew/bin/gtimeout}
 timeout_digest=96d98cb3adafdd41570802625f7511d7d340cbcd4cb7a7278d5706c282a59c33
 test -x "$timeout_command"
 check_digest "$timeout_digest" "$timeout_command"

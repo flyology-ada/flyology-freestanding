@@ -1,6 +1,6 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
-with Flyology.Console;
+with Flyology_Freestanding.Console;
 with System.Multiprocessors;
 with System.Multiprocessors.Dispatching_Domains;
 
@@ -42,7 +42,7 @@ package body Minimal_Workers is
                when 2 => Line (15) := '2';
                when others => raise Program_Error;
             end case;
-            Flyology.Console.Put_Line (Line);
+            Flyology_Freestanding.Console.Put_Line (Line);
          end Write;
       end loop;
    end Printer_Type;

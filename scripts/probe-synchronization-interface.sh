@@ -453,10 +453,10 @@ done
 # The hosted GNAT 15.3 runtime is used only as black-box lowering evidence for
 # the language-defined generic. The product supplies the ARM-shaped intrinsic
 # declaration and its clean-room Stages facade, not a replacement generic body.
-native_prefix=${FLYOLOGY_NATIVE_GNAT_PREFIX:-"$HOME/.local/share/alire/toolchains/gnat_native_15.3.1_36dc7314"}
+native_prefix=${FLYOLOGY_FREESTANDING_NATIVE_GNAT_PREFIX:-"$HOME/.local/share/alire/toolchains/gnat_native_15.3.1_36dc7314"}
 native_compiler="$native_prefix/bin/gcc"
 native_digest=fa728e60b2dc7e3dff407ab847725d8145f3301615bad70c39ef422c8e8b741d
-llvm_root=${FLYOLOGY_LLVM_ROOT:-/opt/homebrew/opt/llvm/bin}
+llvm_root=${FLYOLOGY_FREESTANDING_LLVM_ROOT:-/opt/homebrew/opt/llvm/bin}
 llvm_nm="$llvm_root/llvm-nm"
 llvm_objdump="$llvm_root/llvm-objdump"
 llvm_nm_digest=98877e5da3a0591c4abeaf1819ca81976e886ec17550b10f81b0f5569890d5b5

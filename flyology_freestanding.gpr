@@ -1,0 +1,3 @@
+aggregate project Flyology_Freestanding is
+   for Project_Files use ("gpr/flyology_freestanding_primitives.gpr");
+end Flyology_Freestanding;

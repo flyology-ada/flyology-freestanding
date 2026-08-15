@@ -49,7 +49,7 @@ TLA+ tools are external MIT-licensed development inputs. The gate checks both
 digests and the Java version before TLC runs. The models are design-level safety
 evidence, not target-runtime dependencies or source-refinement proofs.
 
-The GCC archive identifies the compiler source release and satisfies toolchain provenance. ADR-0004 forbids using its GNAT runtime sources as Flyology implementation inputs.
+The GCC archive identifies the compiler source release and satisfies toolchain provenance. ADR-0004 forbids using its GNAT runtime sources as Flyology Freestanding implementation inputs.
 
 ## Limine and protocol
 
@@ -64,7 +64,7 @@ Limine is pinned to immutable release `v12.5.2`, signed tag commit `fdc6d566072c
 | bundled `limine.h` | `4de542d1c232b230ca4af04c5b89a78f51c9bdacb928a94ac44fc88377208a63` |
 | bundled `PROTOCOL.md` | `16da843c0d05f30309d34398a406107c84949abc8e87c6957cb0526b8316b6f8` |
 
-The release bundles protocol commit `630686a3dd3ce40f9e510a7dd9fea6b4c60d952e`. Flyology requests base revision 6 and fails closed if unsupported. Base revision 6 disables AArch64 FP/SIMD/SVE at entry, so startup enables and normalizes the required state before Ada code can use it. x86 requests x2APIC and validates the response feature bit.
+The release bundles protocol commit `630686a3dd3ce40f9e510a7dd9fea6b4c60d952e`. Flyology Freestanding requests base revision 6 and fails closed if unsupported. Base revision 6 disables AArch64 FP/SIMD/SVE at entry, so startup enables and normalizes the required state before Ada code can use it. x86 requests x2APIC and validates the response feature bit.
 
 ## QEMU machine contract
 
@@ -86,7 +86,7 @@ both:    -smp cpus=N,sockets=1,cores=N,threads=1   where N is 1 or 4
 
 `virtualization=off` makes the QEMU AArch64 contract EL1, but startup still reads and validates `CurrentEL`. TCG is the reproducibility baseline on the Apple Silicon host; acceleration-specific coverage is not claimed.
 
-The explicit x86 TSC frequency is part of the synchronization capability clock contract. Flyology
+The explicit x86 TSC frequency is part of the synchronization capability clock contract. Flyology Freestanding
 calibrates each local x2APIC timer against it and makes no `invtsc` or physical
 hardware claim. AArch64 uses the architected virtual counter frequency
 reported by `CNTFRQ_EL0` on the pinned `virt-10.2` machine.

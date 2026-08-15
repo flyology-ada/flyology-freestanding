@@ -12,7 +12,7 @@ the image. A kernel may need to change the default globally, change one
 dispatching domain, or temporarily override one CPU without rebuilding its
 partition.
 
-The ready scheduler already owns ordering while `Flyology.Kernel` owns task
+The ready scheduler already owns ordering while `Flyology_Freestanding.Kernel` owns task
 state, budgets, timers, and context transfer. Adding a second runtime scheduler
 object or rewriting binder globals would split those authorities. Programming
 a remote core's local timer directly would also cross the existing per-core
@@ -20,7 +20,7 @@ hardware ownership boundary.
 
 ## Decision
 
-Flyology exposes an original, non-compiler-facing `Flyology.Scheduling` API for
+Flyology Freestanding exposes an original, non-compiler-facing `Flyology_Freestanding.Scheduling` API for
 live policy changes and observations. The initial binder-selected policy is
 copied into effective per-core configuration before application elaboration.
 Thereafter:
@@ -58,7 +58,7 @@ ordinary tasks and standard dispatching domains. Invalid FIFO/nonzero-quantum
 and round-robin/zero-quantum pairs are rejected at the public boundary. The
 binder remains authoritative only for the pre-elaboration initial value.
 
-The live API is a Flyology extension, not evidence of a GNAT compiler-facing
+The live API is a Flyology Freestanding extension, not evidence of a GNAT compiler-facing
 interface or an implementation of every Ada dispatching policy. Adding another
 algorithm requires extending the deterministic model, TLA+ transitions,
 scheduler semantics, architecture prompts, and target evidence together.

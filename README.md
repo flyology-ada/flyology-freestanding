@@ -1,6 +1,6 @@
-# Flyology Barebones
+# Flyology Freestanding
 
-Flyology Barebones is a freestanding GNAT Ada tasking runtime for the fixed QEMU x86-64 `q35` and AArch64 `virt` virtual-hardware contracts. It aims to supply the runtime core, full-GNARL tasking integration, SMP dispatcher, synchronization primitives, scheduler policies, and architecture support from which a system can be built. It is not an operating-system distribution.
+Flyology Freestanding is a freestanding GNAT Ada tasking runtime for the fixed QEMU x86-64 `q35` and AArch64 `virt` virtual-hardware contracts. It aims to supply the runtime core, full-GNARL tasking integration, SMP dispatcher, synchronization primitives, scheduler policies, and architecture support from which a system can be built. It is not an operating-system distribution.
 
 The first release is not complete. [ROADMAP.md](ROADMAP.md) records the
 independently gated capabilities. The runtime is organized around
@@ -29,8 +29,8 @@ until its build, proof, review, and QEMU evidence is recorded.
 - `docs/scheduling.md` — source-selected initial policy and checked live
   global/domain/CPU policy changes.
 - `src/kernel/` — the single concurrent task-state, ready-queue, dispatcher,
-  timer, and context-transfer authority (`Flyology.Kernel`).
-- `src/rts/` — GNARL lifecycle and language-semantic glue (`Flyology.RTS`).
+  timer, and context-transfer authority (`Flyology_Freestanding.Kernel`).
+- `src/rts/` — GNARL lifecycle and language-semantic glue (`Flyology_Freestanding.RTS`).
 - `src/gnarl/` — compiler-facing Ada and System predefined-unit facades whose
   exact surface is indexed by the clean-room evidence manifest.
 - `src/application/` — the generated binder launcher template and narrow
@@ -54,7 +54,7 @@ until its build, proof, review, and QEMU evidence is recorded.
   linked by product profiles.
 - `tests/target/scenarios/` — ordinary-Ada conformance image and behavioral workloads.
 
-Product profiles select configuration views for `gpr/flyology_image.gpr`.
+Product profiles select configuration views for `gpr/flyology_freestanding_image.gpr`.
 `build-image.sh` orchestrates its Ada objects with the explicit binder,
 platform assembly/C, linker, and boot-media steps; capability gates use the same
 build, run, and inspection entry points.
@@ -63,7 +63,7 @@ build, run, and inspection entry points.
 
 [`examples/minimal`](examples/minimal/) is an independent Alire crate whose
 ordinary Ada workers are pinned two per core and serialize their output through
-a rendezvous. Its `flyology_barebones` dependency provides the image builder
+a rendezvous. Its `flyology_freestanding` dependency provides the image builder
 and QEMU runner:
 
 ```sh
@@ -80,7 +80,7 @@ options.
 
 ## Authoritative gates
 
-- `alr build` builds the host-side `libflyology_primitives.a` from the
+- `alr build` builds the host-side `libflyology_freestanding_primitives.a` from the
   deterministic Ada/SPARK kernel packages. Freestanding images are composed by
   `scripts/build-product.sh ARCH PROFILE` using the pinned per-target Alire
   workspaces, the target GPR project, and explicit binder/link/image steps.

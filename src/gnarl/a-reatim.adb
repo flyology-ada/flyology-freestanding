@@ -1,19 +1,19 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
-with Flyology.Kernel;
-with Flyology.Clock_Model;
+with Flyology_Freestanding.Kernel;
+with Flyology_Freestanding.Clock_Model;
 
 package body Ada.Real_Time is
-   package Model renames Flyology.Clock_Model;
+   package Model renames Flyology_Freestanding.Clock_Model;
 
    function Clock return Time is
-     (Time (Flyology.Kernel.Read_Clock));
+     (Time (Flyology_Freestanding.Kernel.Read_Clock));
 
    function "+" (Left : Time; Right : Time_Span) return Time is
       Nanoseconds : Long_Long_Integer;
       Increment   : Model.Tick;
       Rate        : constant Model.Frequency :=
-        Model.Frequency (Flyology.Kernel.Clock_Frequency);
+        Model.Frequency (Flyology_Freestanding.Kernel.Clock_Frequency);
    begin
       if Right < 0.0
         or else Right > Time_Span

@@ -34,7 +34,7 @@ initialization, all-or-none creation with exact frame conditions, placement for
 both compiler automatic-CPU sentinels and specific CPUs, and explicit/inherited
 admission. It also reruns the deterministic dispatcher, policy, ready-position,
 wait, timer, lifecycle, ceiling, termination, abort-closure, and allocator
-arithmetic kernels. Concurrent `Flyology.Kernel`, imported task-primitives
+arithmetic kernels. Concurrent `Flyology_Freestanding.Kernel`, imported task-primitives
 declarations, compiler-facing GNARL facades, secondary-stack machinery,
 architecture assembly, hardware, the C unwinder, and C allocator synchronization
 remain outside SPARK behind checked boundaries.
@@ -104,7 +104,7 @@ run proves 476/476 checks.
 ## Perspective review
 
 - Architecture and boundary integrity: GNARL retains language semantics;
-  `Flyology.Kernel` owns task/domain state and context handoff; each domain selects
+  `Flyology_Freestanding.Kernel` owns task/domain state and context handoff; each domain selects
   one scheduler policy; architecture code only captures/restores frames and
   performs interrupt notification/transfer.
 - Ada/compiler compatibility: application code uses ordinary task declarations,

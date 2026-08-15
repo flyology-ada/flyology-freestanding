@@ -6,12 +6,12 @@ is not legal advice or a warranty about third-party intellectual property.
 
 ## Separation rule
 
-Flyology runtime implementation work may use only:
+Flyology Freestanding runtime implementation work may use only:
 
 - the Ada Reference Manual and published Ada Issues;
 - public compiler user/reference documentation;
 - compiler-generated expansion, binder output, ALI metadata, representation
-  reports, symbol tables, relocations, and disassembly from Flyology-owned probes;
+  reports, symbol tables, relocations, and disassembly from Flyology Freestanding-owned probes;
 - compiler and linker diagnostics elicited by those probes; and
 - black-box language behavior tests written from the specification.
 
@@ -40,7 +40,7 @@ An interface record must distinguish four different claims:
 
 1. **shape** — name, profile, representation, convention, or call order observed
    in generated artifacts;
-2. **implementation** — original Flyology code accepts that boundary;
+2. **implementation** — original Flyology Freestanding code accepts that boundary;
 3. **semantics** — behavior demonstrated by target/black-box tests; and
 4. **proof** — deterministic kernels proved by SPARK or explored by a model.
 
@@ -74,20 +74,20 @@ semantic evidence.
 
 ## Product project boundary
 
-`gpr/flyology_image.gpr` is the authoritative Ada compilation graph for both
+`gpr/flyology_freestanding_image.gpr` is the authoritative Ada compilation graph for both
 freestanding conformance images and independent application images. Its source
 directories make compiler-facing units discoverable, but directory membership
 is not clean-room evidence and does not enlarge any interface claim. The exact
 implementation inventory named by each manifest entry remains authoritative
 for that claim.
 
-The generated original-work `Flyology_Launcher` is the binder main and invokes
+The generated original-work `Flyology_Freestanding_Launcher` is the binder main and invokes
 the selected ordinary-Ada application procedure after requiring the RTS
 elaboration closure. The project also roots the runtime/binder authorities and
-the two Flyology validation bodies exported to platform entry assembly. Every
+the two Flyology Freestanding validation bodies exported to platform entry assembly. Every
 compiler facade and remaining semantic implementation object is selected
 through an Ada dependency from those roots and the chosen configuration view.
-The separate `gpr/flyology_cross.cgpr` describes only the no-installed-runtime
+The separate `gpr/flyology_freestanding_cross.cgpr` describes only the no-installed-runtime
 compiler protocol; it supplies no GNAT runtime sources, libraries, or semantic
 behavior. Concrete tool paths come from the pinned Alire workspaces and are not
 recorded as source inputs.

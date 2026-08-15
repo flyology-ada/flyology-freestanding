@@ -1,16 +1,16 @@
 #!/bin/sh
 set -eu
 
-output_root=${FLYOLOGY_PRODUCT_OUTPUT_ROOT:-build/product}
+output_root=${FLYOLOGY_FREESTANDING_PRODUCT_OUTPUT_ROOT:-build/product}
 
 for architecture in x86_64 aarch64; do
     for profile in tasking preemptive-fifo preemptive-round-robin domains; do
-        FLYOLOGY_PRODUCT_OUTPUT_ROOT="$output_root" \
+        FLYOLOGY_FREESTANDING_PRODUCT_OUTPUT_ROOT="$output_root" \
             scripts/build-product.sh "$architecture" "$profile" >/dev/null
-        FLYOLOGY_IMAGE_OUTPUT_ROOT="$output_root/$profile" \
+        FLYOLOGY_FREESTANDING_IMAGE_OUTPUT_ROOT="$output_root/$profile" \
             scripts/inspect-image.sh "$architecture" "$profile"
         for cpu_count in 1 4; do
-            FLYOLOGY_PRODUCT_OUTPUT_ROOT="$output_root" \
+            FLYOLOGY_FREESTANDING_PRODUCT_OUTPUT_ROOT="$output_root" \
                 scripts/run-product.sh "$architecture" "$cpu_count" "$profile"
         done
     done

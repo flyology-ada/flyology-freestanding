@@ -5,7 +5,7 @@
 
 ## Context
 
-Ada's task dispatching model reserves CPU value zero for `Not_A_Specific_CPU` and numbers specific CPUs from one. Flyology's internal `Core_Id` is deliberately dense from zero. Firmware and interrupt-controller identities are neither Ada CPU numbers nor guaranteed dense.
+Ada's task dispatching model reserves CPU value zero for `Not_A_Specific_CPU` and numbers specific CPUs from one. Flyology Freestanding's internal `Core_Id` is deliberately dense from zero. Firmware and interrupt-controller identities are neither Ada CPU numbers nor guaranteed dense.
 
 ## Decision
 

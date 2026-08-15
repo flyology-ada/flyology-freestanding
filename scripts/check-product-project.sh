@@ -6,70 +6,109 @@ manifest="$repository/alire.toml"
 profiles="$repository/config/profiles.toml"
 
 test -f "$manifest"
-test -f "$repository/flyology.gpr"
-test -f "$repository/gpr/flyology_primitives.gpr"
-test -f "$repository/gpr/flyology_image.gpr"
-test -f "$repository/gpr/flyology_exception_probe.gpr"
-test -f "$repository/gpr/flyology_cross.cgpr"
+test -f "$repository/flyology_freestanding.gpr"
+test -f "$repository/gpr/flyology_freestanding_primitives.gpr"
+test -f "$repository/gpr/flyology_freestanding_image.gpr"
+test -f "$repository/gpr/flyology_freestanding_exception_probe.gpr"
+test -f "$repository/gpr/flyology_freestanding_cross.cgpr"
 test -f "$profiles"
-test -f "$repository/tests/target/scenarios/flyology_conformance.adb"
-test -f "$repository/tests/target/scenarios/flyology-conformance-tasking.adb"
-test -f "$repository/tests/target/scenarios/flyology-conformance-observations.adb"
+test -f "$repository/tests/target/scenarios/flyology_freestanding_conformance.adb"
+test -f "$repository/tests/target/scenarios/flyology_freestanding-conformance-tasking.adb"
+test -f "$repository/tests/target/scenarios/flyology_freestanding-conformance-observations.adb"
 test -x "$repository/scripts/build-image.sh"
-test -x "$repository/scripts/flyology-build"
-test -x "$repository/scripts/flyology-run"
+test -x "$repository/scripts/flyology-freestanding-build"
+test -x "$repository/scripts/flyology-freestanding-run"
 test -x "$repository/scripts/run-uefi-image.sh"
 test -x "$repository/scripts/inspect-image.sh"
 test -x "$repository/scripts/run-product.sh"
 test -x "$repository/scripts/verify-product-runtime.sh"
 
-grep -F -- '--gui)' "$repository/scripts/flyology-run" >/dev/null
-grep -F 'FLYOLOGY_QEMU_GUI="$gui"' \
-    "$repository/scripts/flyology-run" >/dev/null
+grep -F -- '--gui)' "$repository/scripts/flyology-freestanding-run" >/dev/null
+grep -F 'FLYOLOGY_FREESTANDING_QEMU_GUI="$gui"' \
+    "$repository/scripts/flyology-freestanding-run" >/dev/null
 grep -F 'if test "$gui" = 0; then' \
     "$repository/scripts/run-uefi-image.sh" >/dev/null
-grep -F 'test_observations=${FLYOLOGY_TEST_OBSERVATIONS:-0}' \
-    "$repository/scripts/flyology-build" >/dev/null
-grep -F 'test_observations=${FLYOLOGY_TEST_OBSERVATIONS:-1}' \
+grep -F 'test_observations=${FLYOLOGY_FREESTANDING_TEST_OBSERVATIONS:-0}' \
+    "$repository/scripts/flyology-freestanding-build" >/dev/null
+grep -F 'test_observations=${FLYOLOGY_FREESTANDING_TEST_OBSERVATIONS:-1}' \
     "$repository/scripts/build-image.sh" >/dev/null
-grep -F -- '-DFLYOLOGY_TEST_OBSERVATIONS' \
+grep -F -- '-DFLYOLOGY_FREESTANDING_TEST_OBSERVATIONS' \
     "$repository/scripts/build-image.sh" >/dev/null
 
-grep -F 'name = "flyology_barebones"' "$manifest" >/dev/null
-grep -F 'project-files = ["flyology.gpr"]' "$manifest" >/dev/null
-grep -F 'for Project_Files use ("gpr/flyology_primitives.gpr");' \
-    "$repository/flyology.gpr" >/dev/null
-grep -F 'for Library_Name use "flyology_primitives";' \
-    "$repository/gpr/flyology_primitives.gpr" >/dev/null
-grep -F 'for Main use' "$repository/gpr/flyology_image.gpr" >/dev/null
-grep -F '"flyology_launcher.adb"' \
-    "$repository/gpr/flyology_image.gpr" >/dev/null
-grep -F 'Application_Directory := external ("FLYOLOGY_APPLICATION_DIR");' \
-    "$repository/gpr/flyology_image.gpr" >/dev/null
-if rg -n 'FLYOLOGY_SCHEDULER_CONFIG_DIR|Scheduler_Directory' \
-    "$repository/gpr/flyology_image.gpr" \
+grep -F 'name = "flyology_freestanding"' "$manifest" >/dev/null
+grep -F 'project-files = ["flyology_freestanding.gpr"]' "$manifest" >/dev/null
+grep -F 'aggregate project Flyology_Freestanding is' \
+    "$repository/flyology_freestanding.gpr" >/dev/null
+grep -F 'for Project_Files use ("gpr/flyology_freestanding_primitives.gpr");' \
+    "$repository/flyology_freestanding.gpr" >/dev/null
+grep -F 'for Library_Name use "flyology_freestanding_primitives";' \
+    "$repository/gpr/flyology_freestanding_primitives.gpr" >/dev/null
+
+#  This is a hard identity migration.  A compatibility root or old build
+#  variable would recreate the collision with the separate Flyology project.
+retired_crate=flyology'_barebones'
+retired_repository=flyology'-barebones'
+retired_title='Flyology ''Barebones'
+old_symbol_prefix=flyology'_'
+old_variable_prefix=FLYOLOGY'_'
+if git -C "$repository" grep -n -E \
+    "$retired_crate|$retired_repository|$retired_title" -- . \
+    ':(exclude)scripts/check-product-project.sh' \
+    ':(exclude)docs/adr/0013-freestanding-identity.md' \
+    >/dev/null; then
+    echo 'retired Barebones identity found in maintained content' >&2
+    exit 1
+fi
+if git -C "$repository" grep -n -P \
+    "${old_symbol_prefix}(?!freestanding)|${old_variable_prefix}(?!FREESTANDING)" -- \
+    src config tests scripts gpr proof examples alire.toml \
+    ':(exclude)scripts/check-product-project.sh' \
+    ':(exclude)scripts/inspect-image.sh' >/dev/null; then
+    echo 'unqualified Flyology-owned symbol or build variable found' >&2
+    exit 1
+fi
+if git -C "$repository" grep -n -E \
+    '(^|[^[:alnum:]_])Flyology\.' -- src config tests examples docs \
+    >/dev/null; then
+    echo 'retired Flyology Ada root found in maintained content' >&2
+    exit 1
+fi
+if git -C "$repository" ls-files | \
+    rg --pcre2 '(^|/)flyology(?:_|-)(?!freestanding)' >/dev/null; then
+    echo 'retired Flyology-prefixed path found in maintained content' >&2
+    exit 1
+fi
+test ! -e "$repository/src/primitives/flyology.ads"
+test ! -e "$repository/flyology.gpr"
+grep -F 'for Main use' "$repository/gpr/flyology_freestanding_image.gpr" >/dev/null
+grep -F '"flyology_freestanding_launcher.adb"' \
+    "$repository/gpr/flyology_freestanding_image.gpr" >/dev/null
+grep -F 'Application_Directory := external ("FLYOLOGY_FREESTANDING_APPLICATION_DIR");' \
+    "$repository/gpr/flyology_freestanding_image.gpr" >/dev/null
+if rg -n 'FLYOLOGY_FREESTANDING_SCHEDULER_CONFIG_DIR|Scheduler_Directory' \
+    "$repository/gpr/flyology_freestanding_image.gpr" \
     "$repository/scripts/build-image.sh" \
-    "$repository/scripts/flyology-build" >/dev/null; then
+    "$repository/scripts/flyology-freestanding-build" >/dev/null; then
     echo 'consumer build still selects scheduler configuration' >&2
     exit 1
 fi
-if rg -n -- '--profile|FLYOLOGY_PROFILE' \
-    "$repository/scripts/flyology-build" \
-    "$repository/scripts/flyology-run" >/dev/null; then
+if rg -n -- '--profile|FLYOLOGY_FREESTANDING_PROFILE' \
+    "$repository/scripts/flyology-freestanding-build" \
+    "$repository/scripts/flyology-freestanding-run" >/dev/null; then
     echo 'consumer tools still expose repository profiles' >&2
     exit 1
 fi
-grep -F 'Generated_Directory := external ("FLYOLOGY_GENERATED_DIR");' \
-    "$repository/gpr/flyology_image.gpr" >/dev/null
-grep -F '"flyology-validation.adb"' \
-    "$repository/gpr/flyology_image.gpr" >/dev/null
-grep -F '"flyology-boot_validation.adb"' \
-    "$repository/gpr/flyology_image.gpr" >/dev/null
+grep -F 'Generated_Directory := external ("FLYOLOGY_FREESTANDING_GENERATED_DIR");' \
+    "$repository/gpr/flyology_freestanding_image.gpr" >/dev/null
+grep -F '"flyology_freestanding-validation.adb"' \
+    "$repository/gpr/flyology_freestanding_image.gpr" >/dev/null
+grep -F '"flyology_freestanding-boot_validation.adb"' \
+    "$repository/gpr/flyology_freestanding_image.gpr" >/dev/null
 grep -F 'for Driver ("Ada") use Ada_Driver;' \
-    "$repository/gpr/flyology_cross.cgpr" >/dev/null
+    "$repository/gpr/flyology_freestanding_cross.cgpr" >/dev/null
 grep -F 'for Main use' \
-    "$repository/gpr/flyology_exception_probe.gpr" >/dev/null
-grep -F 'gprbuild -c -p -P gpr/flyology_exception_probe.gpr' \
+    "$repository/gpr/flyology_freestanding_exception_probe.gpr" >/dev/null
+grep -F 'gprbuild -c -p -P gpr/flyology_freestanding_exception_probe.gpr' \
     "$repository/scripts/build-exception-probe.sh" >/dev/null
 if rg -n 'compile_ada' \
     "$repository/scripts/build-exception-probe.sh" >/dev/null; then
@@ -102,11 +141,11 @@ for project in $(awk -F ' *= *' '$1 == "image_project" || \
 done
 
 test "$(awk -F ' *= *' '$1 == "image_project" { print $2 }' \
-    "$profiles" | sort -u)" = '"gpr/flyology_image.gpr"'
+    "$profiles" | sort -u)" = '"gpr/flyology_freestanding_image.gpr"'
 test "$(awk -F ' *= *' '$1 == "toolchain_config" { print $2 }' \
-    "$profiles" | sort -u)" = '"gpr/flyology_cross.cgpr"'
+    "$profiles" | sort -u)" = '"gpr/flyology_freestanding_cross.cgpr"'
 
-grep -F 'gprbuild -c -p -P gpr/flyology_image.gpr' \
+grep -F 'gprbuild -c -p -P gpr/flyology_freestanding_image.gpr' \
     "$repository/scripts/build-image.sh" >/dev/null
 if rg -n 'compile_ada|compile_ada[[:space:]]+src/' \
     "$repository/scripts/build-image.sh" >/dev/null; then
@@ -119,10 +158,10 @@ for profile in $profile_names; do
 done
 
 direct_product_callers=$(rg -l -F 'scripts/build-image.sh' \
-    "$repository/scripts" --glob '*.sh' --glob 'flyology-build' \
+    "$repository/scripts" --glob '*.sh' --glob 'flyology-freestanding-build' \
     --glob '!check-product-project.sh' | sort)
 test "$direct_product_callers" = "$repository/scripts/build-product.sh
-$repository/scripts/flyology-build"
+$repository/scripts/flyology-freestanding-build"
 
 if find "$repository/src" -type f \
     \( -name '*_demo.ads' -o -name '*_demo.adb' \) -print | grep .; then
@@ -135,7 +174,7 @@ if rg -n '\bDemo_[A-Za-z0-9_]+' "$repository/src" >/dev/null; then
     exit 1
 fi
 
-if rg -n 'Flyology\.(M[0-9]_Architecture|M[0-9]_Configuration|M[0-9]_Hook)' \
+if rg -n 'Flyology_Freestanding\.(M[0-9]_Architecture|M[0-9]_Configuration|M[0-9]_Hook)' \
     "$repository/src" "$repository/config" "$repository/tests/target" \
     >/dev/null; then
     echo 'numbered-stage product configuration or platform unit found' >&2
@@ -150,13 +189,13 @@ if find "$repository" \
     exit 1
 fi
 
-if rg -n '^procedure Flyology_M[0-9]' \
+if rg -n '^procedure Flyology_Freestanding_M[0-9]' \
     "$repository/tests/target/scenarios" >/dev/null; then
     echo 'numbered-stage conformance main found' >&2
     exit 1
 fi
 
-if rg -n 'FLYOLOGY_M[0-9]|flyology_m[0-9]|FLYOLOGY:M[0-9]:|\bm[0-9]_' \
+if rg -n 'FLYOLOGY_FREESTANDING_M[0-9]|flyology_freestanding_m[0-9]|FLYOLOGY:M[0-9]:|\bm[0-9]_' \
     "$repository/src" "$repository/config" \
     "$repository/tests/target" \
     "$repository/scripts/build-image.sh" \
@@ -175,14 +214,14 @@ if git -C "$repository" grep -n -i -E \
     exit 1
 fi
 
-test -f "$repository/src/kernel/flyology-kernel.adb"
-test -f "$repository/src/rts/flyology-rts.adb"
+test -f "$repository/src/kernel/flyology_freestanding-kernel.adb"
+test -f "$repository/src/rts/flyology_freestanding-rts.adb"
 test -f "$repository/src/gnarl/s-tassta.adb"
-test -f "$repository/src/primitives/flyology-dispatcher_model.adb"
+test -f "$repository/src/primitives/flyology_freestanding-dispatcher_model.adb"
 test -f \
-    "$repository/src/primitives/flyology-scheduling_configuration_model.adb"
-test -f "$repository/src/application/flyology-scheduling.ads"
-test -f "$repository/src/application/flyology-scheduling.adb"
+    "$repository/src/primitives/flyology_freestanding-scheduling_configuration_model.adb"
+test -f "$repository/src/application/flyology_freestanding-scheduling.ads"
+test -f "$repository/src/application/flyology_freestanding-scheduling.adb"
 test -f "$repository/src/bootstrap/system.ads"
 test -f "$repository/src/abi/exception_runtime.c"
 test -f "$repository/src/platform/x86_64/entry.S"
@@ -192,7 +231,7 @@ test ! -e "$repository/runtime/bootstrap"
 test ! -e "$repository/arch"
 test ! -e "$repository/runtime"
 test -f \
-    "$repository/tests/platform/interrupts/flyology_interrupt_checkpoint.adb"
+    "$repository/tests/platform/interrupts/flyology_freestanding_interrupt_checkpoint.adb"
 test ! -e "$repository/tests/legacy"
 test ! -e "$repository/scripts/build-domain-image.sh"
 test ! -e "$repository/scripts/build-preemption-image.sh"
@@ -200,6 +239,6 @@ test ! -e "$repository/scripts/inspect-bootstrap-minimum.sh"
 test -f "$repository/config/restrictions/product.adc"
 test -f "$repository/config/scheduler/fifo.adc"
 test -f "$repository/config/scheduler/round_robin.adc"
-test -f "$repository/config/domains/on/flyology-domain_configuration.ads"
+test -f "$repository/config/domains/on/flyology_freestanding-domain_configuration.ads"
 
 echo 'FLYOLOGY:PRODUCT:PROJECT:PASS'

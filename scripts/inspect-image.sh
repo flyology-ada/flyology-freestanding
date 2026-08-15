@@ -18,9 +18,9 @@ case "$profile" in
     *) echo "unsupported image profile: $profile" >&2; exit 64 ;;
 esac
 
-output_root=${FLYOLOGY_IMAGE_OUTPUT_ROOT:-build/image}
-elf="$output_root/$architecture/flyology.elf"
-binder="$output_root/$architecture/b~flyology_launcher.adb"
+output_root=${FLYOLOGY_FREESTANDING_IMAGE_OUTPUT_ROOT:-build/image}
+elf="$output_root/$architecture/flyology-freestanding.elf"
+binder="$output_root/$architecture/b~flyology_freestanding_launcher.adb"
 test -f "$elf" || { echo "missing image ELF: $elf" >&2; exit 66; }
 test -f "$binder" || { echo "missing image binder: $binder" >&2; exit 66; }
 
@@ -29,6 +29,21 @@ readelf_output=$(scripts/toolchain.sh exec "$architecture" \
 program_output=$(scripts/toolchain.sh exec "$architecture" \
     "$target-readelf" -l "$elf")
 nm_output=$(scripts/toolchain.sh exec "$architecture" "$target-nm" -n "$elf")
+
+old_symbols=$(printf '%s\n' "$nm_output" | awk '
+    {
+        symbol = $NF
+        if (symbol ~ /^flyology_/ &&
+            symbol !~ /^flyology_freestanding_/) print symbol
+        if (symbol ~ /^_ada_flyology_/ &&
+            symbol !~ /^_ada_flyology_freestanding_/) print symbol
+    }
+')
+if test -n "$old_symbols"; then
+    echo "retired Flyology symbol namespace found in image ELF:" >&2
+    printf '%s\n' "$old_symbols" >&2
+    exit 1
+fi
 
 printf '%s\n' "$readelf_output" | grep -F \
     'Class:                             ELF64' >/dev/null
@@ -47,14 +62,14 @@ if printf '%s\n' "$program_output" | grep -E 'INTERP|DYNAMIC|TLS|RWE' >/dev/null
 fi
 
 if test "$profile" != domains; then
-for symbol in _start adainit adafinal _ada_flyology_launcher \
-    _ada_flyology_conformance \
-    flyology_task_start flyology_dispatcher_start flyology_context_switch \
-    flyology_kernel_prepare_environment flyology_kernel_prepare_ap \
-    flyology_kernel_environment_complete flyology_platform_kick_core \
-    flyology_conformance_parallel_barrier system__tasking__stages__create_task \
-    flyology_platform_read_clock flyology_platform_clock_frequency \
-    flyology_platform_program_timer flyology_platform_cancel_timer \
+for symbol in _start adainit adafinal _ada_flyology_freestanding_launcher \
+    _ada_flyology_freestanding_conformance \
+    flyology_freestanding_task_start flyology_freestanding_dispatcher_start flyology_freestanding_context_switch \
+    flyology_freestanding_kernel_prepare_environment flyology_freestanding_kernel_prepare_ap \
+    flyology_freestanding_kernel_environment_complete flyology_freestanding_platform_kick_core \
+    flyology_freestanding_conformance_parallel_barrier system__tasking__stages__create_task \
+    flyology_freestanding_platform_read_clock flyology_freestanding_platform_clock_frequency \
+    flyology_freestanding_platform_program_timer flyology_freestanding_platform_cancel_timer \
     ada__real_time__clock ada__real_time__delays__delay_until \
     system__tasking__protected_objects__lock \
     system__tasking__protected_objects__unlock \
@@ -76,40 +91,40 @@ for symbol in _start adainit adafinal _ada_flyology_launcher \
     system__tasking__rendezvous__selective_wait \
     ada__dynamic_priorities__set_priority \
     ada__dynamic_priorities__get_priority \
-    flyology__rts__current_active_priority \
+    flyology_freestanding__rts__current_active_priority \
     system__tasking__stages__activate_tasks \
     system__tasking__stages__complete_activation \
     system__tasking__stages__complete_task \
     system__tasking__stages__expunge_unactivated_tasks \
     system__tasking__stages__free_task \
-    system__tasking__stages__abort_tasks flyology_raise_abort \
-    flyology_raise_terminate \
+    system__tasking__stages__abort_tasks flyology_freestanding_raise_abort \
+    flyology_freestanding_raise_terminate \
     ada__task_identification__current_task \
     ada__task_identification__is_callable \
     ada__task_identification__is_terminated \
-    flyology__kernel__task_stacks \
-    flyology__kernel__arm_wait_locked \
-    flyology__kernel__resolve_exact_locked \
-    flyology__kernel__install_retirement_hook \
-    flyology__kernel__cancel_dormant_locked \
-    flyology__kernel__begin_retirement_locked \
-    flyology__kernel__finish_retirement_locked \
-    flyology__priority_queue_model__select_next \
-    flyology__wait_arbitration_model__resolve \
-    flyology__exceptional_completion_model__complete \
-    flyology__exceptional_completion_model__consume \
-    flyology__dispatcher_model__try_transition \
-    flyology__dispatcher_model__next_incarnation \
-    flyology__domain_model__place \
-    flyology__abort_closure_model__close \
-    flyology__termination_model__can_select \
-    flyology__termination_model__select_termination \
+    flyology_freestanding__kernel__task_stacks \
+    flyology_freestanding__kernel__arm_wait_locked \
+    flyology_freestanding__kernel__resolve_exact_locked \
+    flyology_freestanding__kernel__install_retirement_hook \
+    flyology_freestanding__kernel__cancel_dormant_locked \
+    flyology_freestanding__kernel__begin_retirement_locked \
+    flyology_freestanding__kernel__finish_retirement_locked \
+    flyology_freestanding__priority_queue_model__select_next \
+    flyology_freestanding__wait_arbitration_model__resolve \
+    flyology_freestanding__exceptional_completion_model__complete \
+    flyology_freestanding__exceptional_completion_model__consume \
+    flyology_freestanding__dispatcher_model__try_transition \
+    flyology_freestanding__dispatcher_model__next_incarnation \
+    flyology_freestanding__domain_model__place \
+    flyology_freestanding__abort_closure_model__close \
+    flyology_freestanding__termination_model__can_select \
+    flyology_freestanding__termination_model__select_termination \
     __gnat_personality_v0 \
     __gnat_begin_handler_v1 __gnat_end_handler_v1 \
     system__soft_links__save_library_occurrence \
-    flyology_current_exception flyology_current_exception_is_abort \
-    flyology_exception_identity flyology_raise_exception_identity \
-    flyology_task_root_invoke __eh_frame_start __eh_frame_end \
+    flyology_freestanding_current_exception flyology_freestanding_current_exception_is_abort \
+    flyology_freestanding_exception_identity flyology_freestanding_raise_exception_identity \
+    flyology_freestanding_task_root_invoke __eh_frame_start __eh_frame_end \
     __gnat_malloc __gnat_free \
     __gnat_all_others_value _Unwind_Resume \
     __gnat_last_chance_handler; do
@@ -173,16 +188,16 @@ strings_output=$(scripts/toolchain.sh exec \
 case "$profile" in
     tasking) ;;
     preemptive-fifo|preemptive-round-robin|domains)
-        for symbol in flyology_kernel_interrupt_dispatch \
-            flyology_conformance_preemption_canary \
-            flyology_platform_retry_interrupt flyology_platform_retry_count \
-            flyology_rts_lock_try_acquire \
-            flyology_context_switch_to_task flyology_context_switch_to_full \
-            flyology__platform__capture_full_context \
-            flyology__preemption_model__configuration_is_valid \
-            flyology__preemption_model__quantum_ticks \
-            flyology__preemption_model__account \
-            flyology__preemption_model__decide \
+        for symbol in flyology_freestanding_kernel_interrupt_dispatch \
+            flyology_freestanding_conformance_preemption_canary \
+            flyology_freestanding_platform_retry_interrupt flyology_freestanding_platform_retry_count \
+            flyology_freestanding_rts_lock_try_acquire \
+            flyology_freestanding_context_switch_to_task flyology_freestanding_context_switch_to_full \
+            flyology_freestanding__platform__capture_full_context \
+            flyology_freestanding__preemption_model__configuration_is_valid \
+            flyology_freestanding__preemption_model__quantum_ticks \
+            flyology_freestanding__preemption_model__account \
+            flyology_freestanding__preemption_model__decide \
             __gl_time_slice_val __gl_task_dispatching_policy; do
             printf '%s\n' "$nm_output" | \
                 grep -E "[[:space:]]$symbol$" >/dev/null
@@ -209,11 +224,11 @@ case "$profile" in
 esac
 
 if test "$profile" = domains; then
-    for symbol in _start adainit adafinal _ada_flyology_launcher \
-        _ada_flyology_conformance \
-        flyology_task_start flyology_dispatcher_start \
-        flyology_context_switch flyology_kernel_prepare_environment \
-        flyology_kernel_prepare_ap flyology_kernel_environment_complete \
+    for symbol in _start adainit adafinal _ada_flyology_freestanding_launcher \
+        _ada_flyology_freestanding_conformance \
+        flyology_freestanding_task_start flyology_freestanding_dispatcher_start \
+        flyology_freestanding_context_switch flyology_freestanding_kernel_prepare_environment \
+        flyology_freestanding_kernel_prepare_ap flyology_freestanding_kernel_environment_complete \
         system__tasking__stages__create_task \
         system__tasking__stages__activate_tasks \
         system__multiprocessors__number_of_cpus \
@@ -224,19 +239,19 @@ if test "$profile" = domains; then
         __gnat_freeze_dispatching_domains \
         system__secondary_stack__ss_mark system__secondary_stack__ss_release \
         system__secondary_stack__ss_allocate \
-        flyology__rts__register_domain_alias flyology__rts__create_domain \
-        flyology__kernel__try_create_domain_locked \
-        flyology__scheduling__set_global_policy \
-        flyology__scheduling__set_domain_policy \
-        flyology__scheduling__set_cpu_policy \
-        flyology__scheduling__policy_of \
-        flyology__kernel__change_global_policy_locked \
-        flyology__kernel__change_domain_policy_locked \
-        flyology__kernel__change_core_policy_locked \
-        flyology__scheduling_configuration_model__try_change \
-        flyology__kernel__activate_locked \
-        flyology__domain_model__valid flyology__domain_model__try_create \
-        flyology__domain_model__place flyology__domain_model__try_admit; do
+        flyology_freestanding__rts__register_domain_alias flyology_freestanding__rts__create_domain \
+        flyology_freestanding__kernel__try_create_domain_locked \
+        flyology_freestanding__scheduling__set_global_policy \
+        flyology_freestanding__scheduling__set_domain_policy \
+        flyology_freestanding__scheduling__set_cpu_policy \
+        flyology_freestanding__scheduling__policy_of \
+        flyology_freestanding__kernel__change_global_policy_locked \
+        flyology_freestanding__kernel__change_domain_policy_locked \
+        flyology_freestanding__kernel__change_core_policy_locked \
+        flyology_freestanding__scheduling_configuration_model__try_change \
+        flyology_freestanding__kernel__activate_locked \
+        flyology_freestanding__domain_model__valid flyology_freestanding__domain_model__try_create \
+        flyology_freestanding__domain_model__place flyology_freestanding__domain_model__try_admit; do
         printf '%s\n' "$nm_output" | \
             grep -E "[[:space:]]$symbol$" >/dev/null
     done

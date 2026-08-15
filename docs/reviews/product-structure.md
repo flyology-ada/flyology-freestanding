@@ -40,9 +40,9 @@ history is not part of the product surface and would invalidate those records.
   product source path.
 
 The stable image entry point is `scripts/build-product.sh ARCH PROFILE`; the
-artifact is `flyology.elf`. Profiles are `tasking`, `preemptive-fifo`,
+artifact is `flyology-freestanding.elf`. Profiles are `tasking`, `preemptive-fifo`,
 `preemptive-round-robin`, and `domains`. The Alire/GPR host product is
-`libflyology_primitives.a`. No public spawn, fiber, scheduler-control, wait-token,
+`libflyology_freestanding_primitives.a`. No public spawn, fiber, scheduler-control, wait-token,
 or alternate task-creation API is present.
 
 ## Clean-room audit
@@ -60,7 +60,7 @@ does not turn shape evidence into a semantics claim or deterministic-model proof
 into proof of concurrent Ada, C, assembly, MMIO, or hardware.
 
 No GNAT runtime source was introduced. The accepted evidence remains the Ada
-Reference Manual, public documentation, Flyology-owned compiler expansion and
+Reference Manual, public documentation, Flyology Freestanding-owned compiler expansion and
 binder output, diagnostics, symbol/ALI/representation/disassembly observations,
 and black-box tests. This is an engineering provenance statement, not legal
 advice or an intellectual-property warranty.
@@ -70,7 +70,7 @@ advice or an intellectual-property warranty.
 All commands below completed successfully on the reviewed implementation commit
 and tree identified above.
 
-- `alr build --release` built `libflyology_primitives.a` with SHA-256
+- `alr build --release` built `libflyology_freestanding_primitives.a` with SHA-256
   `36ba618da57f0b22b9b659f7bce26a8824603a01d7c3e2d16e32b230e4801914`.
 - `scripts/verify-formal-models.sh` ended in
   `FLYOLOGY:FORMAL_MODELS:PASS`: GNATprove FSF 16.1.0 proved 476/476 checks at
@@ -128,10 +128,10 @@ not because they are alternate product builds.
 
 ### Blocker — the freestanding source graph remains explicit shell
 
-Disposition: fixed in the current target-project slice. `gpr/flyology_image.gpr`
+Disposition: fixed in the current target-project slice. `gpr/flyology_freestanding_image.gpr`
 owns the selected source roots, ordinary-Ada main, and assembly-exported
 validation roots; GPRbuild discovers the remaining Ada dependency closure.
-`gpr/flyology_cross.cgpr` describes the compiler protocol without inventing an
+`gpr/flyology_freestanding_cross.cgpr` describes the compiler protocol without inventing an
 installed runtime or embedding local tool paths. The shell produces a sorted
 response file from project objects and retains only binder, assembly/C, raw
 linker, `libgcc`, firmware, and FAT-image orchestration. Repository hygiene
@@ -149,7 +149,7 @@ source paths and rejects reintroduction of `tests/legacy/`.
 ### Medium — rendezvous semantics remain embedded in the RTS lifecycle body
 
 Disposition: fixed by the responsibility-owned
-`flyology-rts-rendezvous_operations.adb` subunit. Entry-call admission,
+`flyology_freestanding-rts-rendezvous_operations.adb` subunit. Entry-call admission,
 conditional/timed waits, FIFO acceptance, exceptional completion, and selective
 wait remain inside the single RTS state and lock authority, but no longer make
 task lifecycle and master cleanup share one implementation file.

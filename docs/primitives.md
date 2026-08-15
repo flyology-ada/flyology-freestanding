@@ -1,12 +1,12 @@
 # Deterministic primitive library
 
-`libflyology_primitives.a` is the reusable, host-buildable part of Flyology. It
+`libflyology_freestanding_primitives.a` is the reusable, host-buildable part of Flyology_Freestanding. It
 contains bounded deterministic algorithms and their contracts; it does not
 contain task creation, mutable concurrent kernel state, context transfer,
 compiler facades, exception unwinding, or privileged platform code.
 
-The root Alire crate and `gpr/flyology_primitives.gpr` build the library from
-`src/primitives/`. `proof/flyology_proof.gpr` analyzes the SPARK-enabled bodies.
+The root Alire crate and `gpr/flyology_freestanding_primitives.gpr` build the library from
+`src/primitives/`. `proof/flyology_freestanding_proof.gpr` analyzes the SPARK-enabled bodies.
 Host model gates execute the same packages at production and reduced bounds,
 while the TLA+ models explore cross-operation ordering that is deliberately not
 encoded as a second production state authority.
@@ -21,12 +21,12 @@ encoded as a second production state authority.
 | Scheduling | `Scheduler_Contract`, `Priority_Queue_Model`, `Preemption_Model`, `Scheduling_Configuration_Model`, `Ceiling_Model` | Ready ordering, priority changes, budgets, atomic per-core configuration changes, preemption decisions, and ceiling arithmetic. Policy selects; it never transfers a context. |
 | Domains | `Domain_Model` | Immutable domain creation, core ownership, admission, and isolation. |
 | Exceptional lifecycle | `Exceptional_Completion_Model`, `Abort_Closure_Model` | Retained completion ownership and bounded dependent-task abort closure. |
-| Concurrent boundary | `Task_Primitives` | Imported typed contract only. Its operations are implemented by `Flyology.Kernel` and are explicitly outside the deterministic-library proof claim. |
+| Concurrent boundary | `Task_Primitives` | Imported typed contract only. Its operations are implemented by `Flyology_Freestanding.Kernel` and are explicitly outside the deterministic-library proof claim. |
 
-`Flyology.Kernel` is the only production owner of mutable current-task, ready,
+`Flyology_Freestanding.Kernel` is the only production owner of mutable current-task, ready,
 wait, timer, and context state. It calls these packages while holding the
 appropriate runtime critical section and performs publication/context transfer
-only after the deterministic result is validated. `Flyology.RTS` adds GNARL
+only after the deterministic result is validated. `Flyology_Freestanding.RTS` adds GNARL
 language semantics above that boundary. Neither layer is duplicated in this
 library.
 

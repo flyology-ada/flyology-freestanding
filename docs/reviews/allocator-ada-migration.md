@@ -9,8 +9,8 @@ build, or gate source changed after the authoritative evidence was produced
 from that exact staged tree.
 
 The bounded compiler allocator is now Ada end to end. The deterministic
-first-fit state engine is `Flyology.Allocator` in the primitive library, and
-the narrow `Flyology.Allocator_ABI` facade owns the aligned byte pool, RTS-lock
+first-fit state engine is `Flyology_Freestanding.Allocator` in the primitive library, and
+the narrow `Flyology_Freestanding.Allocator_ABI` facade owns the aligned byte pool, RTS-lock
 serialization, checked address conversion, and the four compiler-facing C
 convention exports. The previous allocator C source and both C-only test
 adapters were removed. The sole remaining production C file is the 744-line

@@ -2,7 +2,7 @@
 set -eu
 
 repository=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-native_prefix=${FLYOLOGY_NATIVE_GNAT_PREFIX:-"$HOME/.local/share/alire/toolchains/gnat_native_15.3.1_36dc7314"}
+native_prefix=${FLYOLOGY_FREESTANDING_NATIVE_GNAT_PREFIX:-"$HOME/.local/share/alire/toolchains/gnat_native_15.3.1_36dc7314"}
 compiler="$native_prefix/bin/gcc"
 builder="$native_prefix/bin/gnatmake"
 binder="$native_prefix/bin/gnatbind"
@@ -11,7 +11,7 @@ compiler_digest=fa728e60b2dc7e3dff407ab847725d8145f3301615bad70c39ef422c8e8b741d
 builder_digest=11a4aadc683258c5683cbb82b630e3cecc71ab6e628e825a1d27edc82faa4df3
 binder_digest=ba3cc6aa2820b422b5686bb92d3c0391331f23c5d43a9e324b784b052c95a1bd
 linker_digest=64b321899a9e2ba77210a25b2de503cf7858e503a50d029ea55f9772cf0292f3
-timeout_command=${FLYOLOGY_TIMEOUT:-/opt/homebrew/bin/gtimeout}
+timeout_command=${FLYOLOGY_FREESTANDING_TIMEOUT:-/opt/homebrew/bin/gtimeout}
 timeout_digest=96d98cb3adafdd41570802625f7511d7d340cbcd4cb7a7278d5706c282a59c33
 output="$repository/build/host-abort-exception"
 

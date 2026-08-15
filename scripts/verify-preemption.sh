@@ -21,9 +21,9 @@ for policy in fifo round_robin; do
             round_robin) profile=preemptive-round-robin ;;
         esac
         scripts/build-product.sh "$architecture" "$profile" >/dev/null
-        FLYOLOGY_IMAGE_OUTPUT_ROOT="build/product/$profile" \
+        FLYOLOGY_FREESTANDING_IMAGE_OUTPUT_ROOT="build/product/$profile" \
             scripts/inspect-image.sh "$architecture" "$profile"
-        FLYOLOGY_IMAGE_OUTPUT_ROOT="build/product/$profile" \
+        FLYOLOGY_FREESTANDING_IMAGE_OUTPUT_ROOT="build/product/$profile" \
             scripts/check-unwind.sh "$architecture"
     done
 done

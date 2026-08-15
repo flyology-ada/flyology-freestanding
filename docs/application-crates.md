@@ -1,6 +1,6 @@
 # Building application crates
 
-`flyology_barebones` is both a deterministic primitive library and a provider
+`flyology_freestanding` is both a deterministic primitive library and a provider
 of a freestanding image toolchain. An application crate supplies one ordinary
 Ada library procedure. The dependency owns RTS elaboration, binding, platform
 assembly, linking, Limine media construction, TianoCore firmware selection,
@@ -12,19 +12,19 @@ Add the dependency and identify the application procedure in `alire.toml`:
 
 ```toml
 [[depends-on]]
-flyology_barebones = "*"
+flyology_freestanding = "*"
 
 [environment]
-FLYOLOGY_APPLICATION_UNIT.set = "my_kernel"
+FLYOLOGY_FREESTANDING_APPLICATION_UNIT.set = "my_kernel"
 
 [[actions]]
 type = "post-build"
-command = ["sh", "-c", "exec \"$FLYOLOGY_BUILD_TOOL\""]
+command = ["sh", "-c", "exec \"$FLYOLOGY_FREESTANDING_BUILD_TOOL\""]
 ```
 
 The tools infer the application root from the directory in which Alire runs
-and use its conventional `src/` directory. `FLYOLOGY_APPLICATION_ROOT` and
-`FLYOLOGY_APPLICATION_DIR` are optional overrides for nonstandard layouts;
+and use its conventional `src/` directory. `FLYOLOGY_FREESTANDING_APPLICATION_ROOT` and
+`FLYOLOGY_FREESTANDING_APPLICATION_DIR` are optional overrides for nonstandard layouts;
 ordinary crates should not repeat those paths in their manifests.
 
 During local development a normal Alire path pin can select a checkout. A
@@ -41,16 +41,16 @@ its partition-wide initial scheduling policy with the standard Ada pragma:
 ```ada
 pragma Task_Dispatching_Policy (FIFO_Within_Priorities);
 
-with Flyology.Console;
+with Flyology_Freestanding.Console;
 
 procedure My_Kernel is
 begin
-   Flyology.Console.Put_Line ("OK");
+   Flyology_Freestanding.Console.Put_Line ("OK");
 end My_Kernel;
 ```
 
 The repository's complete minimal example goes one step further: it sets
-`FLYOLOGY_CPUS=4`, starts two ordinary Ada workers on each core with the `CPU`
+`FLYOLOGY_FREESTANDING_CPUS=4`, starts two ordinary Ada workers on each core with the `CPU`
 aspect, and routes every complete output line through a printer-task rendezvous.
 Its enclosing Ada master waits for every worker and the printer before emitting
 the final `OK`.
@@ -61,7 +61,7 @@ fatal `FLYOLOGY:FAIL`/`PANIC` diagnostics remain enabled. For a temporary
 runtime-observation build, opt in explicitly:
 
 ```sh
-FLYOLOGY_TEST_OBSERVATIONS=1 alr build
+FLYOLOGY_FREESTANDING_TEST_OBSERVATIONS=1 alr build
 ```
 
 Repository conformance images enable this switch independently because their
@@ -71,9 +71,9 @@ The consumer build rejects an application that omits the policy pragma. This
 keeps scheduling semantics in reviewed Ada source rather than in an Alire
 action, environment variable, or shell profile. Round robin is selected with
 `Round_Robin_Within_Priorities`; when GNAT leaves its quantum unspecified,
-Flyology uses a documented 10 ms default.
+Flyology Freestanding uses a documented 10 ms default.
 
-After startup, applications may use `Flyology.Scheduling` to replace the live
+After startup, applications may use `Flyology_Freestanding.Scheduling` to replace the live
 global, dispatching-domain, or individual-CPU policy. This does not rewrite the
 binder value: the pragma supplies the safe pre-elaboration default, while the
 runtime API performs synchronized changes after the application exists. See
@@ -85,13 +85,13 @@ deliberately shallow:
 ```text
 build/
   x86_64/
-    flyology.elf
-    flyology-x86_64.fat
+    flyology-freestanding.elf
+    flyology-freestanding-x86_64.fat
     uefi-code.fd
     uefi-vars-template.fd
   aarch64/
-    flyology.elf
-    flyology-aarch64.fat
+    flyology-freestanding.elf
+    flyology-freestanding-aarch64.fat
     uefi-code.fd
     uefi-vars-template.fd
 ```
@@ -105,7 +105,7 @@ variable storage is mutable.
 Build one architecture explicitly when needed:
 
 ```sh
-alr exec -- sh -c 'exec "$FLYOLOGY_BUILD_TOOL" "$@"' flyology-build x86_64
+alr exec -- sh -c 'exec "$FLYOLOGY_FREESTANDING_BUILD_TOOL" "$@"' flyology-freestanding-build x86_64
 ```
 
 Repository conformance profiles remain explicit test-matrix names. They are
@@ -125,7 +125,7 @@ Runs are headless by default for deterministic terminal use and automation.
 terminal. It prepares the runner for a future guest framebuffer; it does not by
 itself add or initialize a framebuffer device in the Ada application.
 
-The dependency exports `FLYOLOGY_BUILD_TOOL` and `FLYOLOGY_RUN_TOOL` as paths
+The dependency exports `FLYOLOGY_FREESTANDING_BUILD_TOOL` and `FLYOLOGY_FREESTANDING_RUN_TOOL` as paths
 relative to its own Alire crate root. It does not prepend its scripts directory
 to `PATH`. Consequently tracked Alire metadata and generated build-hash inputs
 do not capture a developer checkout or the host's absolute `PATH` entries.
@@ -138,9 +138,9 @@ available for bounded automation in either display mode.
 
 ## Boundary and clean-room status
 
-The generated `Flyology_Launcher` is original Flyology build orchestration. It
+The generated `Flyology_Freestanding_Launcher` is original Flyology Freestanding build orchestration. It
 is the binder main so RTS elaboration does not depend on whether an application
-happens to declare tasks. `Flyology.Console` is an original application API
+happens to declare tasks. `Flyology_Freestanding.Console` is an original application API
 over a narrow platform serial boundary. Neither surface is compiler-facing and
 neither adds a GNARL/GNULL interface to the clean-room inventory.
 

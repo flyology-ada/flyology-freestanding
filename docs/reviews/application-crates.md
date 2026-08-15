@@ -7,7 +7,7 @@ implementation is commit `8f7947213342277cdc99e2be13752b3ef4036711`, Git tree
 `b7f477e07b5c0104808860b452d57836afbbbaa3`. The closing review and roadmap
 change documentation only.
 
-An independent Alire crate can now depend on `flyology_barebones`, name one
+An independent Alire crate can now depend on `flyology_freestanding`, name one
 ordinary parameterless Ada procedure, and receive bootable x86-64 and AArch64
 images from `alr build`. The dependency owns the target project, clean-room RTS,
 platform sources, linker scripts, Limine media construction, pinned TianoCore
@@ -16,20 +16,20 @@ target-specific GPR sources or linker inputs.
 
 ## Reviewed public workflow
 
-- The dependency exports `flyology-build` and `flyology-run` through its Alire
+- The dependency exports `flyology-freestanding-build` and `flyology-freestanding-run` through its Alire
   environment.
-- The consumer supplies `FLYOLOGY_APPLICATION_UNIT`; the tools infer the crate
+- The consumer supplies `FLYOLOGY_FREESTANDING_APPLICATION_UNIT`; the tools infer the crate
   root and conventional `src/` directory from their invocation context.
-  `FLYOLOGY_APPLICATION_ROOT` and `FLYOLOGY_APPLICATION_DIR` remain optional
-  overrides for nonstandard layouts. The generated `Flyology_Launcher` is the
+  `FLYOLOGY_FREESTANDING_APPLICATION_ROOT` and `FLYOLOGY_FREESTANDING_APPLICATION_DIR` remain optional
+  overrides for nonstandard layouts. The generated `Flyology_Freestanding_Launcher` is the
   binder main and invokes that procedure after the RTS elaboration closure.
-- `Flyology.Console.Put_Line` is the only new application-facing runtime API.
+- `Flyology_Freestanding.Console.Put_Line` is the only new application-facing runtime API.
   It delegates to one narrow platform serial boundary and exposes no task,
   scheduler, context, or wait authority.
 - The default post-build action produces both supported architectures. A caller
   may select one architecture; scheduling policy is declared in consumer Ada,
   not selected through this action.
-- `flyology-run` accepts the architecture and CPU count, uses the pinned fixed
+- `flyology-freestanding-run` accepts the architecture and CPU count, uses the pinned fixed
   QEMU machine, copies the mutable UEFI variables template per run, and supports
   a bounded timeout for automation. Its default remains headless; an explicit
   `--gui` option enables QEMU's host display without changing the guest image.
@@ -39,13 +39,13 @@ Consumer outputs are deliberately shallow:
 ```text
 build/
   x86_64/
-    flyology.elf
-    flyology-x86_64.fat
+    flyology-freestanding.elf
+    flyology-freestanding-x86_64.fat
     uefi-code.fd
     uefi-vars-template.fd
   aarch64/
-    flyology.elf
-    flyology-aarch64.fat
+    flyology-freestanding.elf
+    flyology-freestanding-aarch64.fat
     uefi-code.fd
     uefi-vars-template.fd
 ```
@@ -70,7 +70,7 @@ GNARL/GNULL interfaces and do not change
 
 The target compiler still sees only the recorded predefined-unit and tasking
 interfaces discovered from the Ada Reference Manual, public compiler material,
-Flyology-owned compiler expansion/binder output, diagnostics, representation
+Flyology Freestanding-owned compiler expansion/binder output, diagnostics, representation
 records, disassembly, and black-box tests. No GNAT runtime source was inspected,
 copied, or linked by this workflow. This is an engineering provenance statement,
 not legal advice or an intellectual-property warranty.
@@ -78,7 +78,7 @@ not legal advice or an intellectual-property warranty.
 TianoCore/EDK II, Limine, the target compilers, `libgcc`, mtools, QEMU, and the
 timeout utility remain external inputs under `docs/external-inputs.md`. The
 bundle step copies validated firmware artifacts into ignored output directories;
-it does not vendor them into the source crate or relicense them as Flyology code.
+it does not vendor them into the source crate or relicense them as Flyology Freestanding code.
 
 ## Exact-tree evidence
 
@@ -91,7 +91,7 @@ runner with a 12-second timeout.
 
 Both serial logs contained exactly one `OK`, one
 `FLYOLOGY:ADA:MAIN:PASS`, and one
-`FLYOLOGY:TASKING:BOOT_SUBSTRATE:PASS`, in causal order, with no Flyology failure
+`FLYOLOGY:TASKING:BOOT_SUBSTRATE:PASS`, in causal order, with no Flyology Freestanding failure
 or panic marker. Returning from the consumer procedure therefore exercised
 binder finalization, environment-task termination, and the idle/halt path rather
 than relying on a test-only exit primitive.
@@ -154,16 +154,16 @@ timeout and asserts the finalization markers.
 
 Within those limits, the application-crate workflow is complete: a small Ada
 crate can build, inspect, and run deployable UEFI images for both supported
-architectures without reproducing Flyology's target project.
+architectures without reproducing Flyology Freestanding's target project.
 
 ## Observation-policy amendment — 2026-08-15
 
 Implementation commit `f8844cf39c121956aa95005d56f94251ff43d5fc`, Git tree
 `f3323300d1b9be0028edc711b96c97184b99a4ee`, separates repository test
-observations from consumer output. `flyology-build` now selects
-`FLYOLOGY_TEST_OBSERVATIONS=0` unless the application explicitly opts in;
+observations from consumer output. `flyology-freestanding-build` now selects
+`FLYOLOGY_FREESTANDING_TEST_OBSERVATIONS=0` unless the application explicitly opts in;
 repository conformance composition retains the enabled default. Fatal
-`FLYOLOGY:FAIL`/`PANIC` diagnostics and `Flyology.Console` output are outside
+`FLYOLOGY:FAIL`/`PANIC` diagnostics and `Flyology_Freestanding.Console` output are outside
 this switch.
 
 The exact implementation tree passed `scripts/verify-minimal-example.sh` on
@@ -182,5 +182,5 @@ The complementary tasking conformance image was freshly rebuilt and passed
 exactly one Ada-main and tasking-boot observation along with the complete
 machine-checked tasking marker set. This demonstrates that suppression is an
 application composition policy, not deletion or weakening of behavioral-gate
-evidence. The switch and documentation are original Flyology build/test
+evidence. The switch and documentation are original Flyology Freestanding build/test
 surfaces and do not change a compiler-facing clean-room interface.

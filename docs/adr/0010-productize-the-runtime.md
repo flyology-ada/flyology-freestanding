@@ -5,7 +5,7 @@
 
 ## Context
 
-Flyology was developed as a sequence of independently gated experiments. That
+Flyology Freestanding was developed as a sequence of independently gated experiments. That
 made early uncertainty visible and kept each capability reviewable, but the
 development sequence became accidental architecture: source ownership,
 compiler facades, platform contracts, demonstrations, structured markers, and
@@ -17,7 +17,7 @@ it difficult to consume the runtime as a small coherent project.
 
 ## Decision
 
-Flyology will migrate, without a big-bang rewrite, to this responsibility graph:
+Flyology Freestanding will migrate, without a big-bang rewrite, to this responsibility graph:
 
 1. the ordinary Ada application depends on the compiler-compatibility facade;
 2. the compatibility facade delegates language tasking semantics to the RTS;
@@ -50,7 +50,7 @@ numbered development-stage identifiers are rejected by repository hygiene.
 
 ### Invariants
 
-- `Flyology.Kernel` remains the sole production authority for task state,
+- `Flyology_Freestanding.Kernel` remains the sole production authority for task state,
   current-task ownership, exact waits, ready membership, and context handoff
   until its responsibilities are mechanically split. No parallel replacement
   state machine is permitted.
@@ -72,9 +72,9 @@ numbered development-stage identifiers are rejected by repository hygiene.
 
 A root Alire crate and aggregate GPR project are the supported host-library
 entry point. They build the deterministic `src/primitives/` packages as
-`libflyology_primitives.a`. Freestanding Ada compilation is owned separately by
-`gpr/flyology_image.gpr`, using the relocatable no-installed-runtime compiler
-protocol in `gpr/flyology_cross.cgpr` and concrete compiler paths from the
+`libflyology_freestanding_primitives.a`. Freestanding Ada compilation is owned separately by
+`gpr/flyology_freestanding_image.gpr`, using the relocatable no-installed-runtime compiler
+protocol in `gpr/flyology_freestanding_cross.cgpr` and concrete compiler paths from the
 pinned cross workspaces. The composition shell retains compiler binder
 generation, architecture assembly/C, linker scripts, pinned `libgcc`, firmware,
 and FAT-image construction because those operations are part of the checked
@@ -105,8 +105,8 @@ Obsolete experimental scaffolding follows a proof-grade subtraction protocol:
 1. Record this decision and the clean-room evidence schema.
 2. Add the Alire/GPR deterministic-library build while retaining target gates.
 3. Extract target conformance scenarios and markers from product packages.
-4. Establish `Flyology.Kernel` as the sole concurrent state authority and
-   `Flyology.RTS` as GNARL semantic glue.
+4. Establish `Flyology_Freestanding.Kernel` as the sole concurrent state authority and
+   `Flyology_Freestanding.RTS` as GNARL semantic glue.
 5. Consolidate platform contracts and target assembly by architecture.
 6. Consolidate compiler-facing units, probes, and evidence manifests.
 7. Replace chronological build/test entry points and ABI names with capability

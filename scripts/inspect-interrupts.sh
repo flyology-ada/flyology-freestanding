@@ -21,7 +21,7 @@ case "$architecture" in
     *) echo "unsupported architecture: $architecture" >&2; exit 64 ;;
 esac
 
-elf="build/interrupts/$architecture/flyology-interrupts.elf"
+elf="build/interrupts/$architecture/flyology_freestanding-interrupts.elf"
 test -f "$elf" || {
     echo "missing interrupt ELF: $elf" >&2
     exit 66
@@ -44,16 +44,16 @@ if printf '%s\n' "$program_output" | grep -E 'INTERP|DYNAMIC|TLS|RWE' >/dev/null
     exit 1
 fi
 
-for symbol in _start adainit adafinal _ada_flyology_interrupt_checkpoint \
-    flyology_interrupts_core_entry flyology_task_start flyology_context_switch \
-    flyology_current_core flyology_rts_lock_acquire \
-    flyology_rts_lock_release flyology_interrupts_report_pass \
-    flyology_interrupts_wait_for_timer_request \
-    flyology_interrupts_acknowledge_requests \
-    flyology_interrupts_parallel_task_barrier \
-    flyology_interrupts_arm_deferred_timer flyology_interrupts_consume_deferred \
-    flyology_conformance_report_failure __gnat_last_chance_handler \
-    flyology_memory_entry_is_valid flyology_topology_identities_are_distinct \
+for symbol in _start adainit adafinal _ada_flyology_freestanding_interrupt_checkpoint \
+    flyology_freestanding_interrupts_core_entry flyology_freestanding_task_start flyology_freestanding_context_switch \
+    flyology_freestanding_current_core flyology_freestanding_rts_lock_acquire \
+    flyology_freestanding_rts_lock_release flyology_freestanding_interrupts_report_pass \
+    flyology_freestanding_interrupts_wait_for_timer_request \
+    flyology_freestanding_interrupts_acknowledge_requests \
+    flyology_freestanding_interrupts_parallel_task_barrier \
+    flyology_freestanding_interrupts_arm_deferred_timer flyology_freestanding_interrupts_consume_deferred \
+    flyology_freestanding_conformance_report_failure __gnat_last_chance_handler \
+    flyology_freestanding_memory_entry_is_valid flyology_freestanding_topology_identities_are_distinct \
     limine_base_revision limine_memmap_request limine_mp_request; do
     printf '%s\n' "$nm_output" | grep -E "[[:space:]]$symbol$" >/dev/null
 done

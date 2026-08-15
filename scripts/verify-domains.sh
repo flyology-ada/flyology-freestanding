@@ -13,10 +13,10 @@ scripts/verify-domains-reproducible.sh
 
 for architecture in x86_64 aarch64; do
     scripts/build-product.sh "$architecture" domains >/dev/null
-    FLYOLOGY_IMAGE_OUTPUT_ROOT=build/product/domains \
+    FLYOLOGY_FREESTANDING_IMAGE_OUTPUT_ROOT=build/product/domains \
         scripts/inspect-image.sh "$architecture" domains
-    FLYOLOGY_IMAGE_OUTPUT_ROOT=build/product/domains \
-    FLYOLOGY_UNWIND_PROFILE=domains \
+    FLYOLOGY_FREESTANDING_IMAGE_OUTPUT_ROOT=build/product/domains \
+    FLYOLOGY_FREESTANDING_UNWIND_PROFILE=domains \
         scripts/check-unwind.sh "$architecture"
 done
 

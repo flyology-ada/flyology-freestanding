@@ -1,10 +1,10 @@
 #!/bin/sh
 set -eu
 
-spark_prefix=${FLYOLOGY_SPARK_PREFIX:-"$HOME/.alire"}
+spark_prefix=${FLYOLOGY_FREESTANDING_SPARK_PREFIX:-"$HOME/.alire"}
 gprbuild="$spark_prefix/libexec/spark/bin/gprbuild"
 digest=178ad065fb98e9faff22ce3eec07144eb813cb18b2e65517882cb61b94348f49
-timeout_command=${FLYOLOGY_TIMEOUT:-/opt/homebrew/bin/gtimeout}
+timeout_command=${FLYOLOGY_FREESTANDING_TIMEOUT:-/opt/homebrew/bin/gtimeout}
 timeout_digest=96d98cb3adafdd41570802625f7511d7d340cbcd4cb7a7278d5706c282a59c33
 
 test -x "$gprbuild"

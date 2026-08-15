@@ -26,7 +26,7 @@ output_directory="build/exception-probe/$architecture"
 mkdir -p "$output_directory"
 rm -f "$output_directory"/*.ali "$output_directory"/*.o \
       "$output_directory"/b~exception_probe.ad? \
-      "$output_directory/flyology-exception-probe.elf"
+      "$output_directory/flyology_freestanding-exception-probe.elf"
 output_directory=$(CDPATH= cd -- "$output_directory" && pwd)
 probe_config="$repository/config/restrictions/exception-probe.adc"
 
@@ -41,15 +41,15 @@ scripts/toolchain.sh exec "$architecture" sh -c '
     driver=$(command -v "$target-gcc")
     archiver=$(command -v "$target-ar")
     archive_indexer=$(command -v "$target-ranlib")
-    exec gprbuild -c -p -P gpr/flyology_exception_probe.gpr \
-        --config=gpr/flyology_cross.cgpr \
-        -XFLYOLOGY_TARGET="$target" \
-        -XFLYOLOGY_ADA_DRIVER="$driver" \
-        -XFLYOLOGY_ARCHIVER="$archiver" \
-        -XFLYOLOGY_ARCHIVE_INDEXER="$archive_indexer" \
-        -XFLYOLOGY_ARCHITECTURE="$architecture" \
-        -XFLYOLOGY_OBJECT_DIR="$object_directory" \
-        -XFLYOLOGY_PROBE_CONFIG="$probe_config"
+    exec gprbuild -c -p -P gpr/flyology_freestanding_exception_probe.gpr \
+        --config=gpr/flyology_freestanding_cross.cgpr \
+        -XFLYOLOGY_FREESTANDING_TARGET="$target" \
+        -XFLYOLOGY_FREESTANDING_ADA_DRIVER="$driver" \
+        -XFLYOLOGY_FREESTANDING_ARCHIVER="$archiver" \
+        -XFLYOLOGY_FREESTANDING_ARCHIVE_INDEXER="$archive_indexer" \
+        -XFLYOLOGY_FREESTANDING_ARCHITECTURE="$architecture" \
+        -XFLYOLOGY_FREESTANDING_OBJECT_DIR="$object_directory" \
+        -XFLYOLOGY_FREESTANDING_PROBE_CONFIG="$probe_config"
 ' sh "$target" "$architecture" "$output_directory" "$probe_config"
 
 ada_objects_file="$output_directory/ada-objects.list"
@@ -77,7 +77,7 @@ scripts/toolchain.sh exec "$architecture" "$target-gcc" \
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
     -c "src/platform/$architecture/entry.S" \
     -o "$output_directory/exception_entry.o" \
-    -DFLYOLOGY_EXCEPTIONS -ffreestanding -fno-stack-protector \
+    -DFLYOLOGY_FREESTANDING_EXCEPTIONS -ffreestanding -fno-stack-protector \
     -fno-pic -fno-pie $architecture_flags
 
 # shellcheck disable=SC2086
@@ -103,7 +103,7 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     --build-id=none --fatal-warnings --gc-sections -z noexecstack \
     -Map "$output_directory/exception.map" \
     -T "src/platform/$architecture/exception.ld" \
-    -o "$output_directory/flyology-exception-probe.elf" \
+    -o "$output_directory/flyology_freestanding-exception-probe.elf" \
     "$output_directory/exception_entry.o" \
     "$output_directory/limine_requests.o" \
     "$output_directory/b~exception_probe.o" \
@@ -112,8 +112,8 @@ scripts/toolchain.sh exec "$architecture" "$target-ld" \
     --start-group "$libgcc" --end-group
 
 test -z "$(scripts/toolchain.sh exec "$architecture" \
-    "$target-nm" -u "$output_directory/flyology-exception-probe.elf")"
+    "$target-nm" -u "$output_directory/flyology_freestanding-exception-probe.elf")"
 
-FLYOLOGY_DISK_OUTPUT_DIRECTORY="$output_directory" \
+FLYOLOGY_FREESTANDING_DISK_OUTPUT_DIRECTORY="$output_directory" \
     scripts/build-disk.sh "$architecture" \
-    "$output_directory/flyology-exception-probe.elf"
+    "$output_directory/flyology_freestanding-exception-probe.elf"

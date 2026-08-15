@@ -1,6 +1,6 @@
 # bootstrap checkpoint compiler-interface evidence
 
-This record covers only the sequential binder and fail-closed diagnostic surface used by bootstrap checkpoint. It is not a GNARL or exception-propagation claim. Both isolated probes used Flyology-owned Ada programs with the pinned GNAT 15.3.0 cross compilers and did not read GNAT runtime source.
+This record covers only the sequential binder and fail-closed diagnostic surface used by bootstrap checkpoint. It is not a GNARL or exception-propagation claim. Both isolated probes used Flyology Freestanding-owned Ada programs with the pinned GNAT 15.3.0 cross compilers and did not read GNAT runtime source.
 
 ## Binder elaboration
 
@@ -25,7 +25,7 @@ The isolated discovery probe exercised explicit `Constraint_Error`, `Program_Err
 
 Disassembly showed the same two-argument C ABI as the publicly documented `__gnat_last_chance_handler`: a NUL-terminated source-location address followed by an integer line. Original non-returning forwarding entries linked every isolated probe with no undefined symbols.
 
-The reproducible in-tree negative probe is `tests/platform/bootstrap/flyology_last_chance_probe.adb`, which uses an ordinary Ada `raise Program_Error`. Run `FLYOLOGY_BOOT_VARIANT=last-chance scripts/build-bootstrap.sh ARCH`; the test gate machine-checks that this owned object has exactly one undefined compiler call, `__gnat_rcheck_PE_Explicit_Raise`, that the final ELF contains the probe and has no undefined symbols, and that QEMU emits exactly one architecture-specific `FLYOLOGY:LAST_CHANCE` marker without any Ada-main, bootstrap checkpoint-pass, generic failure, or panic marker.
+The reproducible in-tree negative probe is `tests/platform/bootstrap/flyology_freestanding_last_chance_probe.adb`, which uses an ordinary Ada `raise Program_Error`. Run `FLYOLOGY_FREESTANDING_BOOT_VARIANT=last-chance scripts/build-bootstrap.sh ARCH`; the test gate machine-checks that this owned object has exactly one undefined compiler call, `__gnat_rcheck_PE_Explicit_Raise`, that the final ELF contains the probe and has no undefined symbols, and that QEMU emits exactly one architecture-specific `FLYOLOGY:LAST_CHANCE` marker without any Ada-main, bootstrap checkpoint-pass, generic failure, or panic marker.
 
 bootstrap checkpoint compiles under the explicit `No_Exception_Propagation` restriction in `config/restrictions/bootstrap.adc`. Ordinary handlers require unwinding, personality, exception descriptors, and handler lifecycle symbols that bootstrap checkpoint does not implement. Consequently, the bootstrap checkpoint shims are terminal diagnostics, not Ada exception propagation. This temporary restriction and these narrowly observed shims cannot be used to claim full GNARL completion.
 

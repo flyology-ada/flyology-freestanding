@@ -7,7 +7,7 @@ _start:
     cli
     lea bootstrap_stack_top(%rip), %rsp
     xor %ebp, %ebp
-    call flyology_ada_main
+    call flyology_freestanding_ada_main
 1:
     hlt
     jmp 1b

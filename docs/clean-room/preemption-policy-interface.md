@@ -1,6 +1,6 @@
 # preemption capability dispatching-policy interface record
 
-This record is clean-room evidence from Flyology-owned sources, the Ada
+This record is clean-room evidence from Flyology Freestanding-owned sources, the Ada
 Reference Manual, and generated output from the pinned GNAT 15.3 cross
 compilers. No GNAT run-time source was consulted.
 
@@ -10,7 +10,7 @@ task at the head of its ready queue. The RM's round-robin policy adds an
 execution-time budget: tail insertion replenishes the quantum, higher-priority
 preemption retains the remaining budget, and exhaustion moves the task to the
 tail only when it has no inherited priority and is outside a protected action.
-These rules are the authority for `Flyology.Preemption_Model`; scheduler policy
+These rules are the authority for `Flyology_Freestanding.Preemption_Model`; scheduler policy
 still selects tasks and never transfers a context.
 
 `scripts/probe-preemption-policy.sh` compiles the owned no-op policy probe and the
@@ -30,7 +30,7 @@ The same owned probe suite also places each standard policy pragma directly in
 an Ada compilation unit and binds without `-gnatec` or `-T`. Both target
 compilers export the requested `F`/`R` policy, FIFO slice zero, and the
 round-robin unspecified time-slice sentinel `-1`. Consumer applications
-therefore select their initial policy in Ada source. Flyology interprets the
+therefore select their initial policy in Ada source. Flyology Freestanding interprets the
 unspecified round-robin quantum as 10 ms;
 repository conformance configurations continue to pin the binder quantum so
 their historical policy evidence remains exact.
@@ -38,16 +38,16 @@ their historical policy evidence remains exact.
 The serialized GNATprove FSF 16.1 level-2 gate reports 543/543 generated
 checks proved across all 23 deterministic proof units, with no justified or
 unproved checks and no assumptions. This includes all six entities in the
-original `Flyology.Scheduling_Configuration_Model`. The preemption capability
+original `Flyology_Freestanding.Scheduling_Configuration_Model`. The preemption capability
 host campaign pins 2,531 policy/configuration/accounting/ready-position
 decisions and hash `11691030413894487372`; its added transitions enumerate
 empty, inactive, invalid, and accepted multi-core configuration changes and
 hash every resulting per-core policy and quantum.
 
-The live `Flyology.Scheduling` package is an original application API, not a
+The live `Flyology_Freestanding.Scheduling` package is an original application API, not a
 compiler-facing package and not evidence for a GNAT interface. It maps one
-validated global/domain/CPU request through `Flyology.RTS` into the single
-`Flyology.Kernel` state authority. The complete target set is checked by the
+validated global/domain/CPU request through `Flyology_Freestanding.RTS` into the single
+`Flyology_Freestanding.Kernel` state authority. The complete target set is checked by the
 SPARK transition before any mutation under the RTS lock. The corresponding
 TLA+ model explores global replacement, domain replacement, per-core override,
 domain creation, admission, dispatch, and policy-dependent rotation in
@@ -55,13 +55,13 @@ domain creation, admission, dispatch, and policy-dependent rotation in
 transition checks, not a refinement proof of concurrent Ada or assembly.
 
 The product connection keeps policy, core, and architecture ownership
-separate. `Flyology.Preemption_Model` validates the binder configuration,
+separate. `Flyology_Freestanding.Preemption_Model` validates the binder configuration,
 converts the round-robin slice to checked clock ticks, accounts retained
 budgets, and returns only a preemption cause. The priority-ready policy owns
 head/tail ordering and next selection. A base-priority change of a Ready task
 removes the exact entry and reinserts it at the tail of the new active-priority
 queue with a fresh sequence; a round-robin budget is replenished only when the
-task is next dispatched. `Flyology.Kernel` commits the one checked
+task is next dispatched. `Flyology_Freestanding.Kernel` commits the one checked
 Running-to-Ready transition and owns task-local complete-context storage.
 Architecture interrupt entry captures the enabled machine state and returns
 either to the interrupted instruction or to the already-saved dispatcher
@@ -124,7 +124,7 @@ and reloaded by the loop rather than treated as a constant canary.
 This is a fixed QEMU/GNAT product claim only. x86 enables x87/SSE with
 `XCR0=3`; AVX/AVX-512/AMX are disabled. AArch64 enables base FP/SIMD only;
 SVE/SME are disabled. Proof covers deterministic policy and arithmetic
-kernels, not concurrent `Flyology.Kernel`, `Flyology.RTS`, application API
+kernels, not concurrent `Flyology_Freestanding.Kernel`, `Flyology_Freestanding.RTS`, application API
 glue, interrupt assembly, timer hardware, or the QEMU execution itself.
 
 Reference: Ada RM D.2.3 (Preemptive Dispatching) and D.2.5 (Round Robin

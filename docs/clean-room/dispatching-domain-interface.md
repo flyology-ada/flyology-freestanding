@@ -1,7 +1,7 @@
 # dispatching-domain capability dispatching-domain interface record
 
 This record derives the public surface from Ada 2022 RM D.16/D.16.1 and the
-compiler boundary from Flyology-owned sources expanded by both pinned GNAT 15.3
+compiler boundary from Flyology Freestanding-owned sources expanded by both pinned GNAT 15.3
 cross compilers. No GNAT run-time source was consulted.
 
 The owned `probes/domains/domain_probe.adb` declares one task with only the standard
@@ -14,10 +14,10 @@ The generated task value record gains a field of exact type
 `System.Tasking.Dispatching_Domain_Access`. Its initializer converts the
 limited domain object directly to that access type. Disassembly of the owned
 probe shows that this conversion reads the first machine word of the public
-domain object; it does not take the public object's address. Flyology therefore
+domain object; it does not take the public object's address. Flyology Freestanding therefore
 places a stable, runtime-owned `System.Tasking.Dispatching_Domain_Access` handle
 at byte offset zero. The remaining compiler-visible layout is `First` at byte
-8, `Last` at byte 12, and the Flyology identifier at byte 16, for a total size
+8, `Last` at byte 12, and the Flyology Freestanding identifier at byte 16, for a total size
 of 192 bits and alignment 8. `scripts/probe-domain-interface.sh` obtains and checks
 that representation report with both pinned target compilers.
 
@@ -34,7 +34,7 @@ the selected domain's CPU set.
 
 The language `Create` returning limited `Dispatching_Domain` is lowered with a
 compiler-generated build-in-place result access parameter. This is generated
-Ada ABI, not a Flyology-designed calling convention. Implementing the
+Ada ABI, not a Flyology Freestanding-designed calling convention. Implementing the
 ARM-shaped limited return in Ada lets the same compiler generate the exact
 target ABI; no assembly or C adapter is required.
 
@@ -59,7 +59,7 @@ CPUs 3 and 4, leaving CPUs 1 and 2 in the system domain. The system domain uses
 FIFO-within-priorities and the secondary domain uses round robin. That policy
 mapping is the initial runtime configuration; applications still create and
 assign tasks only through the standard Ada domain type and task aspect. The
-original `Flyology.Scheduling` extension may later replace a domain's default
+original `Flyology_Freestanding.Scheduling` extension may later replace a domain's default
 and effective per-core policies without changing membership or placement.
 The ordinary-Ada gate checks both implicit inheritance into the secondary
 domain and an explicit `System_Dispatching_Domain` override by a child whose
@@ -76,7 +76,7 @@ exact frame conditions. The bounded Ada host model checks representative
 creation and admission sequences. TLC explores domain creation, inheritance,
 specific and automatic placement, dispatch, global/domain/core live-policy
 replacement, and round-robin rotation across 683,040 distinct states. None of
-those checks proves concurrent `Flyology.Kernel`,
+those checks proves concurrent `Flyology_Freestanding.Kernel`,
 compiler-facing facade, secondary-stack implementation, architecture context
 handoff, or hardware. Those boundaries are instead checked by both-target
 compiler probes, ELF/layout inspection, and bounded QEMU execution.

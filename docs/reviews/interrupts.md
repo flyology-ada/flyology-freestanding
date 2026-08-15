@@ -14,7 +14,7 @@ The closing gate checked repository hygiene, proved the deterministic kernels, v
 | x86-64 `pc-q35-10.2` | 1, 4 | `63a59986dc71e17703418dc4bff8054804eeed72467b409169f0e49581cd1d90` | `7aabf9f1f19020c484c9e248d419bfc8018c61d1b6b6138842ad9b46f5706749` |
 | AArch64 `virt-10.2` / GICv3 | 1, 4 | `97e86bf22d9dab614a43805c58c266573b708fceacdca037f47105766c6416e7` | `be839fb07f2dbbf673846b2843979a15d83f826f55f18de815d0379bd9beef04` |
 
-GNATprove FSF 16.1.0 proved all 97 checks in the six implemented deterministic model units. The imported declarations in `Flyology.Task_Primitives_Contract` are deliberately outside SPARK and are neither claimed proved nor linked as the final GNARL implementation. The gate checks the proof executable digest as well as its version.
+GNATprove FSF 16.1.0 proved all 97 checks in the six implemented deterministic model units. The imported declarations in `Flyology_Freestanding.Task_Primitives_Contract` are deliberately outside SPARK and are neither claimed proved nor linked as the final GNARL implementation. The gate checks the proof executable digest as well as its version.
 
 The exact implementation commit ended in `FLYOLOGY:INTERRUPTS:GATE:PASS`. Independent architecture, concurrency, and verification reviews returned GO after the final transition and stale-generation fixes.
 
@@ -48,7 +48,7 @@ Disposition: fixed. Production interrupt-substrate checkpoint execution owns per
 
 An early form used IST-backed gates before private TSS installation. A later form changed to the private GDT while the active bootstrap IDT still referred to Limine's code selector.
 
-Disposition: fixed fail-closed. Each expanded private GDT validates and preserves the live bootstrap code selector without colliding with Flyology descriptors. A dedicated interrupt is injected through the bootstrap IDT after `LGDT`; its per-core marker is required. `LTR` then precedes final `LIDT`, whose 256 gates all use selector `0x08` and IST1.
+Disposition: fixed fail-closed. Each expanded private GDT validates and preserves the live bootstrap code selector without colliding with Flyology Freestanding descriptors. A dedicated interrupt is injected through the bootstrap IDT after `LGDT`; its per-core marker is required. `LTR` then precedes final `LIDT`, whose 256 gates all use selector `0x08` and IST1.
 
 ### High — interrupt-controller initialization inherited unsafe state
 

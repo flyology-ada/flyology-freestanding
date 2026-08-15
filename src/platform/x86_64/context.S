@@ -3,9 +3,9 @@
 /*
  * Voluntary SysV context: only ABI-preserved state is captured. The saved
  * stack pointer points at the caller return address, so restoring it resumes
- * as though flyology_context_switch had returned.
+ * as though flyology_freestanding_context_switch had returned.
  *
- * The exact 80-byte layout is mirrored by flyology-architecture_context.ads.
+ * The exact 80-byte layout is mirrored by flyology_freestanding-architecture_context.ads.
  */
 .section .text, "ax", @progbits
 .equ CTX_RBX, 0
@@ -158,21 +158,21 @@
     jmp 99b
 .endm
 
-.global flyology_context_switch
-.type flyology_context_switch, @function
-flyology_context_switch:
+.global flyology_freestanding_context_switch
+.type flyology_freestanding_context_switch, @function
+flyology_freestanding_context_switch:
     save_voluntary %rdi
     restore_voluntary %rsi
 
-.global flyology_context_switch_to_task
-.type flyology_context_switch_to_task, @function
-flyology_context_switch_to_task:
+.global flyology_freestanding_context_switch_to_task
+.type flyology_freestanding_context_switch_to_task, @function
+flyology_freestanding_context_switch_to_task:
     save_voluntary %rdi
     restore_voluntary %rsi, 1
 
-.global flyology_context_capture_full
-.type flyology_context_capture_full, @function
-flyology_context_capture_full:
+.global flyology_freestanding_context_capture_full
+.type flyology_freestanding_context_capture_full, @function
+flyology_freestanding_context_capture_full:
     mov %rdi, %r8
     mov %rsi, %r9
     test $63, %r8
@@ -196,9 +196,9 @@ flyology_context_capture_full:
     ud2
     jmp 99b
 
-.global flyology_context_restore_from_interrupt
-.type flyology_context_restore_from_interrupt, @function
-flyology_context_restore_from_interrupt:
+.global flyology_freestanding_context_restore_from_interrupt
+.type flyology_freestanding_context_restore_from_interrupt, @function
+flyology_freestanding_context_restore_from_interrupt:
     /*
      * IST entry installs a null SS in 64-bit mode.  A normal IRETQ restores
      * the interrupted selector, but preemption deliberately abandons that frame when
@@ -210,38 +210,38 @@ flyology_context_restore_from_interrupt:
     mov %ax, %ss
     restore_voluntary %rdi
 
-.global flyology_context_switch_to_full
-.type flyology_context_switch_to_full, @function
-flyology_context_switch_to_full:
+.global flyology_freestanding_context_switch_to_full
+.type flyology_freestanding_context_switch_to_full, @function
+flyology_freestanding_context_switch_to_full:
     save_voluntary %rdi
     restore_full %rsi
 
-.section .text.flyology_context_start, "ax", @progbits
-.global flyology_context_start
-.type flyology_context_start, @function
-flyology_context_start:
+.section .text.flyology_freestanding_context_start, "ax", @progbits
+.global flyology_freestanding_context_start
+.type flyology_freestanding_context_start, @function
+flyology_freestanding_context_start:
     mov %r12, %rdi
-    call flyology_task_start
+    call flyology_freestanding_task_start
 1:
     ud2
     jmp 1b
 
-.section .text.flyology_dispatcher_context_start, "ax", @progbits
-.global flyology_dispatcher_context_start
-.type flyology_dispatcher_context_start, @function
-flyology_dispatcher_context_start:
+.section .text.flyology_freestanding_dispatcher_context_start, "ax", @progbits
+.global flyology_freestanding_dispatcher_context_start
+.type flyology_freestanding_dispatcher_context_start, @function
+flyology_freestanding_dispatcher_context_start:
     mov %r12, %rdi
-    call flyology_dispatcher_start
+    call flyology_freestanding_dispatcher_start
 2:
     ud2
     jmp 2b
 
-.section .rodata.flyology_context_layout, "a", @progbits
+.section .rodata.flyology_freestanding_context_layout, "a", @progbits
 .balign 2
 .short CTX_SIZE, CTX_RBX, CTX_RBP, CTX_R12, CTX_R13, CTX_R14
 .short CTX_R15, CTX_RSP, CTX_RIP, CTX_MXCSR, CTX_X87_CONTROL, CTX_FS_BASE
 
-.section .rodata.flyology_full_context_layout, "a", @progbits
+.section .rodata.flyology_freestanding_full_context_layout, "a", @progbits
 .balign 2
 .short FULL_CONTEXT_SIZE, 0, FULL_XSAVE, FULL_RIP, FULL_RFLAGS, FULL_RSP
 .short FULL_XSAVE_ADDRESS, FULL_XSAVE_BYTES, FULL_XSAVE_FEATURES

@@ -1,18 +1,19 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
-with Flyology.Clock_Model;
-with Flyology.Exceptional_Completion_Model;
-with Flyology.RTS;
-with Flyology.Kernel;
-with Flyology.Wait_Arbitration_Model;
-with Flyology.Wait_Queue_Model;
+with Flyology_Freestanding.Clock_Model;
+with Flyology_Freestanding.Exceptional_Completion_Model;
+with Flyology_Freestanding.RTS;
+with Flyology_Freestanding.Kernel;
+with Flyology_Freestanding.Wait_Arbitration_Model;
+with Flyology_Freestanding.Wait_Queue_Model;
 
 package body System.Tasking.Protected_Objects.Operations is
-   package Core renames Flyology.Kernel;
-   package Clock renames Flyology.Clock_Model;
-   package Completions renames Flyology.Exceptional_Completion_Model;
-   package Queues renames Flyology.Wait_Queue_Model;
-   package Waits renames Flyology.Wait_Arbitration_Model;
+   package Core renames Flyology_Freestanding.Kernel;
+   package Clock renames Flyology_Freestanding.Clock_Model;
+   package Completions renames
+     Flyology_Freestanding.Exceptional_Completion_Model;
+   package Queues renames Flyology_Freestanding.Wait_Queue_Model;
+   package Waits renames Flyology_Freestanding.Wait_Arbitration_Model;
    use type Core.Wait_Resolve_Status;
    use type Completions.Complete_Status;
    use type Completions.Consume_Status;
@@ -28,19 +29,19 @@ package body System.Tasking.Protected_Objects.Operations is
    procedure Kick_Core (Core : System.Address)
    with Import,
         Convention    => C,
-        External_Name => "flyology_platform_kick_core";
+        External_Name => "flyology_freestanding_platform_kick_core";
 
    procedure Report_Failure
    with Import,
         Convention    => C,
-        External_Name => "flyology_conformance_report_failure";
+        External_Name => "flyology_freestanding_conformance_report_failure";
 
    procedure Stop with No_Return;
 
    function Snapshot_Exception_Identity
      (Occurrence : System.Address) return System.Address
    with Import, Convention => C,
-        External_Name => "flyology_exception_identity";
+        External_Name => "flyology_freestanding_exception_identity";
 
    procedure Reraise_Exception (Occurrence : System.Address)
    with Import, Convention => C,
@@ -55,7 +56,7 @@ package body System.Tasking.Protected_Objects.Operations is
    end Stop;
 
    function Dense_Core return Core.Core_Number is
-     (Core.Core_Number (Flyology.RTS.Current_Core_Number));
+     (Core.Core_Number (Flyology_Freestanding.RTS.Current_Core_Number));
 
    function Body_Index
      (Object : Entries.Protection_Entries_Access;
@@ -156,7 +157,7 @@ package body System.Tasking.Protected_Objects.Operations is
       end if;
       Object.Pending (Slot) := (others => <>);
       Entries.Unlock_Entries (Object);
-      Flyology.RTS.Deliver_Completion (Identity);
+      Flyology_Freestanding.RTS.Deliver_Completion (Identity);
    end Consume_Completed_Call;
 
    procedure Complete_Entry_Body
@@ -355,7 +356,7 @@ package body System.Tasking.Protected_Objects.Operations is
          raise Program_Error;
       end if;
       Entries.Lock_Entries (Object);
-      Flyology.RTS.Deliver_Pending_Abort_Locked;
+      Flyology_Freestanding.RTS.Deliver_Pending_Abort_Locked;
       Mapped := Body_Index (Object, Index);
       if Object.Entry_Bodies (Mapped).Barrier
         (Object.Enclosing_Object, Mapped)
@@ -404,7 +405,7 @@ package body System.Tasking.Protected_Objects.Operations is
       Core.Block_Current_And_Release (Dense_Core, Token, Outcome);
       if Outcome = Waits.Abort_Wake then
          Remove_Aborted_Call (Object, Token, Slot);
-         Flyology.RTS.Deliver_Pending_Abort;
+         Flyology_Freestanding.RTS.Deliver_Pending_Abort;
          Stop;
       elsif Outcome /= Waits.Object_Wake then
          raise Program_Error;
@@ -459,7 +460,7 @@ package body System.Tasking.Protected_Objects.Operations is
       end if;
 
       Entries.Lock_Entries (Object);
-      Flyology.RTS.Deliver_Pending_Abort_Locked;
+      Flyology_Freestanding.RTS.Deliver_Pending_Abort_Locked;
       Mapped := Body_Index (Object, Index);
       if Object.Entry_Bodies (Mapped).Barrier
         (Object.Enclosing_Object, Mapped)
@@ -512,7 +513,7 @@ package body System.Tasking.Protected_Objects.Operations is
          return;
       elsif Outcome = Waits.Abort_Wake then
          Remove_Aborted_Call (Object, Token, Slot);
-         Flyology.RTS.Deliver_Pending_Abort;
+         Flyology_Freestanding.RTS.Deliver_Pending_Abort;
          Stop;
       elsif Outcome /= Waits.Timer_Expiry then
          Stop;
@@ -530,7 +531,7 @@ package body System.Tasking.Protected_Objects.Operations is
          Object.Pending (Slot) := (others => <>);
       end if;
       Entries.Unlock_Entries (Object);
-      Flyology.RTS.Deliver_Pending_Abort;
+      Flyology_Freestanding.RTS.Deliver_Pending_Abort;
    end Timed_Protected_Entry_Call;
 
    function Cancelled (Block : Communication_Block) return Boolean is

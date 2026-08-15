@@ -1,0 +1,13 @@
+--  SPDX-License-Identifier: MIT OR Apache-2.0
+--  Generated into the image object directory by scripts/build-image.sh.
+
+with Flyology_Freestanding.RTS;
+with @APPLICATION_UNIT@;
+
+procedure Flyology_Freestanding_Launcher is
+begin
+   if Flyology_Freestanding.RTS.Number_Of_CPUs = 0 then
+      raise Program_Error;
+   end if;
+   @APPLICATION_UNIT@;
+end Flyology_Freestanding_Launcher;

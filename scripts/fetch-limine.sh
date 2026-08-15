@@ -6,7 +6,7 @@ archive_hash=5e2d6eb86623fcdcd2a873c9eca7dcafccb34182c17779535fe824fd57b688c5
 x86_hash=d257add3b8ca480470c50ba5e55899702f19b10d9b29dc8d4a5db97fc4fb8b19
 arm_hash=b3510d5a3eae21517f73be939358f720266fe47f95abd249b78664171bd65c0e
 
-dependency_root=${FLYOLOGY_DEPENDENCIES:-downloads}
+dependency_root=${FLYOLOGY_FREESTANDING_DEPENDENCIES:-downloads}
 archive="$dependency_root/limine-binary-$version.tar.xz"
 destination="$dependency_root/limine-$version"
 url="https://github.com/Limine-Bootloader/Limine/releases/download/v$version/limine-binary.tar.xz"

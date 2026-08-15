@@ -22,7 +22,7 @@ Every QEMU run used a 20-second timeout and rejected `FLYOLOGY:FAIL:` and
 | AArch64 `virt-10.2` / GICv3 | 1, 4, plus 3 × SMP4 | `7ee53de669a3a46c2d42ddf2e4660ca198817740fb6cf14660091b00537b2319` | `55836e1573a70b61bc4504e6959254faf919fc4e94ae08efacdb6e6d14bb729b` |
 
 GNATprove proved all 156 checks in the deterministic core units without
-assumptions or justified results. `Flyology.Kernel`, assembly, MMIO, global
+assumptions or justified results. `Flyology_Freestanding.Kernel`, assembly, MMIO, global
 locks, and the compiler/GNARL facade are intentionally outside SPARK. The
 production core nevertheless calls the proved transition, FIFO scheduler, and
 placement functions; the concurrent activation orchestration itself is not
@@ -51,7 +51,7 @@ The initial compiler facade owned a second task-state enum, current array,
 ready queues, placement rule, context transfer, and dispatcher loop. That made
 interrupt-substrate checkpoint's checked boundary a disconnected design model.
 
-Disposition: fixed. `Flyology.Kernel` is now the one production authority
+Disposition: fixed. `Flyology_Freestanding.Kernel` is now the one production authority
 for task scheduler state, current ownership, waits, queues, contexts, and idle.
 All state transitions call `Dispatcher_Model.Try_Transition`; ready publication
 and selection call `Scheduler_Contract`; the GNARL facade retains only compiler
@@ -87,7 +87,7 @@ The first implementation registered the environment only after `adainit`, so a
 tasking hook during application elaboration had no current task.
 
 Disposition: fixed. The architecture validates topology and publishes the boot
-CPU count before `adainit`; `Flyology.RTS` adopts it during its package
+CPU count before `adainit`; `Flyology_Freestanding.RTS` adopts it during its package
 body elaboration and registers slot 0. Binder evidence orders `System.Tasking`,
 the kernel and RTS before `Soft_Links` and application elaboration.
 AP release remains after complete `adainit`.

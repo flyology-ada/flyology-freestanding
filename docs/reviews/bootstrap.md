@@ -88,7 +88,7 @@ The early general SPARK validation package remains because its types and predica
 - Terminal bootstrap checkpoint exception vectors are not complete resumable frames and have no nested-fault recovery. This is an explicit interrupt-substrate checkpoint gate, not an bootstrap checkpoint context-preservation claim.
 - bootstrap checkpoint supports terminal compiler checks only under `No_Exception_Propagation`; ordinary Ada handlers, unwinding, secondary stacks, and exception occurrences remain absent.
 - The in-tree negative gate reproduces `Program_Error`; other discovered rcheck forwarding names remain compatibility observations rather than independently gated conformance cases.
-- APs enter Flyology-owned records/stacks and halt. There is no dispatcher, idle wakeup, IPI/SGI, or parallel application execution yet.
+- APs enter Flyology Freestanding-owned records/stacks and halt. There is no dispatcher, idle wakeup, IPI/SGI, or parallel application execution yet.
 - The fixed AArch64 UART address is part of `virt-10.2`; no DTB discovery is claimed.
 - Shellcheck was unavailable on this host; `sh -n`, repository hygiene, target warnings-as-errors, ELF inspection, proof, reproducibility, and QEMU gates did run.
 

@@ -1,24 +1,24 @@
-name = "flyology_minimal_kernel"
-description = "Minimal bootable Flyology Barebones application"
+name = "flyology_freestanding_minimal_kernel"
+description = "Minimal bootable Flyology Freestanding application"
 version = "0.1.0-dev"
 
-authors = ["Flyology Barebones contributors"]
-maintainers = ["Flyology Barebones contributors <maintainers@flyology.invalid>"]
+authors = ["Flyology Freestanding contributors"]
+maintainers = ["Flyology Freestanding contributors <maintainers@flyology.invalid>"]
 maintainers-logins = []
 licenses = "MIT OR Apache-2.0"
 tags = ["ada", "freestanding", "kernel"]
 project-files = ["minimal.gpr"]
 
 [[depends-on]]
-flyology_barebones = "*"
+flyology_freestanding = "*"
 
 [[pins]]
-flyology_barebones = { path = "../.." }
+flyology_freestanding = { path = "../.." }
 
 [environment]
-FLYOLOGY_APPLICATION_UNIT.set = "minimal_kernel"
-FLYOLOGY_CPUS.set = "4"
+FLYOLOGY_FREESTANDING_APPLICATION_UNIT.set = "minimal_kernel"
+FLYOLOGY_FREESTANDING_CPUS.set = "4"
 
 [[actions]]
 type = "post-build"
-command = ["sh", "-c", "exec \"$FLYOLOGY_BUILD_TOOL\""]
+command = ["sh", "-c", "exec \"$FLYOLOGY_FREESTANDING_BUILD_TOOL\""]

@@ -1,0 +1,112 @@
+project Flyology_Freestanding_Image is
+   Architecture := external ("FLYOLOGY_FREESTANDING_ARCHITECTURE");
+   Object_Directory := external ("FLYOLOGY_FREESTANDING_OBJECT_DIR");
+   Domain_Directory := external ("FLYOLOGY_FREESTANDING_DOMAIN_CONFIG_DIR");
+   Conformance_Directory := external ("FLYOLOGY_FREESTANDING_CONFORMANCE_CONFIG_DIR");
+   Application_Directory := external ("FLYOLOGY_FREESTANDING_APPLICATION_DIR");
+   Generated_Directory := external ("FLYOLOGY_FREESTANDING_GENERATED_DIR");
+   Product_Config := external ("FLYOLOGY_FREESTANDING_PRODUCT_CONFIG");
+   Target_Name := "unsupported-elf";
+   Architecture_Switches := ("");
+
+   case Architecture is
+      when "x86_64" =>
+         Target_Name := "x86_64-elf";
+         Architecture_Switches := ("-mno-red-zone", "-mcmodel=large");
+      when "aarch64" =>
+         Target_Name := "aarch64-elf";
+         Architecture_Switches := ("-mcmodel=large", "-mgeneral-regs-only");
+      when others =>
+         Target_Name := "unsupported-elf";
+         Architecture_Switches := ();
+   end case;
+
+   for Target use Target_Name;
+   for Languages use ("Ada");
+   for Source_Dirs use
+     ("../src/bootstrap",
+      "../src/primitives",
+      "../src/abi",
+      "../src/kernel",
+      "../src/rts",
+      "../src/gnarl",
+      "../src/application",
+      Domain_Directory,
+      Conformance_Directory,
+      Generated_Directory,
+      Application_Directory,
+      "../src/platform/" & Architecture);
+   for Object_Dir use Object_Directory;
+   for Exec_Dir use Object_Directory;
+   --  The generated launcher is the binder main.  It makes RTS elaboration
+   --  independent of which language features the selected application uses.
+   --  Validation packages are additional roots because the platform entry
+   --  assembly calls their exported subprograms directly.
+   for Main use
+     ("flyology_freestanding_launcher.adb",
+      "flyology_freestanding-rts.adb",
+      "flyology_freestanding-allocator_abi.adb",
+      "flyology_freestanding-kernel.adb",
+      "flyology_freestanding-binder_support.adb",
+      "s-stalib.adb",
+      "flyology_freestanding-validation.adb",
+      "flyology_freestanding-boot_validation.adb");
+
+   Common_Switches :=
+     ("-gnat2022",
+      "-gnatwa",
+      "-gnatwe",
+      "-gnatw.X",
+      "-gnatw.i",
+      "-gnato",
+      "-gnatec=" & Product_Config,
+      "-nostdinc",
+      "-ffunction-sections",
+      "-fdata-sections",
+      "-fno-stack-protector",
+      "-fno-pic",
+      "-fno-pie") & Architecture_Switches;
+   --  GNAT implementation mode selects its own default language revision.
+   --  Keep the explicit Ada 2022 selection after it so dependencies using
+   --  Ada 2022 aggregate syntax are parsed consistently.
+   Runtime_Switches := ("-gnatg", "-gnatyM120") & Common_Switches;
+   Generated_Switches := Common_Switches & ("-gnatws");
+
+   package Compiler is
+      for Default_Switches ("Ada") use Common_Switches;
+
+      for Switches ("system.ads") use Runtime_Switches;
+      for Switches ("s-stalib.adb") use Runtime_Switches;
+      for Switches ("ada.ads") use Runtime_Switches;
+      for Switches ("s-stoele.ads") use Runtime_Switches;
+      for Switches ("s-secsta.adb") use Runtime_Switches;
+      for Switches ("a-tags.adb") use Runtime_Switches;
+      for Switches ("s-finroo.adb") use Runtime_Switches;
+      for Switches ("a-finali.adb") use Runtime_Switches;
+      for Switches ("a-calend.ads") use Runtime_Switches;
+      for Switches ("a-caldel.adb") use Runtime_Switches;
+      for Switches ("a-reatim.adb") use Runtime_Switches;
+      for Switches ("a-retide.adb") use Runtime_Switches;
+      for Switches ("a-except.adb") use Runtime_Switches;
+      for Switches ("s-parame.ads") use Runtime_Switches;
+      for Switches ("s-tasinf.ads") use Runtime_Switches;
+      for Switches ("s-taskin.adb") use Runtime_Switches;
+      for Switches ("s-finpri.adb") use Runtime_Switches;
+      for Switches ("s-taprob.adb") use Runtime_Switches;
+      for Switches ("s-tpoben.adb") use Runtime_Switches;
+      for Switches ("s-tpobop.adb") use Runtime_Switches;
+      for Switches ("s-tasren.adb") use Runtime_Switches;
+      for Switches ("s-multip.adb") use Runtime_Switches;
+      for Switches ("s-tassta.adb") use Runtime_Switches;
+      for Switches ("s-soflin.adb") use Runtime_Switches;
+      for Switches ("a-taside.adb") use Runtime_Switches;
+      for Switches ("a-taidco.adb") use Runtime_Switches;
+      for Switches ("a-dynpri.adb") use Runtime_Switches;
+      for Switches ("a-uncdea.ads") use Runtime_Switches;
+      for Switches ("a-taidfl.adb") use Runtime_Switches;
+      for Switches ("s-mudido.adb") use Runtime_Switches;
+
+      for Switches ("flyology_freestanding-kernel.adb") use Generated_Switches;
+      for Switches ("flyology_freestanding-rts.adb") use Generated_Switches;
+   end Compiler;
+end Flyology_Freestanding_Image;

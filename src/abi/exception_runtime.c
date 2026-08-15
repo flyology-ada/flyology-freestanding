@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: MIT OR Apache-2.0 */
 
 /* This file implements the language-specific side of the public, generic
-   two-phase unwind ABI.  It is original Flyology code derived from the ABI
+   two-phase unwind ABI.  It is original Flyology Freestanding code derived
+   from the ABI
    specification and owned compiler-output probes; it contains no GNAT RTS
    source. */
 
@@ -20,7 +21,7 @@ enum {
     PROPAGATION_DEPTH = 8
 };
 
-struct flyology_exception {
+struct flyology_freestanding_exception {
     struct _Unwind_Exception unwind;
     void *identity;
     void *source_location;
@@ -38,7 +39,7 @@ static u8 terminate_signal;
 u8 __gnat_others_value;
 u8 __gnat_all_others_value;
 
-static struct flyology_exception exceptions[EXCEPTION_CAPACITY]
+static struct flyology_freestanding_exception exceptions[EXCEPTION_CAPACITY]
     __attribute__((aligned(16)));
 static const char *last_personality = "personality not called";
 static struct _Unwind_Exception *handler_stacks[TASK_CAPACITY][HANDLER_DEPTH];
@@ -52,15 +53,15 @@ static char release_location[128];
 
 extern const u8 __eh_frame_start[];
 extern void __register_frame(const void *);
-extern void flyology_task_root_invoke(void *, void *) __attribute__((weak));
-extern uptr flyology_exception_task_slot(void) __attribute__((weak));
+extern void flyology_freestanding_task_root_invoke(void *, void *) __attribute__((weak));
+extern uptr flyology_freestanding_exception_task_slot(void) __attribute__((weak));
 extern void __gnat_last_chance_handler(void *, int) __attribute__((noreturn));
 
 static unsigned current_task_slot(void)
 {
     uptr slot = 0;
-    if (flyology_exception_task_slot != 0)
-        slot = flyology_exception_task_slot();
+    if (flyology_freestanding_exception_task_slot != 0)
+        slot = flyology_freestanding_exception_task_slot();
     if (slot >= TASK_CAPACITY)
         __gnat_last_chance_handler((void *)"invalid exception task slot", 0);
     return (unsigned)slot;
@@ -95,7 +96,7 @@ static void *location_with_line(void *raw_location, int line)
     return release_location;
 }
 
-void *flyology_current_exception(void)
+void *flyology_freestanding_current_exception(void)
 {
     unsigned slot = current_task_slot();
     u8 depth = __atomic_load_n(&handler_depths[slot], __ATOMIC_ACQUIRE);
@@ -104,7 +105,7 @@ void *flyology_current_exception(void)
     return handler_stacks[slot][depth - 1];
 }
 
-u8 flyology_current_exception_is_abort(void)
+u8 flyology_freestanding_current_exception_is_abort(void)
 {
     unsigned slot = current_task_slot();
     u8 handler_depth =
@@ -125,28 +126,28 @@ u8 flyology_current_exception_is_abort(void)
     }
     if (object == 0)
         return 0;
-    if (((struct flyology_exception *)object)->identity != &abort_signal)
+    if (((struct flyology_freestanding_exception *)object)->identity != &abort_signal)
         return 0;
     if (cleanup)
         __atomic_fetch_add(&abort_cleanup_queries, 1, __ATOMIC_RELAXED);
     return 1;
 }
 
-u64 flyology_abort_cleanup_query_count(void)
+u64 flyology_freestanding_abort_cleanup_query_count(void)
 {
     return __atomic_load_n(&abort_cleanup_queries, __ATOMIC_ACQUIRE);
 }
 
-uptr flyology_exception_task_capacity(void)
+uptr flyology_freestanding_exception_task_capacity(void)
 {
     return TASK_CAPACITY;
 }
 
-void flyology_exception_release_task_slot(uptr raw_slot)
+void flyology_freestanding_exception_release_task_slot(uptr raw_slot)
 {
     unsigned slot;
     u8 propagation_depth;
-    struct flyology_exception *exception;
+    struct flyology_freestanding_exception *exception;
     if (raw_slot >= TASK_CAPACITY)
         __gnat_last_chance_handler((void *)"invalid released task slot", 0);
     slot = (unsigned)raw_slot;
@@ -155,7 +156,7 @@ void flyology_exception_release_task_slot(uptr raw_slot)
     propagation_depth =
         __atomic_load_n(&propagation_depths[slot], __ATOMIC_ACQUIRE);
     if (propagation_depth != 0) {
-        exception = (struct flyology_exception *)
+        exception = (struct flyology_freestanding_exception *)
             propagation_stacks[slot][propagation_depth - 1];
         if (exception == 0)
             __gnat_last_chance_handler(
@@ -303,8 +304,8 @@ static unsigned encoded_size(u8 encoding)
 static void exception_cleanup(_Unwind_Reason_Code reason,
                               struct _Unwind_Exception *object)
 {
-    struct flyology_exception *exception =
-        (struct flyology_exception *)object;
+    struct flyology_freestanding_exception *exception =
+        (struct flyology_freestanding_exception *)object;
     unsigned slot = exception->owner_slot;
     u8 handler_depth;
     u8 propagation_depth;
@@ -341,7 +342,7 @@ static void exception_cleanup(_Unwind_Reason_Code reason,
     __atomic_store_n(&exception->occupied, 0, __ATOMIC_RELEASE);
 }
 
-static struct flyology_exception *reserve_exception(void *identity)
+static struct flyology_freestanding_exception *reserve_exception(void *identity)
 {
     unsigned index;
     for (index = 0; index < EXCEPTION_CAPACITY; ++index) {
@@ -350,7 +351,7 @@ static struct flyology_exception *reserve_exception(void *identity)
                                         &expected, 1, 0,
                                         __ATOMIC_ACQ_REL,
                                         __ATOMIC_ACQUIRE)) {
-            struct flyology_exception *result = &exceptions[index];
+            struct flyology_freestanding_exception *result = &exceptions[index];
             result->identity = identity;
             result->source_location = 0;
             result->source_line = 0;
@@ -365,16 +366,16 @@ static struct flyology_exception *reserve_exception(void *identity)
     __gnat_last_chance_handler((void *)"exception pool exhausted", 0);
 }
 
-static struct flyology_exception *validated_exception(void *occurrence)
+static struct flyology_freestanding_exception *validated_exception(void *occurrence)
 {
     uptr address = (uptr)occurrence;
     uptr base = (uptr)&exceptions[0];
     uptr limit = (uptr)&exceptions[EXCEPTION_CAPACITY];
-    struct flyology_exception *exception;
+    struct flyology_freestanding_exception *exception;
     if (address < base || address >= limit ||
-        (address - base) % sizeof(struct flyology_exception) != 0)
+        (address - base) % sizeof(struct flyology_freestanding_exception) != 0)
         __gnat_last_chance_handler((void *)"invalid exception occurrence", 0);
-    exception = (struct flyology_exception *)occurrence;
+    exception = (struct flyology_freestanding_exception *)occurrence;
     if (__atomic_load_n(&exception->occupied, __ATOMIC_ACQUIRE) == 0 ||
         exception->owner_slot >= TASK_CAPACITY ||
         exception->unwind.exception_class != 0x464c594f41444100ULL ||
@@ -383,7 +384,7 @@ static struct flyology_exception *validated_exception(void *occurrence)
     return exception;
 }
 
-void *flyology_exception_identity(void *occurrence)
+void *flyology_freestanding_exception_identity(void *occurrence)
 {
     return validated_exception(occurrence)->identity;
 }
@@ -392,7 +393,7 @@ static void raise_identity_at(void *identity, void *location, int line)
     __attribute__((noreturn));
 static void raise_identity_at(void *identity, void *location, int line)
 {
-    struct flyology_exception *exception = reserve_exception(identity);
+    struct flyology_freestanding_exception *exception = reserve_exception(identity);
     _Unwind_Reason_Code result;
     exception->source_location = location;
     exception->source_line = line;
@@ -424,25 +425,25 @@ static void raise_identity(void *identity)
     raise_identity_at(identity, 0, 0);
 }
 
-void flyology_raise_exception_identity(void *identity)
+void flyology_freestanding_raise_exception_identity(void *identity)
 {
     if (identity == 0)
         __gnat_last_chance_handler((void *)"null exception identity", 0);
     raise_identity(identity);
 }
 
-void flyology_exception_initialize(void)
+void flyology_freestanding_exception_initialize(void)
 {
     __register_frame(__eh_frame_start);
 }
 
-void flyology_save_library_exception(void)
+void flyology_freestanding_save_library_exception(void)
 {
-    struct _Unwind_Exception *object = flyology_current_exception();
+    struct _Unwind_Exception *object = flyology_freestanding_current_exception();
     void *identity;
     if (object == 0)
         __gnat_last_chance_handler((void *)"missing library exception", 0);
-    identity = ((struct flyology_exception *)object)->identity;
+    identity = ((struct flyology_freestanding_exception *)object)->identity;
     (void)__atomic_compare_exchange_n(&library_exception_identity,
                                       &(void *){0}, identity, 0,
                                       __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
@@ -517,14 +518,14 @@ void __gnat_rcheck_TE_Explicit_Raise(void *location, int line)
     raise_identity(&tasking_error);
 }
 
-void flyology_raise_abort(void) __attribute__((noreturn));
-void flyology_raise_abort(void)
+void flyology_freestanding_raise_abort(void) __attribute__((noreturn));
+void flyology_freestanding_raise_abort(void)
 {
     raise_identity(&abort_signal);
 }
 
-void flyology_raise_terminate(void) __attribute__((noreturn));
-void flyology_raise_terminate(void)
+void flyology_freestanding_raise_terminate(void) __attribute__((noreturn));
+void flyology_freestanding_raise_terminate(void)
 {
     raise_identity(&terminate_signal);
 }
@@ -544,7 +545,7 @@ _Unwind_Reason_Code __gnat_personality_v0
     i64 selector = 0;
     u8 encoding;
     u8 type_encoding;
-    struct flyology_exception *exception;
+    struct flyology_freestanding_exception *exception;
     (void)exception_class;
 
     if (version != 1)
@@ -590,7 +591,7 @@ _Unwind_Reason_Code __gnat_personality_v0
         return _URC_CONTINUE_UNWIND;
     last_personality = "personality found landing";
 
-    exception = (struct flyology_exception *)exception_object;
+    exception = (struct flyology_freestanding_exception *)exception_object;
     if (selector != 0) {
         const u8 *action = action_base + selector - 1;
         int matched = 0;
@@ -616,9 +617,9 @@ _Unwind_Reason_Code __gnat_personality_v0
                     cleanup_match = 0;
                 } else if (exception->identity == &abort_signal ||
                            exception->identity == &terminate_signal) {
-                    matched = flyology_task_root_invoke != 0 &&
+                    matched = flyology_freestanding_task_root_invoke != 0 &&
                         identity == &__gnat_others_value &&
-                        region_start == (uptr)flyology_task_root_invoke;
+                        region_start == (uptr)flyology_freestanding_task_root_invoke;
                 } else {
                     matched = identity == exception->identity ||
                         identity == &__gnat_others_value;
@@ -709,7 +710,7 @@ void __gnat_reraise_zcx(struct _Unwind_Exception *exception)
     __gnat_last_chance_handler((void *)"Ada re-raise returned", 0);
 }
 
-#ifndef FLYOLOGY_RUNTIME_MEMORY_EXTERNAL
+#ifndef FLYOLOGY_FREESTANDING_RUNTIME_MEMORY_EXTERNAL
 void *memcpy(void *destination, const void *source, usize count)
 {
     u8 *to = (u8 *)destination;

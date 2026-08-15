@@ -18,13 +18,13 @@ done
 scripts/verify-tasking-reproducible.sh
 for architecture in x86_64 aarch64; do
     scripts/build-product.sh "$architecture" tasking >/dev/null
-    FLYOLOGY_IMAGE_OUTPUT_ROOT=build/product/tasking \
+    FLYOLOGY_FREESTANDING_IMAGE_OUTPUT_ROOT=build/product/tasking \
         scripts/inspect-image.sh "$architecture" tasking
-    FLYOLOGY_IMAGE_OUTPUT_ROOT=build/product/tasking \
+    FLYOLOGY_FREESTANDING_IMAGE_OUTPUT_ROOT=build/product/tasking \
         scripts/check-unwind.sh "$architecture"
-    FLYOLOGY_PRODUCT_TEST_TAG=synchronization-gate \
+    FLYOLOGY_FREESTANDING_PRODUCT_TEST_TAG=synchronization-gate \
         scripts/run-product.sh "$architecture" 1 tasking
-    FLYOLOGY_PRODUCT_TEST_TAG=synchronization-gate \
+    FLYOLOGY_FREESTANDING_PRODUCT_TEST_TAG=synchronization-gate \
         scripts/run-product.sh "$architecture" 4 tasking
 done
 scripts/stress-synchronization.sh

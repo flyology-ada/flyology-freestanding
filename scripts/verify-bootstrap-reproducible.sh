@@ -3,12 +3,12 @@ set -eu
 
 for architecture in x86_64 aarch64; do
     scripts/build-bootstrap.sh "$architecture" >/dev/null
-    first_elf=$(shasum -a 256 "build/bootstrap/$architecture/flyology-bootstrap.elf")
-    first_disk=$(shasum -a 256 "build/bootstrap/$architecture/flyology-$architecture.fat")
+    first_elf=$(shasum -a 256 "build/bootstrap/$architecture/flyology_freestanding-bootstrap.elf")
+    first_disk=$(shasum -a 256 "build/bootstrap/$architecture/flyology-freestanding-$architecture.fat")
 
     scripts/build-bootstrap.sh "$architecture" >/dev/null
-    second_elf=$(shasum -a 256 "build/bootstrap/$architecture/flyology-bootstrap.elf")
-    second_disk=$(shasum -a 256 "build/bootstrap/$architecture/flyology-$architecture.fat")
+    second_elf=$(shasum -a 256 "build/bootstrap/$architecture/flyology_freestanding-bootstrap.elf")
+    second_disk=$(shasum -a 256 "build/bootstrap/$architecture/flyology-freestanding-$architecture.fat")
 
     test "$first_elf" = "$second_elf"
     test "$first_disk" = "$second_disk"

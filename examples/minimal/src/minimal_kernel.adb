@@ -2,11 +2,11 @@
 
 pragma Task_Dispatching_Policy (Round_Robin_Within_Priorities);
 
-with Flyology.Console;
+with Flyology_Freestanding.Console;
 with Minimal_Workers;
 
 procedure Minimal_Kernel is
 begin
    Minimal_Workers.Run;
-   Flyology.Console.Put_Line ("OK");
+   Flyology_Freestanding.Console.Put_Line ("OK");
 end Minimal_Kernel;

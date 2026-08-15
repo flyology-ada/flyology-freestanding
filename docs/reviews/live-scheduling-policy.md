@@ -7,7 +7,7 @@
 
 ## Scope
 
-This review covers the original `Flyology.Scheduling` application API, atomic
+This review covers the original `Flyology_Freestanding.Scheduling` application API, atomic
 global/domain/CPU replacement semantics, effective per-core configuration,
 budget/timer integration, admission snapshots, the deterministic SPARK model,
 the extended TLA+ scheduling-domain model, bounded host enumeration, and the
@@ -45,9 +45,9 @@ the reviewed commit was created:
 
 The standard pragma and binder value remain authoritative for the initial
 policy required before library-level task objects elaborate. The live API is a
-post-startup Flyology extension and never rewrites binder globals.
+post-startup Flyology Freestanding extension and never rewrites binder globals.
 
-`Flyology.Kernel` remains the sole mutable scheduling/task authority. One
+`Flyology_Freestanding.Kernel` remains the sole mutable scheduling/task authority. One
 SPARK-validated target set is committed under the global RTS lock. FIFO clears
 affected budgets; round robin gives an affected Running task a fresh full
 quantum and clears every other affected retained budget. The RTS releases the
@@ -61,7 +61,7 @@ ready ordering remain unchanged.
 
 ## Clean-room and proof boundary
 
-`Flyology.Scheduling` is original application API and is listed in the
+`Flyology_Freestanding.Scheduling` is original application API and is listed in the
 preemption clean-room inventory only to keep implementation provenance
 complete. It is not a predefined unit and supplies no evidence about GNAT
 runtime source. Compiler-facing initial-policy facts remain derived from the
@@ -90,7 +90,7 @@ array types were removed before the reviewed commit.
 - Semantic owner: immutable domain membership means each dispatch and task
   budget consumes the effective core configuration; domain policy alone is
   sufficient as the retained default used by domain snapshots.
-- Blast radius: the state was private to `Flyology.Kernel`; no public,
+- Blast radius: the state was private to `Flyology_Freestanding.Kernel`; no public,
   compiler-facing, serialized, or persistent representation changed.
 - Verification: the exact-tree aggregate proof/model/reproducibility/target
   gate passed after removal.

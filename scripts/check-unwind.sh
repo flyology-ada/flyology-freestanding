@@ -7,8 +7,8 @@ test "$#" -eq 1 || {
 }
 
 architecture=$1
-output_root=${FLYOLOGY_IMAGE_OUTPUT_ROOT:-build/tasking}
-profile=${FLYOLOGY_UNWIND_PROFILE:-synchronization}
+output_root=${FLYOLOGY_FREESTANDING_IMAGE_OUTPUT_ROOT:-build/tasking}
+profile=${FLYOLOGY_FREESTANDING_UNWIND_PROFILE:-synchronization}
 case "$architecture" in
     x86_64)
         target=$architecture-elf
@@ -25,14 +25,14 @@ case "$profile" in
     *) exit 64 ;;
 esac
 
-elf="$output_root/$architecture/flyology.elf"
+elf="$output_root/$architecture/flyology-freestanding.elf"
 runtime="$output_root/$architecture/exception_runtime.o"
 test -f "$elf"
 test -f "$runtime"
 
 nm_output=$(scripts/toolchain.sh exec "$architecture" "$target-nm" -n "$elf")
 root=$(printf '%s\n' "$nm_output" | awk \
-    '$3 == "flyology_task_root_invoke" { print $1 }')
+    '$3 == "flyology_freestanding_task_root_invoke" { print $1 }')
 gnat_malloc=$(printf '%s\n' "$nm_output" | awk \
     '$3 == "__gnat_malloc" { print $1 }')
 gnat_free=$(printf '%s\n' "$nm_output" | awk \
@@ -88,7 +88,7 @@ relocations=$(scripts/toolchain.sh exec "$architecture" \
 test "$(printf '%s\n' "$relocations" | \
     grep -c '[[:space:]]__eh_frame_start$')" -eq 1
 test "$(printf '%s\n' "$relocations" | \
-    grep -c '[[:space:]]flyology_task_root_invoke$')" \
+    grep -c '[[:space:]]flyology_freestanding_task_root_invoke$')" \
     -eq "$root_relocation_count"
 test "$(printf '%s\n' "$relocations" | \
     grep -c '__eh_frame_probe_start')" -eq 0
@@ -99,8 +99,8 @@ registration_count=$(printf '%s\n' "$all_relocations" | awk \
     '$NF == "__register_frame" { count = count + 1 } END { print count + 0 }')
 test "$registration_count" -eq 1
 
-runtime_ada="$output_root/$architecture/flyology-rts.o"
-root_section=.gcc_except_table.flyology_task_root_invoke
+runtime_ada="$output_root/$architecture/flyology_freestanding-rts.o"
+root_section=.gcc_except_table.flyology_freestanding_task_root_invoke
 root_sections=$(scripts/toolchain.sh exec "$architecture" \
     "$target-readelf" -SW "$runtime_ada")
 root_flags=$(printf '%s\n' "$root_sections" | awk -v name="$root_section" '
@@ -123,7 +123,7 @@ if printf '%s\n' "$root_relocations" | \
 fi
 
 if test "$profile" = synchronization; then
-    demo="$output_root/$architecture/flyology-conformance-tasking.o"
+    demo="$output_root/$architecture/flyology_freestanding-conformance-tasking.o"
     demo_disassembly=$(scripts/toolchain.sh exec "$architecture" \
         "$target-objdump" -dr "$demo")
     save_context=$(printf '%s\n' "$demo_disassembly" | \

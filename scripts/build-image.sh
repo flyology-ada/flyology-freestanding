@@ -22,21 +22,21 @@ case "$architecture" in
     *) echo "unsupported architecture: $architecture" >&2; exit 64 ;;
 esac
 
-output_root=${FLYOLOGY_IMAGE_OUTPUT_ROOT:-build/image}
+output_root=${FLYOLOGY_FREESTANDING_IMAGE_OUTPUT_ROOT:-build/image}
 output_directory="$output_root/$architecture"
-product_config=${FLYOLOGY_PRODUCT_CONFIG:-config/restrictions/product.adc}
-binder_flags=${FLYOLOGY_BINDER_FLAGS:-}
-assembly_defines='-DFLYOLOGY_INTERRUPTS -DFLYOLOGY_TASKING -DFLYOLOGY_EXCEPTIONS'
-test_observations=${FLYOLOGY_TEST_OBSERVATIONS:-1}
+product_config=${FLYOLOGY_FREESTANDING_PRODUCT_CONFIG:-config/restrictions/product.adc}
+binder_flags=${FLYOLOGY_FREESTANDING_BINDER_FLAGS:-}
+assembly_defines='-DFLYOLOGY_FREESTANDING_INTERRUPTS -DFLYOLOGY_FREESTANDING_TASKING -DFLYOLOGY_FREESTANDING_EXCEPTIONS'
+test_observations=${FLYOLOGY_FREESTANDING_TEST_OBSERVATIONS:-1}
 case "$test_observations" in
     0) ;;
-    1) assembly_defines="$assembly_defines -DFLYOLOGY_TEST_OBSERVATIONS" ;;
+    1) assembly_defines="$assembly_defines -DFLYOLOGY_FREESTANDING_TEST_OBSERVATIONS" ;;
     *) echo "unsupported test-observation setting: $test_observations" >&2; exit 64 ;;
 esac
-domain_config_dir=${FLYOLOGY_DOMAIN_CONFIG_DIR:-config/domains/off}
-conformance_config_dir=${FLYOLOGY_CONFORMANCE_CONFIG_DIR:-tests/target/config/domains/off}
-application_dir=${FLYOLOGY_APPLICATION_DIR:-tests/target/scenarios}
-application_unit=${FLYOLOGY_APPLICATION_UNIT:-flyology_conformance}
+domain_config_dir=${FLYOLOGY_FREESTANDING_DOMAIN_CONFIG_DIR:-config/domains/off}
+conformance_config_dir=${FLYOLOGY_FREESTANDING_CONFORMANCE_CONFIG_DIR:-tests/target/config/domains/off}
+application_dir=${FLYOLOGY_FREESTANDING_APPLICATION_DIR:-tests/target/scenarios}
+application_unit=${FLYOLOGY_FREESTANDING_APPLICATION_UNIT:-flyology_freestanding_conformance}
 application_source="$application_unit.adb"
 printf '%s\n' "$application_unit" | grep -Eq '^[a-z][a-z0-9_]*$' || {
     echo "invalid Ada application unit: $application_unit" >&2
@@ -45,14 +45,14 @@ printf '%s\n' "$application_unit" | grep -Eq '^[a-z][a-z0-9_]*$' || {
 case "$application_unit" in
     *_|*__*) echo "invalid Ada application unit: $application_unit" >&2; exit 64 ;;
 esac
-if test "${FLYOLOGY_DOMAINS:-0}" = 1; then
-    assembly_defines="$assembly_defines -DFLYOLOGY_DOMAINS"
+if test "${FLYOLOGY_FREESTANDING_DOMAINS:-0}" = 1; then
+    assembly_defines="$assembly_defines -DFLYOLOGY_FREESTANDING_DOMAINS"
 fi
 mkdir -p "$output_directory"
 rm -f "$output_directory"/*.ali "$output_directory"/*.o \
       "$output_directory"/b~"$application_unit".ad? \
-      "$output_directory"/b~flyology_launcher.ad? \
-      "$output_directory/flyology.elf"
+      "$output_directory"/b~flyology_freestanding_launcher.ad? \
+      "$output_directory/flyology-freestanding.elf"
 output_directory=$(CDPATH= cd -- "$output_directory" && pwd)
 
 absolute_path() {
@@ -74,8 +74,8 @@ test -f "$application_directory/$application_source" || {
     exit 66
 }
 sed "s/@APPLICATION_UNIT@/$application_unit/g" \
-    "$repository/src/application/flyology_launcher.adb.in" > \
-    "$output_directory/flyology_launcher.adb"
+    "$repository/src/application/flyology_freestanding_launcher.adb.in" > \
+    "$output_directory/flyology_freestanding_launcher.adb"
 
 export LC_ALL=C
 export SOURCE_DATE_EPOCH=1786502400
@@ -95,19 +95,19 @@ scripts/toolchain.sh exec "$architecture" sh -c '
     driver=$(command -v "$target-gcc")
     archiver=$(command -v "$target-ar")
     archive_indexer=$(command -v "$target-ranlib")
-    exec gprbuild -c -p -P gpr/flyology_image.gpr \
-        --config=gpr/flyology_cross.cgpr \
-        -XFLYOLOGY_TARGET="$target" \
-        -XFLYOLOGY_ADA_DRIVER="$driver" \
-        -XFLYOLOGY_ARCHIVER="$archiver" \
-        -XFLYOLOGY_ARCHIVE_INDEXER="$archive_indexer" \
-        -XFLYOLOGY_ARCHITECTURE="$architecture" \
-        -XFLYOLOGY_OBJECT_DIR="$object_directory" \
-        -XFLYOLOGY_DOMAIN_CONFIG_DIR="$domain_directory" \
-        -XFLYOLOGY_CONFORMANCE_CONFIG_DIR="$conformance_directory" \
-        -XFLYOLOGY_APPLICATION_DIR="$application_directory" \
-        -XFLYOLOGY_GENERATED_DIR="$generated_directory" \
-        -XFLYOLOGY_PRODUCT_CONFIG="$product_config"
+    exec gprbuild -c -p -P gpr/flyology_freestanding_image.gpr \
+        --config=gpr/flyology_freestanding_cross.cgpr \
+        -XFLYOLOGY_FREESTANDING_TARGET="$target" \
+        -XFLYOLOGY_FREESTANDING_ADA_DRIVER="$driver" \
+        -XFLYOLOGY_FREESTANDING_ARCHIVER="$archiver" \
+        -XFLYOLOGY_FREESTANDING_ARCHIVE_INDEXER="$archive_indexer" \
+        -XFLYOLOGY_FREESTANDING_ARCHITECTURE="$architecture" \
+        -XFLYOLOGY_FREESTANDING_OBJECT_DIR="$object_directory" \
+        -XFLYOLOGY_FREESTANDING_DOMAIN_CONFIG_DIR="$domain_directory" \
+        -XFLYOLOGY_FREESTANDING_CONFORMANCE_CONFIG_DIR="$conformance_directory" \
+        -XFLYOLOGY_FREESTANDING_APPLICATION_DIR="$application_directory" \
+        -XFLYOLOGY_FREESTANDING_GENERATED_DIR="$generated_directory" \
+        -XFLYOLOGY_FREESTANDING_PRODUCT_CONFIG="$product_config"
 ' sh "$target" "$architecture" "$output_directory" \
     "$domain_config_directory" \
     "$conformance_config_directory" "$application_directory" \
@@ -127,15 +127,15 @@ scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     -I"$output_directory" \
     -I"$application_directory" \
     -I"$repository/src/platform/$architecture" \
-    -I. $binder_flags flyology_launcher.ali
+    -I. $binder_flags flyology_freestanding_launcher.ali
 
 policy_code=$(sed -n \
     "s/.*Task_Dispatching_Policy := '\\(.\\)';.*/\\1/p" \
-    "$output_directory/b~flyology_launcher.adb")
+    "$output_directory/b~flyology_freestanding_launcher.adb")
 case "$policy_code" in
-    F|R) assembly_defines="$assembly_defines -DFLYOLOGY_PREEMPTION" ;;
+    F|R) assembly_defines="$assembly_defines -DFLYOLOGY_FREESTANDING_PREEMPTION" ;;
     ' ')
-        if test "${FLYOLOGY_REQUIRE_APPLICATION_POLICY:-0}" = 1; then
+        if test "${FLYOLOGY_FREESTANDING_REQUIRE_APPLICATION_POLICY:-0}" = 1; then
             echo 'application must declare pragma Task_Dispatching_Policy' >&2
             exit 65
         fi
@@ -148,8 +148,8 @@ esac
 #  source compiled outside the project dependency graph.
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c "$output_directory/b~flyology_launcher.adb" \
-    -o "$output_directory/b~flyology_launcher.o" \
+    -c "$output_directory/b~flyology_freestanding_launcher.adb" \
+    -o "$output_directory/b~flyology_freestanding_launcher.o" \
     -nostdinc -Isrc/bootstrap -Isrc/primitives -Isrc/abi \
     -Isrc/kernel -Isrc/rts \
     -Isrc/gnarl -Isrc/application \
@@ -179,7 +179,7 @@ done
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
     -c src/abi/exception_runtime.c \
     -o "$output_directory/exception_runtime.o" -ffreestanding \
-    -DFLYOLOGY_RUNTIME_MEMORY_EXTERNAL \
+    -DFLYOLOGY_FREESTANDING_RUNTIME_MEMORY_EXTERNAL \
     -fno-stack-protector -fno-pic -fno-pie -fno-builtin \
     -ffunction-sections -fdata-sections -funwind-tables \
     -Wall -Wextra -Werror $architecture_flags
@@ -192,19 +192,19 @@ printf '%s  %s\n' "$libgcc_digest" "$libgcc" | \
 scripts/toolchain.sh exec "$architecture" "$target-ld" \
     --build-id=none --fatal-warnings --gc-sections -z noexecstack \
     -T "src/platform/$architecture/image.ld" \
-    -o "$output_directory/flyology.elf" \
+    -o "$output_directory/flyology-freestanding.elf" \
     "$output_directory/entry.o" \
     "$output_directory/context.o" \
     "$output_directory/memory.o" \
     "$output_directory/limine_requests.o" \
     "$output_directory/exception_runtime.o" \
-    "$output_directory/b~flyology_launcher.o" \
+    "$output_directory/b~flyology_freestanding_launcher.o" \
     @"$ada_objects_file" \
     --start-group "$libgcc" --end-group
 
 test -z "$(scripts/toolchain.sh exec "$architecture" \
-    "$target-nm" -u "$output_directory/flyology.elf")"
+    "$target-nm" -u "$output_directory/flyology-freestanding.elf")"
 
-FLYOLOGY_DISK_OUTPUT_DIRECTORY="$output_directory" \
+FLYOLOGY_FREESTANDING_DISK_OUTPUT_DIRECTORY="$output_directory" \
     scripts/build-disk.sh "$architecture" \
-    "$output_directory/flyology.elf"
+    "$output_directory/flyology-freestanding.elf"

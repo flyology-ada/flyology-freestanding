@@ -29,16 +29,16 @@ case "$architecture" in
 esac
 
 mkdir -p "$output_directory"
-rm -f "$output_directory/flyology-bootstrap-minimum.elf" \
-      "$output_directory/flyology_bootstrap_minimum.o" \
+rm -f "$output_directory/flyology_freestanding-bootstrap-minimum.elf" \
+      "$output_directory/flyology_freestanding_bootstrap_minimum.o" \
       "$output_directory/minimal_boot_entry.o"
 
 export LC_ALL=C
 export SOURCE_DATE_EPOCH=1786502400
 
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c tests/platform/bootstrap-minimum/flyology_bootstrap_minimum.adb \
-    -o "$output_directory/flyology_bootstrap_minimum.o" \
+    -c tests/platform/bootstrap-minimum/flyology_freestanding_bootstrap_minimum.adb \
+    -o "$output_directory/flyology_freestanding_bootstrap_minimum.o" \
     -nostdinc -Isrc/bootstrap \
     -gnat2022 -gnatp -gnatws \
     -fno-stack-protector -fno-pic -fno-pie \
@@ -52,5 +52,5 @@ scripts/toolchain.sh exec "$architecture" "$target-gcc" \
 scripts/toolchain.sh exec "$architecture" "$target-ld" \
     --build-id=none --fatal-warnings -z noexecstack \
     -T "$linker_script" \
-    -o "$output_directory/flyology-bootstrap-minimum.elf" \
-    "$output_directory/minimal_boot_entry.o" "$output_directory/flyology_bootstrap_minimum.o"
+    -o "$output_directory/flyology_freestanding-bootstrap-minimum.elf" \
+    "$output_directory/minimal_boot_entry.o" "$output_directory/flyology_freestanding_bootstrap_minimum.o"

@@ -18,22 +18,22 @@ case "$profile" in
     *) echo "unsupported image profile: $profile" >&2; exit 64 ;;
 esac
 
-test_tag=${FLYOLOGY_IMAGE_TEST_TAG:-gate}
+test_tag=${FLYOLOGY_FREESTANDING_IMAGE_TEST_TAG:-gate}
 case "$test_tag" in
     *[!A-Za-z0-9_.-]*) echo "invalid test tag: $test_tag" >&2; exit 64 ;;
 esac
-test_root=${FLYOLOGY_IMAGE_TEST_ROOT:-build/product/tests}
+test_root=${FLYOLOGY_FREESTANDING_IMAGE_TEST_ROOT:-build/product/tests}
 test_directory="$test_root/$architecture-smp$cpu_count-$profile-$test_tag"
 mkdir -p "$test_directory"
-output_root=${FLYOLOGY_IMAGE_OUTPUT_ROOT:-build/product/$profile}
-image="$output_root/$architecture/flyology-$architecture.fat"
+output_root=${FLYOLOGY_FREESTANDING_IMAGE_OUTPUT_ROOT:-build/product/$profile}
+image="$output_root/$architecture/flyology-freestanding-$architecture.fat"
 serial_log="$test_directory/serial.log"
 qemu_log="$test_directory/qemu.log"
 : >"$serial_log"
 : >"$qemu_log"
-FLYOLOGY_QEMU_SERIAL="file:$serial_log" \
-FLYOLOGY_QEMU_LOG="$qemu_log" \
-FLYOLOGY_QEMU_TIMEOUT_SECONDS=20 \
+FLYOLOGY_FREESTANDING_QEMU_SERIAL="file:$serial_log" \
+FLYOLOGY_FREESTANDING_QEMU_LOG="$qemu_log" \
+FLYOLOGY_FREESTANDING_QEMU_TIMEOUT_SECONDS=20 \
     scripts/run-uefi-image.sh \
     "$architecture" "$cpu_count" "$image" "$test_directory"
 

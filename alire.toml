@@ -1,19 +1,19 @@
-name = "flyology_barebones"
+name = "flyology_freestanding"
 description = "Freestanding GNAT Ada tasking runtime and verified primitive library"
 version = "0.1.0-dev"
 
-authors = ["Flyology Barebones contributors"]
-maintainers = ["Flyology Barebones contributors <maintainers@flyology.invalid>"]
+authors = ["Flyology Freestanding contributors"]
+maintainers = ["Flyology Freestanding contributors <maintainers@flyology.invalid>"]
 maintainers-logins = []
 licenses = "MIT OR Apache-2.0"
 website = ""
 tags = ["ada", "spark", "freestanding", "tasking", "smp"]
-project-files = ["flyology.gpr"]
+project-files = ["flyology_freestanding.gpr"]
 
 [environment]
-FLYOLOGY_BAREBONES_ROOT.set = "${CRATE_ROOT}"
-FLYOLOGY_BUILD_TOOL.set = "${CRATE_ROOT}/scripts/flyology-build"
-FLYOLOGY_RUN_TOOL.set = "${CRATE_ROOT}/scripts/flyology-run"
+FLYOLOGY_FREESTANDING_ROOT.set = "${CRATE_ROOT}"
+FLYOLOGY_FREESTANDING_BUILD_TOOL.set = "${CRATE_ROOT}/scripts/flyology-freestanding-build"
+FLYOLOGY_FREESTANDING_RUN_TOOL.set = "${CRATE_ROOT}/scripts/flyology-freestanding-run"
 
 [configuration]
 generate_ada = false

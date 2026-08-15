@@ -1,0 +1,83 @@
+--  SPDX-License-Identifier: MIT OR Apache-2.0
+
+with Flyology_Freestanding.Architecture_Context;
+with Flyology_Freestanding.Clock_Model;
+with Flyology_Freestanding.Interrupt_Frames;
+with System;
+
+package Flyology_Freestanding.Platform is
+   subtype Context is Flyology_Freestanding.Architecture_Context.Voluntary_Context;
+   subtype Interrupt_Frame is Flyology_Freestanding.Interrupt_Frames.Interrupt_Frame;
+   subtype Tick is Flyology_Freestanding.Clock_Model.Tick;
+
+   type Full_Context is record
+      Frame : Interrupt_Frame;
+   end record
+     with Convention => C,
+          Alignment  => 16;
+
+   for Full_Context use record
+      Frame at 0 range 0 .. 832 * 8 - 1;
+   end record;
+   for Full_Context'Size use 832 * 8;
+
+   procedure Initialize
+     (Item       : out Context;
+      Stack_Top  : System.Address;
+      Core_Value : System.Address);
+
+   procedure Initialize_Dispatcher
+     (Item       : out Context;
+      Stack_Top  : System.Address;
+      Core_Value : System.Address);
+
+   procedure Switch
+     (Outgoing : access Context;
+      Incoming : access Context);
+
+   procedure Switch_To_Task
+     (Outgoing : access Context;
+      Incoming : access Context)
+   with Import, Convention => C,
+        External_Name => "flyology_freestanding_context_switch_to_task";
+
+   procedure Capture_Full_Context
+     (Item   : out Full_Context;
+      Source : Interrupt_Frame);
+
+   function Interrupted_Stack (Source : Interrupt_Frame) return System.Address;
+
+   function Validate_Environment_Stack
+     (Core  : System.Address;
+      Probe : System.Address) return System.Address
+   with Import, Convention => C,
+        External_Name => "flyology_freestanding_conformance_validate_environment_stack";
+
+   procedure Switch_To_Full
+     (Outgoing : access Context;
+      Incoming : access Full_Context)
+   with Import, Convention => C,
+        External_Name => "flyology_freestanding_context_switch_to_full";
+
+   function Read_Clock return Tick
+   with Import, Convention => C,
+        External_Name => "flyology_freestanding_platform_read_clock";
+
+   --  Raw foreign value.  Flyology_Freestanding.Kernel validates it before conversion to the
+   --  constrained proof-domain frequency type.
+   function Clock_Frequency return System.Address
+   with Import, Convention => C,
+        External_Name => "flyology_freestanding_platform_clock_frequency";
+
+   procedure Program_Timer (Deadline : Tick)
+   with Import, Convention => C,
+        External_Name => "flyology_freestanding_platform_program_timer";
+
+   procedure Cancel_Timer
+   with Import, Convention => C,
+        External_Name => "flyology_freestanding_platform_cancel_timer";
+
+   procedure Retry_Interrupt
+   with Import, Convention => C,
+        External_Name => "flyology_freestanding_platform_retry_interrupt";
+end Flyology_Freestanding.Platform;

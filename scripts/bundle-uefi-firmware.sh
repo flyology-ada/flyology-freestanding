@@ -8,7 +8,7 @@ test "$#" -eq 2 || {
 
 architecture=$1
 output_directory=$2
-qemu_root=${FLYOLOGY_QEMU_ROOT:-/opt/homebrew/Cellar/qemu/10.2.0}
+qemu_root=${FLYOLOGY_FREESTANDING_QEMU_ROOT:-/opt/homebrew/Cellar/qemu/10.2.0}
 firmware_root="$qemu_root/share/qemu"
 case "$architecture" in
     x86_64)

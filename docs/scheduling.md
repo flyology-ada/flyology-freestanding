@@ -13,15 +13,15 @@ does not remove the need to configure packages that declare task objects.
 [ADR-0011](adr/0011-source-selected-initial-scheduling.md) records this startup
 boundary.
 
-After elaboration, the original `Flyology.Scheduling` API can change effective
+After elaboration, the original `Flyology_Freestanding.Scheduling` API can change effective
 policy at three scopes:
 
 ```ada
-with Flyology.Scheduling;
+with Flyology_Freestanding.Scheduling;
 with System.Multiprocessors.Dispatching_Domains;
 
 procedure Configure is
-   package Scheduling renames Flyology.Scheduling;
+   package Scheduling renames Flyology_Freestanding.Scheduling;
    package Domains renames
      System.Multiprocessors.Dispatching_Domains;
 begin
@@ -55,6 +55,6 @@ core to account the new budget and timer locally. See
 Only `FIFO_Within_Priorities` and `Round_Robin_Within_Priorities` are currently
 implemented. FIFO uses quantum zero. Round robin requires a positive quantum in
 microseconds and defaults to 10,000 microseconds. Invalid record combinations
-raise `Flyology.Scheduling.Scheduling_Error`; unsupported CPU values do the
-same. This API is a Flyology extension and does not replace standard task,
+raise `Flyology_Freestanding.Scheduling.Scheduling_Error`; unsupported CPU values do the
+same. This API is a Flyology Freestanding extension and does not replace standard task,
 priority, or dispatching-domain declarations.

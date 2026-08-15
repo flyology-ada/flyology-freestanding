@@ -1,6 +1,6 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
-with Flyology.RTS;
+with Flyology_Freestanding.RTS;
 
 package body System.Tasking.Protected_Objects is
    procedure Initialize_Protection
@@ -25,7 +25,7 @@ package body System.Tasking.Protected_Objects is
       if Object = null then
          raise Program_Error;
       end if;
-      Flyology.RTS.Protected_Enter (Object.Ceiling);
+      Flyology_Freestanding.RTS.Protected_Enter (Object.Ceiling);
    end Lock;
 
    procedure Lock_Read_Only (Object : Protection_Access) is
@@ -38,6 +38,6 @@ package body System.Tasking.Protected_Objects is
       if Object = null then
          raise Program_Error;
       end if;
-      Flyology.RTS.Protected_Leave;
+      Flyology_Freestanding.RTS.Protected_Leave;
    end Unlock;
 end System.Tasking.Protected_Objects;

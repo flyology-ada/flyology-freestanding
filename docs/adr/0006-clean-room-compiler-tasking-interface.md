@@ -8,12 +8,12 @@
 Ordinary Ada task declarations compiled by GNAT use a compiler-specific
 staging and identity interface that the Ada Reference Manual does not define.
 Copying GNAT runtime sources would impose a separate licensing boundary and
-would make Flyology's core architecture harder to review independently.
+would make Flyology Freestanding's core architecture harder to review independently.
 
 ## Decision
 
-Flyology implements the required GNAT 15.3 compiler-facing surface as original
-clean-room work. Interface discovery is restricted to Flyology-owned probes,
+Flyology Freestanding implements the required GNAT 15.3 compiler-facing surface as original
+clean-room work. Interface discovery is restricted to Flyology Freestanding-owned probes,
 compiler-generated expansion and object metadata, public documentation, and
 black-box behavior. GNAT runtime source is neither consulted nor copied.
 
@@ -21,7 +21,7 @@ The compiler-facing predefined units are a compatibility facade. They own no
 scheduler or context-switch policy: GNARL semantics delegate task-state changes
 to the core runtime, ready ordering to the scheduler instance, and context
 transfer to architecture code. Application task creation remains ordinary Ada
-syntax; Flyology exposes no Spawn, fiber, or parallel task dialect.
+syntax; Flyology Freestanding exposes no Spawn, fiber, or parallel task dialect.
 
 The initial tasking capability checkpoint retains terminated bounded TCB and stack slots. It
 supports the demonstrated normal activation/master/completion path and fails

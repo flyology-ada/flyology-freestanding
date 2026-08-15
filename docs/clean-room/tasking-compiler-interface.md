@@ -1,6 +1,6 @@
 # tasking capability ordinary-task compiler interface evidence
 
-This record is limited to Flyology-owned sources under `probes/tasking/`, compiler-generated expansion/ALI/object diagnostics, and black-box compilation with the pinned GNAT 15.3 cross compilers. No GNAT runtime source was inspected or used.
+This record is limited to Flyology Freestanding-owned sources under `probes/tasking/`, compiler-generated expansion/ALI/object diagnostics, and black-box compilation with the pinned GNAT 15.3 cross compilers. No GNAT runtime source was inspected or used.
 
 The authoritative discovery command is `scripts/probe-tasking-interface.sh`. Generated expansion, undefined-symbol inventories, and objects remain ignored under `build/probes/tasking/`.
 
@@ -33,7 +33,7 @@ and unactivated cleanup is an explicit synchronization capability gate and remai
 ## Product implementation
 
 The clean-room implementation of this observed surface lives under `src/gnarl/`
-and delegates through `Flyology.RTS` to `Flyology.Kernel`. It uses
+and delegates through `Flyology_Freestanding.RTS` to `Flyology_Freestanding.Kernel`. It uses
 compiler-created task objects only: the staging facade
 creates dormant bounded TCBs, activation publishes a whole lexical chain,
 the core dispatcher selects ready work, and the compiler wrapper reports

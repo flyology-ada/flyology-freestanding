@@ -1,14 +1,14 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Ada.Finalization;
-with Flyology.Exceptional_Completion_Model;
-with Flyology.Task_Primitives;
-with Flyology.Wait_Queue_Model;
+with Flyology_Freestanding.Exceptional_Completion_Model;
+with Flyology_Freestanding.Task_Primitives;
+with Flyology_Freestanding.Wait_Queue_Model;
 
 package System.Tasking.Protected_Objects.Entries is
    pragma Elaborate_Body;
 
-   package Wait_Queues renames Flyology.Wait_Queue_Model;
+   package Wait_Queues renames Flyology_Freestanding.Wait_Queue_Model;
    Max_Queued_Calls : constant := Wait_Queues.Capacity;
 
    type Barrier_Function is access function
@@ -36,9 +36,10 @@ package System.Tasking.Protected_Objects.Entries is
      (Object : System.Address;
       Index  : Protected_Entry_Index) return Protected_Entry_Index;
 
-   subtype Wait_Token is Flyology.Task_Primitives.Wait_Token;
+   subtype Wait_Token is Flyology_Freestanding.Task_Primitives.Wait_Token;
 
-   package Completions renames Flyology.Exceptional_Completion_Model;
+   package Completions renames
+     Flyology_Freestanding.Exceptional_Completion_Model;
    subtype Pending_Phase is Completions.Completion_Phase;
    Free : constant Pending_Phase := Completions.Free;
    Queued : constant Pending_Phase := Completions.Queued;

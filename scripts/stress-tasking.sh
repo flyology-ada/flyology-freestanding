@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 
-iterations=${FLYOLOGY_TASKING_STRESS_ITERATIONS:-3}
-product_root=${FLYOLOGY_PRODUCT_OUTPUT_ROOT:-build/product}
+iterations=${FLYOLOGY_FREESTANDING_TASKING_STRESS_ITERATIONS:-3}
+product_root=${FLYOLOGY_FREESTANDING_PRODUCT_OUTPUT_ROOT:-build/product}
 case "$iterations" in
     ''|*[!0-9]*) echo "invalid iteration count: $iterations" >&2; exit 64 ;;
 esac
@@ -21,8 +21,8 @@ esac
 for architecture in $architectures; do
     iteration=1
     while test "$iteration" -le "$iterations"; do
-        FLYOLOGY_IMAGE_TEST_TAG="stress-$iteration" \
-        FLYOLOGY_IMAGE_OUTPUT_ROOT="$product_root/tasking" \
+        FLYOLOGY_FREESTANDING_IMAGE_TEST_TAG="stress-$iteration" \
+        FLYOLOGY_FREESTANDING_IMAGE_OUTPUT_ROOT="$product_root/tasking" \
             scripts/run-image.sh "$architecture" 4 tasking
         iteration=$((iteration + 1))
     done

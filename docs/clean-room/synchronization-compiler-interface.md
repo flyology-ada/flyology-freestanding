@@ -1,6 +1,6 @@
 # synchronization capability synchronization and exception interface evidence
 
-This record is limited to Flyology-owned probes, compiler-generated expansion,
+This record is limited to Flyology Freestanding-owned probes, compiler-generated expansion,
 ALI metadata, object relocations/disassembly, the public two-phase unwind ABI,
 and black-box execution. No GNAT runtime source was inspected or copied.
 
@@ -15,12 +15,12 @@ and selector in the target's standard exception data registers. Its normal
 handler lifecycle is `begin_handler_v1(object)` followed by
 `end_handler_v1(object, cookie, null)`.
 
-Flyology implements the Ada-specific exception object, LSDA matching,
+Flyology Freestanding implements the Ada-specific exception object, LSDA matching,
 personality, handler lifecycle, bounded allocation, and fail-closed behavior in
 original code. It links the generic `libgcc` DWARF unwinder shipped inside each
 pinned cross-toolchain; no copy is placed in the repository. This is a GCC
 Runtime Library component governed by its upstream license and GCC Runtime
-Library Exception, not original dual-licensed Flyology material.
+Library Exception, not original dual-licensed Flyology Freestanding material.
 The derived installed archive hashes are
 `b6d172e843239c3fa3906c0d972936a48ebf3d4249a0d0e723f83ecb18ff2304`
 for x86-64 and
@@ -36,7 +36,7 @@ personality.
 
 The task-root symbol is weak so the isolated exception probe can omit the full
 tasking runtime. With the pinned C compilers, x86-64 emits two relocations to
-`flyology_task_root_invoke` for the availability check and region-start
+`flyology_freestanding_task_root_invoke` for the availability check and region-start
 comparison, while AArch64 folds the same expression into one relocation. The
 unwind gate pins those target-specific shapes and still requires exactly one
 `__register_frame` call.
@@ -44,7 +44,7 @@ unwind gate pins those target-specific shapes and still requires exactly one
 `scripts/build-exception-probe.sh` builds a zero-unresolved freestanding image.
 `scripts/run-exception-probe.sh` requires a caught Program_Error pass and unique
 online-core markers under the pinned QEMU/UEFI contract for SMP1 and SMP4.
-The Ada closure is owned by `gpr/flyology_exception_probe.gpr`; the shell retains
+The Ada closure is owned by `gpr/flyology_freestanding_exception_probe.gpr`; the shell retains
 only binder, architecture, C unwinder, linker, and boot-media composition. The
 authoritative `scripts/verify-synchronization.sh` gate builds and runs all four
 architecture/SMP cells, so this evidence cannot silently become documentary
@@ -57,12 +57,12 @@ one exact compiler-required source boundary on both targets:
 `System.Soft_Links.Save_Library_Occurrence
 (Ada.Exceptions.Exception_Occurrence_Access)`. Generated finalizers pass null,
 and the binder later calls `__gnat_reraise_library_exception_if_any` after all
-library finalizers. Flyology snapshots only the first current exception
+library finalizers. Flyology Freestanding snapshots only the first current exception
 identity and reraises it once; messages and tracebacks remain unsupported.
 
 Generated exceptional protected-entry and rendezvous handlers call
 `Begin_Handler`, query `Get_Gnat_Exception`, call the exceptional completion
-hook, and then call `End_Handler`. Flyology therefore keeps a bounded current
+hook, and then call `End_Handler`. Flyology Freestanding therefore keeps a bounded current
 handler stack per exact task slot, not per core, so a blocking handler does not
 expose another task's occurrence. A separate bounded propagation stack per task
 carries unwind identities through phase-two finalizers before `Begin_Handler`
@@ -95,7 +95,7 @@ bind these facades to the single kernel state authority and exact-token wait
 arbitration rather than introduce a second scheduler or public task API.
 
 The native GNAT 15.3 expansion of the owned delay probe lowers relative
-`delay 0.001` to `Ada.Calendar.Delays.Delay_For (Duration)`. Flyology's owned
+`delay 0.001` to `Ada.Calendar.Delays.Delay_For (Duration)`. Flyology Freestanding's owned
 facade routes that call through checked nanosecond-to-tick conversion, the
 per-core exact-token timer table, and the common wait arbitration kernel. The
 conversion splits a positive interval into checked whole seconds and a
@@ -114,7 +114,7 @@ kernel and are covered below.
 
 The owned `absolute_delay_probe.adb` confirms on both targets that an Ada
 `delay until` statement lowers to `Ada.Real_Time.Delays.Delay_Until (Time)`.
-Flyology represents `Ada.Real_Time.Time` as the validated architecture tick,
+Flyology Freestanding represents `Ada.Real_Time.Time` as the validated architecture tick,
 implements `Clock`, `Milliseconds`, time addition and comparison, and routes
 the absolute deadline into the same per-core timer and exact-wait path used by
 relative delay. The implementation checks conversion and deadline addition
@@ -145,7 +145,7 @@ local trampoline; the probe gate records this target-specific difference
 rather than hiding it. The product demonstration uses a library-level callback
 and has no cache-trampoline dependency.
 
-Flyology implements those profiles from owned declarations. Lock and unlock
+Flyology Freestanding implements those profiles from owned declarations. Lock and unlock
 hold the existing nestable global RTS critical section across the protected
 body and update the current task's proved nested ceiling state. Thus protected
 actions are globally serialized while unrelated application code continues in
@@ -285,7 +285,7 @@ The language-defined `Ada.Dynamic_Priorities` facade follows
 [Ada RM D.5.1](https://www.adaic.org/resources/add_content/standards/22rm/html/RM-D-5-1.html).
 The owned `dynamic_priority_probe.adb` confirms that both targets retain
 `Set_Priority`, `Get_Priority`, and `Current_Task` calls with the RM parameter
-ordering. Flyology maps these calls to kernel's base-priority field; a Ready
+ordering. Flyology Freestanding maps these calls to kernel's base-priority field; a Ready
 task is removed and reinserted by the proved priority policy, and a remote
 target receives a reschedule request. The proved ceiling model defers the
 active effect of a base-priority change while a protected action is in
@@ -311,7 +311,7 @@ cooperative safe boundaries.
 
 The owned `conditional_rendezvous_probe.adb` confirms that both target
 compilers lower a conditional task entry call to `Task_Entry_Call` with
-`Conditional_Call` and an out acceptance flag. Flyology performs the acceptor
+`Conditional_Call` and an out acceptance flag. Flyology Freestanding performs the acceptor
 test, call-record reservation, both wait publications, and exact server wake
 under the one RTS lock. If no matching accept is already open, it returns
 without allocating or queueing anything. The ordinary-Ada QEMU test requires
@@ -323,7 +323,7 @@ hook. This checkpoint does not yet include asynchronous entry calls.
 The owned `timed_rendezvous_probe.adb` confirms the six-parameter
 `Timed_Task_Entry_Call` profile on both targets: target, entry index,
 parameter address, relative `Duration`, delay mode zero, and an out acceptance
-flag. Flyology arms one `Timed_Object_Wait` token and registers that exact token
+flag. Flyology Freestanding arms one `Timed_Object_Wait` token and registers that exact token
 with the per-core timer table. Acceptance under the RTS lock cancels the exact
 timer before exposing the call to the server; timeout resolves the same token,
 and a later server scan discards the stale record rather than accepting it.
@@ -349,7 +349,7 @@ Both target compilers emit the same allocation and lifecycle surface:
 completion. The AArch64 local probe alone adds `__clear_cache`; the product
 uses a package-level task body and final inspection continues to prohibit that
 symbol. Successful activation consumes the temporary chain before its cleanup
-hook runs. Flyology now prevalidates a nonempty unconsumed chain under the one
+hook runs. Flyology Freestanding now prevalidates a nonempty unconsumed chain under the one
 RTS lock, requires one exact master and dormant, unqueued, unwaiting task
 incarnations, and only then cancels every member. Static declarative failure
 does not emit that dynamic-chain hook, so `Complete_Master` performs the same
@@ -379,7 +379,7 @@ the false body-elaboration predicate is compiler-interface and checked-runtime
 evidence, not a separately forced product-cell claim.
 
 The allocator is a bounded 64-KiB pool divided into 4,096 16-byte units. The
-production `Flyology.Allocator` SPARK package owns the exact occupancy, head
+production `Flyology_Freestanding.Allocator` SPARK package owns the exact occupancy, head
 length, live-count, and live-byte state. Under the existing recursive RTS
 critical section, its deterministic first-fit selection marks a complete free
 run and records its exact head and length. Raw free
@@ -389,7 +389,7 @@ adjacent free ranges are immediately reusable without a second free-list
 authority. A zero-size request consumes one unit. Exhaustion enters the
 compiler's `Storage_Error` check path instead of returning null.
 
-The thin Ada `Flyology.Allocator_ABI` package owns the aligned byte pool,
+The thin Ada `Flyology_Freestanding.Allocator_ABI` package owns the aligned byte pool,
 converts raw addresses to checked offsets, serializes state transitions with the
 existing RTS lock, and exports the observed `malloc`, `free`, `__gnat_malloc`,
 and `__gnat_free` C conventions. It contains no independent selection or
@@ -421,7 +421,7 @@ GNAT 15.3 runtime as black-box lowering evidence. Its generated relocation
 order is `Abort_Tasks`, `System.Tasking.Stages.Free_Task`, then raw
 `__gnat_free`; only after those calls does the generated instance null the
 access value. The exact `Free_Task (Item : Task_Id)` profile and ordering are
-therefore observed rather than guessed. Flyology supplies the ARM-prescribed
+therefore observed rather than guessed. Flyology Freestanding supplies the ARM-prescribed
 generic declaration, including `Preelaborate` and intrinsic convention, but no
 generic body. Both cross compilers then perform the same intrinsic lowering
 directly to the clean-room `System.Tasking.Stages.Free_Task`, raw free, and
@@ -469,7 +469,7 @@ parameter address, and an out selected alternative index. AArch64 again adds
 only the local-probe cache trampoline; the package-level product task avoids
 it and the ELF gate rejects it.
 
-Flyology's selective-wait increment accepts exactly one alternative. It uses
+Flyology Freestanding's selective-wait increment accepts exactly one alternative. It uses
 the established rendezvous call table and generation-tagged waits, and
 completes a compiler-marked null body before returning its selected index. The
 ordinary-Ada demonstration couples that server with a concurrent client and
@@ -540,7 +540,7 @@ catch-all handler surface used to contain that unwind before a dead task stack
 is retired. These probes establish compiler shape; the QEMU test establishes
 the implemented behavior.
 
-Flyology records an abort request in the stable task record under the single
+Flyology Freestanding records an abort request in the stable task record under the single
 RTS lock. For the supported blocked-delay path it retrieves the task's current
 generation-tagged wait token, cancels that exact deadline, and resolves the
 same wait with `Abort_Wake`. Timeout and abort therefore cannot both win or
@@ -597,7 +597,7 @@ zero-filter action-chain cleanups continue during phase two without terminating
 phase-one search. Compiler `all_others` is a real internal handler used by the
 generated exceptional synchronization wrappers, so those hooks must explicitly
 preserve or continue the executing task's original occurrence. One exported,
-LSDA-bearing `flyology_task_root_invoke` boundary is the only ordinary-catch
+LSDA-bearing `flyology_freestanding_task_root_invoke` boundary is the only ordinary-catch
 region allowed to contain abort. The demonstration places a user
 `when others` around the interrupted delay and fails if it runs, then requires
 the compiler task finalizer and runtime root to terminate the task normally.
@@ -690,7 +690,7 @@ fails. The current serialized GNATprove 16.1 gate reports all 543 generated
 checks proved across the
 SPARK-analyzed deterministic primitive units, including the exact allocator
 state engine. The data-only `Task_Primitives` token package is analyzed, but the
-concurrent `Flyology.Kernel`, compiler-facing GNARL facades, architecture
+concurrent `Flyology_Freestanding.Kernel`, compiler-facing GNARL facades, architecture
 assembly, C unwinder, and synchronized allocator address/critical-section
 facade remain outside SPARK behind typed boundaries.
 

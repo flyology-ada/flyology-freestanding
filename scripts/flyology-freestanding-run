@@ -1,0 +1,54 @@
+#!/bin/sh
+set -eu
+
+runtime_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+application_root=${FLYOLOGY_FREESTANDING_APPLICATION_ROOT:-$PWD}
+output_root=${FLYOLOGY_FREESTANDING_OUTPUT_ROOT:-$application_root/build}
+cpu_count=${FLYOLOGY_FREESTANDING_CPUS:-1}
+
+usage() {
+    cat >&2 <<'EOF'
+usage: flyology-freestanding-run [--cpus 1..4] [--gui] [--timeout SECONDS] ARCH
+
+Boot a previously built Flyology Freestanding UEFI FAT image with the pinned QEMU machine
+and EDK II firmware contract. The default is headless; --gui enables QEMU's
+host display. Without --timeout QEMU remains attached to the terminal; press
+Ctrl-C after the application reaches its halt/idle state.
+EOF
+    exit 64
+}
+
+timeout_seconds=0
+gui=0
+while test "$#" -gt 0; do
+    case "$1" in
+        --cpus)
+            test "$#" -ge 2 || usage
+            cpu_count=$2
+            shift 2
+            ;;
+        --gui)
+            gui=1
+            shift
+            ;;
+        --timeout)
+            test "$#" -ge 2 || usage
+            timeout_seconds=$2
+            shift 2
+            ;;
+        --help|-h) usage ;;
+        --*) usage ;;
+        *) break ;;
+    esac
+done
+test "$#" -eq 1 || usage
+architecture=$1
+
+image="$output_root/$architecture/flyology-freestanding-$architecture.fat"
+state="$output_root/run/$architecture-smp$cpu_count"
+bundle="$output_root/$architecture"
+FLYOLOGY_FREESTANDING_QEMU_TIMEOUT_SECONDS="$timeout_seconds" \
+FLYOLOGY_FREESTANDING_QEMU_GUI="$gui" \
+FLYOLOGY_FREESTANDING_UEFI_BUNDLE_DIRECTORY="$bundle" \
+    "$runtime_root/scripts/run-uefi-image.sh" \
+    "$architecture" "$cpu_count" "$image" "$state"

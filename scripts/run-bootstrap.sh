@@ -26,7 +26,7 @@ case "$mode" in
     *) echo "unsupported bootstrap test mode: $mode" >&2; exit 64 ;;
 esac
 
-qemu_root=${FLYOLOGY_QEMU_ROOT:-/opt/homebrew/Cellar/qemu/10.2.0}
+qemu_root=${FLYOLOGY_FREESTANDING_QEMU_ROOT:-/opt/homebrew/Cellar/qemu/10.2.0}
 firmware_root="$qemu_root/share/qemu"
 test_directory="build/bootstrap/tests/$architecture-smp$cpu_count-$mode"
 mkdir -p "$test_directory"
@@ -41,7 +41,7 @@ case "$architecture" in
         vars_template="$firmware_root/edk2-i386-vars.fd"
         vars_digest=5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e
         machine=pc-q35-10.2
-        image="$build_root/x86_64/flyology-x86_64.fat"
+        image="$build_root/x86_64/flyology-freestanding-x86_64.fat"
         ;;
     aarch64)
         target=aarch64-elf
@@ -52,7 +52,7 @@ case "$architecture" in
         vars_template="$firmware_root/edk2-arm-vars.fd"
         vars_digest=b3b855c5a80310168051164986855692d1bdb06e67619856177965cd87c6774f
         machine=virt-10.2,gic-version=3,virtualization=off,secure=off,dtb-randomness=off
-        image="$build_root/aarch64/flyology-aarch64.fat"
+        image="$build_root/aarch64/flyology-freestanding-aarch64.fat"
         ;;
     *) echo "unsupported architecture: $architecture" >&2; exit 64 ;;
 esac
@@ -85,7 +85,7 @@ cp "$vars_template" "$vars"
 : >"$serial_log"
 : >"$qemu_log"
 
-timeout_command=${FLYOLOGY_TIMEOUT:-/opt/homebrew/bin/gtimeout}
+timeout_command=${FLYOLOGY_FREESTANDING_TIMEOUT:-/opt/homebrew/bin/gtimeout}
 timeout_digest=96d98cb3adafdd41570802625f7511d7d340cbcd4cb7a7278d5706c282a59c33
 test -x "$timeout_command" || {
     echo "pinned GNU timeout is required: $timeout_command" >&2
@@ -132,13 +132,13 @@ if test "$mode" = last-chance; then
     test "$(count_marker 'FLYOLOGY:ADA:MAIN:PASS')" -eq 0
     test "$(count_marker 'FLYOLOGY:FAIL:')" -eq 0
     test "$(count_marker 'PANIC:')" -eq 0
-    probe_object="$build_root/$architecture/flyology_last_chance_probe.o"
+    probe_object="$build_root/$architecture/flyology_freestanding_last_chance_probe.o"
     probe_undefined=$(scripts/toolchain.sh exec "$architecture" \
         "$target-nm" -u "$probe_object" | awk '{ print $NF }')
     test "$probe_undefined" = '__gnat_rcheck_PE_Explicit_Raise'
     scripts/toolchain.sh exec "$architecture" "$target-nm" \
-        "$build_root/$architecture/flyology-bootstrap.elf" | \
-        grep -E '[[:space:]]flyology_last_chance_probe$' >/dev/null
+        "$build_root/$architecture/flyology_freestanding-bootstrap.elf" | \
+        grep -E '[[:space:]]flyology_freestanding_last_chance_probe$' >/dev/null
 else
     test "$(count_marker 'FLYOLOGY:ADA:MAIN:PASS')" -eq 1
     test "$(count_marker 'FLYOLOGY:BOOT:PASS')" -eq 1

@@ -10,7 +10,7 @@ architecture=$1
 cpu_count=$2
 case "$cpu_count" in 1|4) ;; *) exit 64 ;; esac
 
-qemu_root=${FLYOLOGY_QEMU_ROOT:-/opt/homebrew/Cellar/qemu/10.2.0}
+qemu_root=${FLYOLOGY_FREESTANDING_QEMU_ROOT:-/opt/homebrew/Cellar/qemu/10.2.0}
 firmware_root="$qemu_root/share/qemu"
 test_directory="build/exception-probe/tests/$architecture-smp$cpu_count"
 mkdir -p "$test_directory"
@@ -37,7 +37,7 @@ case "$architecture" in
     *) exit 64 ;;
 esac
 
-image="build/exception-probe/$architecture/flyology-$architecture.fat"
+image="build/exception-probe/$architecture/flyology-freestanding-$architecture.fat"
 for required in "$qemu" "$code" "$vars_template" "$image"; do
     test -f "$required" || exit 66
 done
@@ -50,7 +50,7 @@ check_digest "$code_digest" "$code"
 check_digest "$vars_digest" "$vars_template"
 test "$("$qemu" --version | sed -n '1p')" = 'QEMU emulator version 10.2.0'
 
-timeout_command=${FLYOLOGY_TIMEOUT:-/opt/homebrew/bin/gtimeout}
+timeout_command=${FLYOLOGY_FREESTANDING_TIMEOUT:-/opt/homebrew/bin/gtimeout}
 timeout_digest=96d98cb3adafdd41570802625f7511d7d340cbcd4cb7a7278d5706c282a59c33
 check_digest "$timeout_digest" "$timeout_command"
 

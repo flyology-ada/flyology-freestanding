@@ -22,7 +22,7 @@ commit was created:
 1. FIFO initially accepted an unnecessary `-1` time-slice sentinel. The RTS
    now accepts exactly zero for binder policy `F`; the sentinel remains valid
    only for source-selected round robin, where it maps to the documented 10 ms
-   Flyology default.
+   Flyology Freestanding default.
 2. The root README still described a consumer profile option. It now describes
    source-selected policy and keeps repository profile names confined to the
    conformance matrix.
@@ -45,7 +45,7 @@ time-slice flags remain conformance fixtures, not consumer configuration.
 
 ## Clean-room evidence
 
-The policy interface remains derived from the Ada RM and Flyology-owned source
+The policy interface remains derived from the Ada RM and Flyology Freestanding-owned source
 probes; no GNAT runtime source was consulted. The exact reviewed commit passed
 `scripts/probe-preemption-policy.sh` with both pinned GNAT 15.3 cross compilers.
 It established:
@@ -60,11 +60,11 @@ interrupt semantics.
 
 ## Subtraction review
 
-`REMOVE` — the three `Flyology.Scheduler_Configuration` views and their build
+`REMOVE` — the three `Flyology_Freestanding.Scheduler_Configuration` views and their build
 directory selector are removed.
 
 - Fact: an exact-tree `rg` census finds no remaining package reference or
-  `FLYOLOGY_SCHEDULER_CONFIG_DIR` consumer; only the hygiene rejection pattern
+  `FLYOLOGY_FREESTANDING_SCHEDULER_CONFIG_DIR` consumer; only the hygiene rejection pattern
   names the retired surface.
 - Fact: commit `79f4ff5` introduced the package to replace milestone-numbered
   configuration with a responsibility name. ADR 0011 supersedes that rationale:

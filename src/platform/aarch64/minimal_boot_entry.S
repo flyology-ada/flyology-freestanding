@@ -8,7 +8,7 @@ _start:
     mov sp, x0
     mov x29, xzr
     mov x30, xzr
-    bl flyology_ada_main
+    bl flyology_freestanding_ada_main
 1:
     wfi
     b 1b

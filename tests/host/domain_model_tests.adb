@@ -1,10 +1,10 @@
 --  SPDX-License-Identifier: MIT OR Apache-2.0
 
 with Ada.Text_IO;
-with Flyology.Domain_Model;
+with Flyology_Freestanding.Domain_Model;
 
 procedure Domain_Model_Tests is
-   package Domains renames Flyology.Domain_Model;
+   package Domains renames Flyology_Freestanding.Domain_Model;
 
    use type Domains.Admit_Status;
    use type Domains.Ada_CPU;

@@ -1,6 +1,6 @@
 # Executable formal models
 
-Flyology uses TLA+ as an early concurrency-design check alongside SPARK and the
+Flyology Freestanding uses TLA+ as an early concurrency-design check alongside SPARK and the
 bounded host models. The specifications are original design models; they are
 not derived from GNAT run-time source.
 

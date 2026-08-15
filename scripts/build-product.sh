@@ -13,8 +13,8 @@ case "$architecture" in
     *) echo "unsupported architecture: $architecture" >&2; exit 64 ;;
 esac
 
-output_root=${FLYOLOGY_PRODUCT_OUTPUT_ROOT:-build/product}
-if test "${FLYOLOGY_FLAT_OUTPUT:-0}" = 1; then
+output_root=${FLYOLOGY_FREESTANDING_PRODUCT_OUTPUT_ROOT:-build/product}
+if test "${FLYOLOGY_FREESTANDING_FLAT_OUTPUT:-0}" = 1; then
     profile_root=$output_root
 else
     profile_root="$output_root/$profile"
@@ -22,28 +22,28 @@ fi
 
 case "$profile" in
     tasking)
-        FLYOLOGY_IMAGE_OUTPUT_ROOT="$profile_root" \
+        FLYOLOGY_FREESTANDING_IMAGE_OUTPUT_ROOT="$profile_root" \
             scripts/build-image.sh "$architecture"
         ;;
     preemptive-fifo)
-        FLYOLOGY_PRODUCT_CONFIG=config/scheduler/fifo.adc \
-        FLYOLOGY_BINDER_FLAGS=-T0 \
-        FLYOLOGY_IMAGE_OUTPUT_ROOT="$profile_root" \
+        FLYOLOGY_FREESTANDING_PRODUCT_CONFIG=config/scheduler/fifo.adc \
+        FLYOLOGY_FREESTANDING_BINDER_FLAGS=-T0 \
+        FLYOLOGY_FREESTANDING_IMAGE_OUTPUT_ROOT="$profile_root" \
             scripts/build-image.sh "$architecture"
         ;;
     preemptive-round-robin)
-        FLYOLOGY_PRODUCT_CONFIG=config/scheduler/round_robin.adc \
-        FLYOLOGY_BINDER_FLAGS=-T10 \
-        FLYOLOGY_IMAGE_OUTPUT_ROOT="$profile_root" \
+        FLYOLOGY_FREESTANDING_PRODUCT_CONFIG=config/scheduler/round_robin.adc \
+        FLYOLOGY_FREESTANDING_BINDER_FLAGS=-T10 \
+        FLYOLOGY_FREESTANDING_IMAGE_OUTPUT_ROOT="$profile_root" \
             scripts/build-image.sh "$architecture"
         ;;
     domains)
-        FLYOLOGY_DOMAINS=1 \
-        FLYOLOGY_PRODUCT_CONFIG=config/scheduler/fifo.adc \
-        FLYOLOGY_DOMAIN_CONFIG_DIR=config/domains/on \
-        FLYOLOGY_CONFORMANCE_CONFIG_DIR=tests/target/config/domains/on \
-        FLYOLOGY_BINDER_FLAGS=-T0 \
-        FLYOLOGY_IMAGE_OUTPUT_ROOT="$profile_root" \
+        FLYOLOGY_FREESTANDING_DOMAINS=1 \
+        FLYOLOGY_FREESTANDING_PRODUCT_CONFIG=config/scheduler/fifo.adc \
+        FLYOLOGY_FREESTANDING_DOMAIN_CONFIG_DIR=config/domains/on \
+        FLYOLOGY_FREESTANDING_CONFORMANCE_CONFIG_DIR=tests/target/config/domains/on \
+        FLYOLOGY_FREESTANDING_BINDER_FLAGS=-T0 \
+        FLYOLOGY_FREESTANDING_IMAGE_OUTPUT_ROOT="$profile_root" \
             scripts/build-image.sh "$architecture"
         ;;
     *) echo "unsupported product profile: $profile" >&2; exit 64 ;;

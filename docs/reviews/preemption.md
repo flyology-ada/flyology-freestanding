@@ -29,7 +29,7 @@ GNATprove proved all 434 generated checks with zero justified or unproved
 checks and no `Assume`. The proof covers the deterministic dispatcher,
 priority-ready, preemption accounting, wait, timer, lifecycle, ceiling,
 termination, abort-closure, and allocator-arithmetic kernels. Concurrent
-`Flyology.Kernel`, imported task-primitives declarations, compiler-facing
+`Flyology_Freestanding.Kernel`, imported task-primitives declarations, compiler-facing
 GNARL facades, architecture assembly, hardware, the C unwinder, and the C
 allocator synchronization remain outside SPARK behind typed boundaries. The
 proof does not establish the interrupt handoff or the global RTS-lock protocol.
@@ -116,7 +116,7 @@ remains; no debug-step symbol or alternate task/scheduler interface is exported.
 ## Perspective review
 
 - Architecture and boundary integrity: GNARL owns language semantics;
-  `Flyology.Kernel` owns checked task state and context handoff; scheduler policy owns
+  `Flyology_Freestanding.Kernel` owns checked task state and context handoff; scheduler policy owns
   ordering and cause selection; architecture code owns frame capture, restore,
   interrupt acknowledgement, and transfer only.
 - Systems/hardware correctness: x86 uses calibrated x2APIC one-shot timers and

@@ -5,17 +5,17 @@ first=build/reproducible/tasking-first
 second=build/reproducible/tasking-second
 
 for architecture in x86_64 aarch64; do
-    FLYOLOGY_PRODUCT_OUTPUT_ROOT=$first \
+    FLYOLOGY_FREESTANDING_PRODUCT_OUTPUT_ROOT=$first \
         scripts/build-product.sh "$architecture" tasking >/dev/null
-    FLYOLOGY_PRODUCT_OUTPUT_ROOT=$second \
+    FLYOLOGY_FREESTANDING_PRODUCT_OUTPUT_ROOT=$second \
         scripts/build-product.sh "$architecture" tasking >/dev/null
 
-    first_elf=$(shasum -a 256 "$first/tasking/$architecture/flyology.elf")
-    second_elf=$(shasum -a 256 "$second/tasking/$architecture/flyology.elf")
+    first_elf=$(shasum -a 256 "$first/tasking/$architecture/flyology-freestanding.elf")
+    second_elf=$(shasum -a 256 "$second/tasking/$architecture/flyology-freestanding.elf")
     first_disk=$(shasum -a 256 \
-        "$first/tasking/$architecture/flyology-$architecture.fat")
+        "$first/tasking/$architecture/flyology-freestanding-$architecture.fat")
     second_disk=$(shasum -a 256 \
-        "$second/tasking/$architecture/flyology-$architecture.fat")
+        "$second/tasking/$architecture/flyology-freestanding-$architecture.fat")
 
     test "${first_elf%% *}" = "${second_elf%% *}"
     test "${first_disk%% *}" = "${second_disk%% *}"
