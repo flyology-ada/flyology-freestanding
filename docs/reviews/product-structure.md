@@ -1,9 +1,15 @@
 # Product-structure review — responsibility-owned runtime
 
-## Decision
+## Status
 
-The product-structure reorganization is complete for reviewed source commit
-`87a4d9d050520dedb1e1a244193e386ded8464bf`.
+In progress. Commit `87a4d9d050520dedb1e1a244193e386ded8464bf`
+closed the responsibility naming, clean-room inventory, deterministic-library,
+formal, reproducibility, and runtime-matrix slices. A subsequent completion
+audit found that the freestanding target still reconstructs its source/object
+graph procedurally in `scripts/build-image.sh`; only the deterministic primitive
+library is expressed as a GPR project. That does not satisfy the explicit goal
+of a real Alire/GPR product build structure, so the earlier closure decision is
+withdrawn rather than narrowed around the work already completed.
 
 Maintained product code is indexed by responsibility: deterministic primitives,
 one concurrent kernel, GNARL semantic glue, compiler facades, narrow foreign ABI
@@ -12,9 +18,10 @@ configuration, clean-room evidence, and verification entry points use capability
 names. Numbered development-stage identifiers are absent from maintained paths,
 content, product symbols, structured markers, artifacts, and profiles.
 
-This review closes repository/product organization. It does not expand the
-language semantics, hardware targets, or portability claims of the underlying
-capability reviews.
+The evidence below remains valid for the reviewed commit, but it is not final
+product-structure closure. Closure additionally requires a target GPR graph
+consumed by the image build, removal of the duplicated shell source graph, and a
+fresh exact-tree review/gate matrix.
 
 ## Reviewed structure
 
@@ -118,15 +125,15 @@ build/inspect/run entry points with named profiles. Narrow bootstrap/interrupt
 builders remain isolated because they verify distinct early-boundary behavior,
 not because they are alternate product builds.
 
-### Medium — the freestanding image composition remains explicit shell
+### Blocker — the freestanding source graph remains explicit shell
 
-Disposition: retained. Compiler predefined-unit ordering, target binder
-generation, architecture assembly, custom linker scripts, pinned `libgcc`,
-firmware, and FAT-image construction are checked target ABI steps. The reusable
-deterministic packages do build through Alire/GPR. A further archive split is not
-claimed until an executable link gate demonstrates a useful boundary; creating
-decorative component archives now would duplicate the source graph without
-reducing responsibility.
+Disposition: open. Compiler predefined-unit ordering, target binder generation,
+architecture assembly, custom linker scripts, pinned `libgcc`, firmware, and
+FAT-image construction remain legitimate explicit target ABI steps. However,
+the current builder also owns the Ada/C/assembly source inventory and object
+graph. A target GPR project must become authoritative for compilation/source
+ownership while the shell retains only binder/link/image orchestration that GPR
+cannot honestly express for this freestanding runtime.
 
 ### Medium — compatibility checkpoint applications remain tracked
 
@@ -150,4 +157,4 @@ code is old.
   hardware, other firmware, other compiler releases, and broader Ada semantics
   remain separate work.
 
-No blocker or high finding remains for the product-structure goal.
+The open target-project blocker prevents product-structure completion.
