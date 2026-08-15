@@ -44,15 +44,15 @@ compile_ada() {
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
         -c "$source" -o "$output_directory/$object" \
-        -nostdinc -Iruntime/bootstrap -Isrc/primitives -Iruntime/m2 \
+        -nostdinc -Isrc/bootstrap -Isrc/primitives -Iruntime/m2 \
         -I"arch/$architecture" -I"$output_directory" \
-        $style_flags -gnatw.X -gnato -gnatec=runtime/bootstrap/m1.adc \
+        $style_flags -gnatw.X -gnato -gnatec=src/bootstrap/m1.adc \
         -ffunction-sections -fdata-sections \
         -fno-stack-protector -fno-pic -fno-pie $architecture_flags
 }
 
-compile_ada runtime/bootstrap/system.ads system.o yes
-compile_ada runtime/bootstrap/s-stalib.adb s-stalib.o yes
+compile_ada src/bootstrap/system.ads system.o yes
+compile_ada src/bootstrap/s-stalib.adb s-stalib.o yes
 compile_ada src/primitives/flyology.ads flyology.o
 compile_ada src/primitives/flyology-validation.adb flyology-validation.o
 compile_ada src/primitives/flyology-boot_validation.adb flyology-boot_validation.o
@@ -69,14 +69,14 @@ compile_ada "arch/$architecture/flyology-interrupt_frames.ads" \
 compile_ada "arch/$architecture/flyology-m2_architecture.adb" \
     flyology-m2_architecture.o
 compile_ada runtime/m2/flyology-m2_runtime.adb flyology-m2_runtime.o
-compile_ada runtime/bootstrap/flyology-binder_support.adb \
+compile_ada src/bootstrap/flyology-binder_support.adb \
     flyology-binder_support.o
 compile_ada runtime/m2/flyology_m2.adb flyology_m2.o
 
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" \
     -nostdinc -nostdlib -n -minimal \
-    -I../../../runtime/bootstrap -I../../../src/primitives \
+    -I../../../src/bootstrap -I../../../src/primitives \
     -I../../../runtime/m2 -I../../../arch/"$architecture" \
     -I. flyology_m2.ali
 

@@ -34,7 +34,10 @@ until its build, proof, review, and QEMU evidence is recorded.
   queueing, timing, placement, and scheduling-policy algorithms.
 - `runtime/m4/` and `runtime/m6/` — transitional C ABI, restriction, and
   capability-configuration inputs pending later ownership moves.
-- `runtime/bootstrap/` — original minimal compiler-compatibility runtime used by early milestones.
+- `src/bootstrap/` — minimal binder, Standard Library, and root `System`
+  support required before the full GNARL facade is available.
+- `src/abi/` — narrow documented C boundaries for exception unwinding and the
+  compiler allocator ABI.
 - `tests/target/scenarios/` — ordinary-Ada conformance image and behavioral workloads.
 
 Milestone-named runtime and script paths are transitional. They remain supported

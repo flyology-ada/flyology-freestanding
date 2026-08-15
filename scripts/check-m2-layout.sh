@@ -54,11 +54,11 @@ check_architecture() {
           "$output_directory"/*.rep \
           "$output_directory"/*.bin
 
-    common_flags="-nostdinc -Iruntime/bootstrap -Isrc/primitives -Iarch/$architecture -I$output_directory -gnato"
+    common_flags="-nostdinc -Isrc/bootstrap -Isrc/primitives -Iarch/$architecture -I$output_directory -gnato"
 
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-        -c runtime/bootstrap/system.ads \
+        -c src/bootstrap/system.ads \
         -o "$output_directory/system.o" \
         $common_flags -gnatg -gnatwa -gnatwe $architecture_flags
 

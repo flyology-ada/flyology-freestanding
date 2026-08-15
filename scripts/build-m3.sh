@@ -58,7 +58,7 @@ compile_ada() {
     # shellcheck disable=SC2086
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
         -c "$source" -o "$output_directory/$object" \
-        -nostdinc -Iruntime/bootstrap -Isrc/primitives -Isrc/kernel -Isrc/rts \
+        -nostdinc -Isrc/bootstrap -Isrc/primitives -Isrc/kernel -Isrc/rts \
         -Isrc/gnarl \
         -I"$m5_config_dir" -Iruntime/m5 \
         -I"$m6_config_dir" -Iruntime/m6 \
@@ -71,8 +71,8 @@ compile_ada() {
         -fno-stack-protector -fno-pic -fno-pie $architecture_flags
 }
 
-compile_ada runtime/bootstrap/system.ads system.o yes
-compile_ada runtime/bootstrap/s-stalib.adb s-stalib.o yes
+compile_ada src/bootstrap/system.ads system.o yes
+compile_ada src/bootstrap/s-stalib.adb s-stalib.o yes
 compile_ada src/gnarl/ada.ads ada.o yes
 compile_ada src/gnarl/s-stoele.ads s-stoele.o yes
 compile_ada src/gnarl/s-secsta.adb s-secsta.o yes
@@ -153,13 +153,13 @@ if test "${FLYOLOGY_M6:-0}" = 1; then
     m6_link_objects="$output_directory/flyology-conformance-domains.o \
 $output_directory/s-mudido.o $output_directory/a-taidfl.o"
 fi
-compile_ada runtime/bootstrap/flyology-binder_support.adb \
+compile_ada src/bootstrap/flyology-binder_support.adb \
     flyology-binder_support.o
 compile_ada tests/target/scenarios/flyology_m3.adb flyology_m3.o
 
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" -nostdinc -nostdlib -n -minimal \
-    -I"$repository/runtime/bootstrap" -I"$repository/src/primitives" \
+    -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
     -I"$repository/src/kernel" -I"$repository/src/rts" \
     -I"$repository/src/gnarl" -I"$repository/$m5_config_dir" \
     -I"$repository/runtime/m5" \
@@ -188,7 +188,7 @@ done
 
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c runtime/m4/exception_runtime.c \
+    -c src/abi/exception_runtime.c \
     -o "$output_directory/exception_runtime.o" -ffreestanding \
     -DFLYOLOGY_RUNTIME_MEMORY_EXTERNAL \
     -fno-stack-protector -fno-pic -fno-pie -fno-builtin \
@@ -197,7 +197,7 @@ scripts/toolchain.sh exec "$architecture" "$target-gcc" \
 
 # shellcheck disable=SC2086
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c runtime/m4/allocator_runtime.c \
+    -c src/abi/allocator_runtime.c \
     -o "$output_directory/allocator_runtime.o" -ffreestanding \
     -fno-stack-protector -fno-pic -fno-pie -fno-builtin \
     -ffunction-sections -fdata-sections -funwind-tables \

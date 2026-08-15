@@ -21,7 +21,7 @@ test "$("$timeout_command" --version | sed -n '1p')" = \
 mkdir -p build/host-allocator
 "$compiler" -std=c11 -O2 -Wall -Wextra -Werror -pthread \
     -DFLYOLOGY_ALLOCATOR_TEST \
-    runtime/m4/allocator_runtime.c tests/host/m4_allocator_tests.c \
+    src/abi/allocator_runtime.c tests/host/m4_allocator_tests.c \
     -o build/host-allocator/m4_allocator_tests
 output=$("$timeout_command" --signal=TERM --kill-after=2s 10s \
     build/host-allocator/m4_allocator_tests)

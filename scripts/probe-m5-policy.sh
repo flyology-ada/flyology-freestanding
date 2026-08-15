@@ -15,18 +15,18 @@ for architecture in x86_64 aarch64; do
         mkdir -p "$output"
 
         scripts/toolchain.sh exec-at "$architecture" "$output" \
-            "$target-gcc" -c "$repository/runtime/bootstrap/system.ads" \
-            -o system.o -nostdinc -I"$repository/runtime/bootstrap" \
+            "$target-gcc" -c "$repository/src/bootstrap/system.ads" \
+            -o system.o -nostdinc -I"$repository/src/bootstrap" \
             -gnat2022 -gnatg -gnatf \
             -gnatec="$repository/probes/m5/$policy.adc"
         scripts/toolchain.sh exec-at "$architecture" "$output" \
-            "$target-gcc" -c "$repository/runtime/bootstrap/s-stalib.adb" \
-            -o s-stalib.o -nostdinc -I"$repository/runtime/bootstrap" \
+            "$target-gcc" -c "$repository/src/bootstrap/s-stalib.adb" \
+            -o s-stalib.o -nostdinc -I"$repository/src/bootstrap" \
             -gnat2022 -gnatg -gnatf \
             -gnatec="$repository/probes/m5/$policy.adc"
         scripts/toolchain.sh exec-at "$architecture" "$output" \
             "$target-gcc" -c "$repository/probes/m5/policy_probe.adb" \
-            -o policy_probe.o -nostdinc -I"$repository/runtime/bootstrap" \
+            -o policy_probe.o -nostdinc -I"$repository/src/bootstrap" \
             -gnat2022 -gnatf -gnatec="$repository/probes/m5/$policy.adc"
 
         if test "$policy" = round_robin; then
@@ -40,7 +40,7 @@ for architecture in x86_64 aarch64; do
         fi
         scripts/toolchain.sh exec-at "$architecture" "$output" \
             "$target-gnatbind" -nostdinc -nostdlib -n -minimal \
-            "$time_slice" -I"$repository/runtime/bootstrap" -I. \
+            "$time_slice" -I"$repository/src/bootstrap" -I. \
             -o b~policy_probe.adb policy_probe.ali
 
         grep -F "Time_Slice_Value := $expected_slice;" \

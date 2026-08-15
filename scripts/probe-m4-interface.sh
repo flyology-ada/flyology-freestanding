@@ -101,9 +101,9 @@ for architecture in x86_64 aarch64; do
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-gcc" -c "$repository/probes/m4/base_protected_probe.adb" \
         -o base_protected_probe.o -nostdinc \
-        -I"$repository/runtime/bootstrap" -I"$repository/src/primitives" \
+        -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
         -I"$repository/src/gnarl" -gnat2022 -gnatG -gnatf \
-        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        -gnatec="$repository/src/bootstrap/m1.adc" \
         >"$output/base_protected_probe.expanded" 2>&1
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-nm" -u base_protected_probe.o \
@@ -130,7 +130,7 @@ for architecture in x86_64 aarch64; do
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-gcc" -c "$repository/probes/m4/protected_probe.adb" \
         -o protected_probe.o -nostdinc \
-        -I"$repository/runtime/bootstrap" -I"$repository/src/primitives" \
+        -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
         -I"$repository/src/gnarl" -gnat2022 -gnatG -gnatf \
         -gnatec="$repository/runtime/m4/product.adc" \
         >"$output/protected_probe.expanded" 2>&1
@@ -175,7 +175,7 @@ for architecture in x86_64 aarch64; do
         "$target-gcc" -c \
         "$repository/probes/m4/protected_conditional_probe.adb" \
         -o protected_conditional_probe.o -nostdinc \
-        -I"$repository/runtime/bootstrap" -I"$repository/src/primitives" \
+        -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
         -I"$repository/src/gnarl" -gnat2022 -gnatG -gnatf \
         -gnatec="$repository/runtime/m4/product.adc" \
         >"$output/protected_conditional_probe.expanded" 2>&1
@@ -196,7 +196,7 @@ for architecture in x86_64 aarch64; do
         "$target-gcc" -c \
         "$repository/probes/m4/protected_timed_probe.adb" \
         -o protected_timed_probe.o -nostdinc \
-        -I"$repository/runtime/bootstrap" -I"$repository/src/primitives" \
+        -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
         -I"$repository/src/gnarl" -gnat2022 -gnatG -gnatf \
         -gnatec="$repository/runtime/m4/product.adc" \
         >"$output/protected_timed_probe.expanded" 2>&1
@@ -213,9 +213,9 @@ for architecture in x86_64 aarch64; do
         "$target-gcc" -c \
         "$repository/probes/m4/simple_rendezvous_probe.adb" \
         -o simple_rendezvous_probe.o -nostdinc \
-        -I"$repository/runtime/bootstrap" -I"$repository/src/primitives" \
+        -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
         -I"$repository/src/gnarl" -gnat2022 -gnatG -gnatf \
-        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        -gnatec="$repository/src/bootstrap/m1.adc" \
         >"$output/simple_rendezvous_probe.expanded" 2>&1
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-nm" -u simple_rendezvous_probe.o \
@@ -239,9 +239,9 @@ for architecture in x86_64 aarch64; do
         "$target-gcc" -c \
         "$repository/probes/m4/dynamic_priority_probe.adb" \
         -o dynamic_priority_probe.o -nostdinc \
-        -I"$repository/runtime/bootstrap" -I"$repository/src/primitives" \
+        -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
         -I"$repository/src/gnarl" -gnat2022 -gnatG -gnatf \
-        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        -gnatec="$repository/src/bootstrap/m1.adc" \
         >"$output/dynamic_priority_probe.expanded" 2>&1
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-nm" -u dynamic_priority_probe.o \
@@ -259,9 +259,9 @@ for architecture in x86_64 aarch64; do
         "$target-gcc" -c \
         "$repository/probes/m4/conditional_rendezvous_probe.adb" \
         -o conditional_rendezvous_probe.o -nostdinc \
-        -I"$repository/runtime/bootstrap" -I"$repository/src/primitives" \
+        -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
         -I"$repository/src/gnarl" -gnat2022 -gnatG -gnatf \
-        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        -gnatec="$repository/src/bootstrap/m1.adc" \
         >"$output/conditional_rendezvous_probe.expanded" 2>&1
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-nm" -u conditional_rendezvous_probe.o \
@@ -275,9 +275,9 @@ for architecture in x86_64 aarch64; do
         "$target-gcc" -c \
         "$repository/probes/m4/timed_rendezvous_probe.adb" \
         -o timed_rendezvous_probe.o -nostdinc \
-        -I"$repository/runtime/bootstrap" -I"$repository/src/primitives" \
+        -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
         -I"$repository/src/gnarl" -gnat2022 -gnatG -gnatf \
-        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        -gnatec="$repository/src/bootstrap/m1.adc" \
         >"$output/timed_rendezvous_probe.expanded" 2>&1
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-nm" -u timed_rendezvous_probe.o \
@@ -291,9 +291,9 @@ for architecture in x86_64 aarch64; do
         "$target-gcc" -c \
         "$repository/probes/m4/dynamic_task_probe.adb" \
         -o dynamic_task_probe.o -nostdinc \
-        -I"$repository/runtime/bootstrap" -I"$repository/src/primitives" \
+        -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
         -I"$repository/src/gnarl" -gnat2022 -gnatG -gnatf \
-        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        -gnatec="$repository/src/bootstrap/m1.adc" \
         >"$output/dynamic_task_probe.expanded" 2>&1
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-nm" -u dynamic_task_probe.o \
@@ -312,9 +312,9 @@ for architecture in x86_64 aarch64; do
         "$target-gcc" -c \
         "$repository/probes/m4/activation_failure_probe.adb" \
         -o activation_failure_probe.o -nostdinc \
-        -I"$repository/runtime/bootstrap" -I"$repository/src/primitives" \
+        -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
         -I"$repository/src/gnarl" -gnat2022 -gnatG -gnatf \
-        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        -gnatec="$repository/src/bootstrap/m1.adc" \
         >"$output/activation_failure_probe.expanded" 2>&1
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-nm" -u activation_failure_probe.o \
@@ -342,9 +342,9 @@ for architecture in x86_64 aarch64; do
         "$target-gcc" -c \
         "$repository/probes/m4/absolute_delay_probe.adb" \
         -o absolute_delay_probe.o -nostdinc \
-        -I"$repository/runtime/bootstrap" -I"$repository/src/primitives" \
+        -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
         -I"$repository/src/gnarl" -gnat2022 -gnatG -gnatf \
-        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        -gnatec="$repository/src/bootstrap/m1.adc" \
         >"$output/absolute_delay_probe.expanded" 2>&1
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-nm" -u absolute_delay_probe.o \
@@ -361,9 +361,9 @@ for architecture in x86_64 aarch64; do
         "$target-gcc" -c \
         "$repository/probes/m4/selective_wait_probe.adb" \
         -o selective_wait_probe.o -nostdinc \
-        -I"$repository/runtime/bootstrap" -I"$repository/src/primitives" \
+        -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
         -I"$repository/src/gnarl" -gnat2022 -gnatG -gnatf \
-        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        -gnatec="$repository/src/bootstrap/m1.adc" \
         >"$output/selective_wait_probe.expanded" 2>&1
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-nm" -u selective_wait_probe.o \
@@ -380,9 +380,9 @@ for architecture in x86_64 aarch64; do
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-gcc" -c "$repository/probes/m4/abort_probe.adb" \
         -o abort_probe.o -nostdinc \
-        -I"$repository/runtime/bootstrap" -I"$repository/src/primitives" \
+        -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
         -I"$repository/src/gnarl" -gnat2022 -gnatG -gnatf \
-        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        -gnatec="$repository/src/bootstrap/m1.adc" \
         >"$output/abort_probe.expanded" 2>&1
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-nm" -u abort_probe.o >"$output/abort_probe.undefined"
@@ -401,7 +401,7 @@ for architecture in x86_64 aarch64; do
         "$target-gcc" -c \
         "$repository/probes/m4/abort_dynamic_probe.adb" \
         -o abort_dynamic_probe.o -nostdinc \
-        -I"$repository/runtime/bootstrap" -I"$repository/src/primitives" \
+        -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
         -I"$repository/src/gnarl" -gnat2022 -gnatG -gnatf \
         -gnatec="$repository/runtime/m4/product.adc" \
         >"$output/abort_dynamic_probe.expanded" 2>&1
@@ -434,9 +434,9 @@ for architecture in x86_64 aarch64; do
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-gcc" -c "$repository/probes/m4/task_root_probe.adb" \
         -o task_root_probe.o -nostdinc \
-        -I"$repository/runtime/bootstrap" -I"$repository/src/primitives" \
+        -I"$repository/src/bootstrap" -I"$repository/src/primitives" \
         -I"$repository/src/gnarl" -gnat2022 -gnatG -gnatf \
-        -gnatec="$repository/runtime/bootstrap/m1.adc" \
+        -gnatec="$repository/src/bootstrap/m1.adc" \
         >"$output/task_root_probe.expanded" 2>&1
     scripts/toolchain.sh exec-at "$architecture" "$output" \
         "$target-nm" -u task_root_probe.o \

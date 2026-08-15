@@ -39,7 +39,7 @@ export SOURCE_DATE_EPOCH=1786502400
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
     -c runtime/m0/flyology_m0.adb \
     -o "$output_directory/flyology_m0.o" \
-    -nostdinc -Iruntime/bootstrap \
+    -nostdinc -Isrc/bootstrap \
     -gnat2022 -gnatp -gnatws \
     -fno-stack-protector -fno-pic -fno-pie \
     $architecture_flags
