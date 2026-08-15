@@ -40,8 +40,9 @@ checkpoint responsibilities.
   profiles; it owns no mutable runtime state.
 - `tests/target/scenarios/` contains ordinary-Ada conformance clients rather than
   runtime implementation.
-- `tests/legacy/checkpoints/` contains isolated bootstrap/interrupt compatibility
-  applications and is rejected from every supported product source path.
+- `tests/platform/` contains isolated minimal compiler-link, binder/boot, and
+  interrupt-frame boundary applications and is rejected from every supported
+  product source path.
 
 The stable image entry point is `scripts/build-product.sh ARCH PROFILE`; the
 artifact is `flyology.elf`. Profiles are `tasking`, `preemptive-fifo`,
@@ -140,11 +141,12 @@ rejects reintroduction of a shell `compile_ada` source graph.
 
 ### Medium — compatibility checkpoint applications remain tracked
 
-Disposition: quarantined, not deleted. They exercise bootstrap and interrupt
-boundaries that the full product image cannot isolate. Product project hygiene
-proves they are absent from supported source paths. Removal requires evidence
-that their negative/early-boundary coverage is redundant, not merely that their
-code is old.
+Disposition: reclassified as platform boundary verification, not legacy product
+scaffolding. The census found unique minimal compiler linkage, binder
+elaboration/last-chance, and complete interrupt-frame responsibilities that the
+full product image cannot isolate. The applications now live under
+`tests/platform/`; product project hygiene proves they are absent from supported
+source paths and rejects reintroduction of `tests/legacy/`.
 
 ## Residual limits
 

@@ -44,10 +44,9 @@ until its build, proof, review, and QEMU evidence is recorded.
 - `gpr/` — the host primitive-library project, freestanding Ada image project,
   and relocatable no-installed-runtime cross-toolchain configuration.
 - `scripts/` — authoritative build, test, proof, and reproducibility entry points.
-- `tests/legacy/checkpoints/` — quarantined bootstrap and interrupt-substrate
-  checkpoint applications,
-  retained temporarily for compatibility gates and never linked by product
-  profiles.
+- `tests/platform/` — minimal compiler-link, binder/boot, and interrupt-frame
+  boundary applications; these are platform verification clients and are never
+  linked by product profiles.
 - `tests/target/scenarios/` — ordinary-Ada conformance image and behavioral workloads.
 
 Product profiles select configuration views for `gpr/flyology_image.gpr`.

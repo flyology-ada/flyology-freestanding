@@ -37,7 +37,7 @@ export LC_ALL=C
 export SOURCE_DATE_EPOCH=1786502400
 
 scripts/toolchain.sh exec "$architecture" "$target-gcc" \
-    -c tests/legacy/checkpoints/bootstrap-minimum/flyology_bootstrap_minimum.adb \
+    -c tests/platform/bootstrap-minimum/flyology_bootstrap_minimum.adb \
     -o "$output_directory/flyology_bootstrap_minimum.o" \
     -nostdinc -Isrc/bootstrap \
     -gnat2022 -gnatp -gnatws \

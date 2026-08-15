@@ -111,8 +111,8 @@ Obsolete experimental scaffolding follows a proof-grade subtraction protocol:
 6. Consolidate compiler-facing units, probes, and evidence manifests.
 7. Replace chronological build/test entry points and ABI names with capability
    gates and stable product profiles.
-8. Quarantine bootstrap/interrupt experiments under `tests/legacy/checkpoints/`
-   and reject them from supported product source paths.
+8. Preserve unique bootstrap/interrupt boundary applications under
+   `tests/platform/` and reject them from supported product source paths.
 9. Replace the procedural Ada source/object graph with a target GPR project and
    a relocatable freestanding compiler configuration.
 

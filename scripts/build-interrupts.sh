@@ -45,7 +45,7 @@ compile_ada() {
     scripts/toolchain.sh exec "$architecture" "$target-gcc" \
         -c "$source" -o "$output_directory/$object" \
         -nostdinc -Isrc/bootstrap -Isrc/primitives \
-        -Itests/legacy/checkpoints/interrupts \
+        -Itests/platform/interrupts \
         -I"src/platform/$architecture" -I"$output_directory" \
         $style_flags -gnatw.X -gnato -gnatec=config/restrictions/bootstrap.adc \
         -ffunction-sections -fdata-sections \
@@ -70,17 +70,17 @@ compile_ada "src/platform/$architecture/flyology-interrupt_frames.ads" \
     flyology-interrupt_frames.o
 compile_ada "src/platform/$architecture/flyology-platform.adb" \
     flyology-platform.o
-compile_ada tests/legacy/checkpoints/interrupts/flyology-interrupt_checkpoint_runtime.adb \
+compile_ada tests/platform/interrupts/flyology-interrupt_checkpoint_runtime.adb \
     flyology-interrupt_checkpoint_runtime.o
 compile_ada src/bootstrap/flyology-binder_support.adb \
     flyology-binder_support.o
-compile_ada tests/legacy/checkpoints/interrupts/flyology_interrupt_checkpoint.adb flyology_interrupt_checkpoint.o
+compile_ada tests/platform/interrupts/flyology_interrupt_checkpoint.adb flyology_interrupt_checkpoint.o
 
 scripts/toolchain.sh exec-at "$architecture" "$output_directory" \
     "$target-gnatbind" \
     -nostdinc -nostdlib -n -minimal \
     -I../../../src/bootstrap -I../../../src/primitives \
-    -I../../../tests/legacy/checkpoints/interrupts \
+    -I../../../tests/platform/interrupts \
     -I../../../src/platform/"$architecture" \
     -I. flyology_interrupt_checkpoint.ali
 
