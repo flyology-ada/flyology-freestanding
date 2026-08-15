@@ -31,4 +31,13 @@ bootstrap checkpoint compiles under the explicit `No_Exception_Propagation` rest
 
 ## Limine compatibility records
 
-The request identifiers and record ordering in `arch/*/limine_requests.S` are compatibility constants copied from Limine's 0BSD protocol header at the exact revision pinned in `docs/external-inputs.md`. The linker asserts the complete six-request region is exactly 400 bytes, and `scripts/inspect-bootstrap.sh` independently checks every record offset, the final ELF geometry, relocation state, required symbols, and empty undefined-symbol set. Response fields are consumed according to the public protocol record layout, with revision, count, pointer, paging-mode, x2APIC, extent, memory-type, overlap, translated-range, and topology-identity validation before AP release.
+The request identifiers and record ordering in
+`src/platform/*/limine_requests.S` are compatibility constants copied from
+Limine's 0BSD protocol header at the exact revision pinned in
+`docs/external-inputs.md`. The linker asserts the complete six-request region is
+exactly 400 bytes, and `scripts/inspect-bootstrap.sh` independently checks every
+record offset, final-ELF geometry, relocation state, required symbol, and empty
+undefined-symbol set. Response fields are consumed according to the public
+protocol record layout, with revision, count, pointer, paging-mode, x2APIC,
+extent, memory-type, overlap, translated-range, and topology-identity validation
+before AP release.

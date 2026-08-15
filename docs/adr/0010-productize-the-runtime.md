@@ -5,14 +5,11 @@
 
 ## Context
 
-Flyology was developed as a sequence of independently gated milestones. That
-made early uncertainty visible and kept each checkpoint reviewable, but the
-milestone names have become accidental architecture. Current production builds
-assemble sources from four sequential milestone directories;
-the principal GNARL semantic facade is named `Flyology.M3_Runtime`; the platform
-contract is named `Flyology.M2_Architecture`; target entry assembly still uses
-an `m1_entry.S` filename; and demonstrations, structured evidence markers, and
-runtime implementation coexist in the same packages.
+Flyology was developed as a sequence of independently gated experiments. That
+made early uncertainty visible and kept each capability reviewable, but the
+development sequence became accidental architecture: source ownership,
+compiler facades, platform contracts, demonstrations, structured markers, and
+build entry points were indexed by chronology instead of responsibility.
 
 Those names describe discovery order, not responsibility. Keeping them as the
 permanent structure obscures dependencies, makes subtraction unsafe, and makes
@@ -39,20 +36,21 @@ src/rts/          activation, masters, abort, rendezvous, protected objects
 src/gnarl/        Ada and System compiler-compatibility units
 src/abi/          unavoidable C/unwind/allocator ABI boundaries
 src/platform/     common contract plus x86_64 and aarch64 implementations
-src/boot/limine/  validated Limine protocol and bootstrap handoff
+src/bootstrap/    binder and root predefined-unit substrate
+boot/             Limine image configuration
 config/           product policy/domain configurations
 tests/            host models, compiler probes, target scenarios and support
 formal/           SPARK proof projects and TLA+ design models
 gpr/              component and image projects
 ```
 
-The names describe the steady state. Migration may retain existing paths behind
-project source directories and narrow forwarding packages, but no new product
-API may acquire a milestone name.
+These names describe the steady state. Maintained paths, symbols, markers,
+configuration, probes, and reviews use capability or responsibility names;
+numbered development-stage identifiers are rejected by repository hygiene.
 
-### Invariants during migration
+### Invariants
 
-- `Flyology.Task_Core` remains the sole production authority for task state,
+- `Flyology.Kernel` remains the sole production authority for task state,
   current-task ownership, exact waits, ready membership, and context handoff
   until its responsibilities are mechanically split. No parallel replacement
   state machine is permitted.
@@ -72,52 +70,57 @@ API may acquire a milestone name.
 
 ### Build and product shape
 
-A root Alire crate and GPR project graph will become the supported developer
-entry point. Alire selects and records tools; GPR projects express component
-source ownership and image composition. Freestanding target images may continue
-to require explicit binder, linker-script, firmware, and FAT-image steps, but
-those steps must consume project-produced objects rather than reconstructing a
-second source graph in shell.
+A root Alire crate and aggregate GPR project are the supported host-library
+entry point. They build the deterministic `src/primitives/` packages as
+`libflyology_primitives.a`. Freestanding images use the pinned cross workspaces
+and an explicit composition builder because compiler predefined units, binder
+generation, architecture linker scripts, firmware, and FAT-image construction
+are part of the checked target ABI. That builder consumes responsibility-owned
+source roots and emits the stable `flyology.elf` product; it is not a second
+runtime implementation graph.
 
-The intended reusable products are a kernel archive, a GNARL/RTS archive, and
-target platform objects, composed into a freestanding image. Whether a compiler
-predefined unit can reside in a particular archive is decided by an executable
-link gate, not assumed from the desired diagram.
+The reusable library is intentionally the deterministic primitive layer. The
+concurrent kernel, GNARL/RTS facade, foreign ABI, and platform objects are
+composed into a freestanding image and are not advertised as independently
+linkable archives until an executable link gate proves such a boundary useful.
 
 ### Evidence and history
 
-Milestone reviews, serial-marker meanings, and clean-room discovery records are
-historical evidence and are not rewritten to pretend the final structure always
-existed. They move, if needed, under a history/evidence namespace with redirects
-or links. Current product documentation uses capability names.
+Capability reviews, serial-marker meanings, and clean-room discovery records
+preserve the observed facts, commands, hashes, and limitations while using the
+current responsibility names. Current product documentation and executable
+interfaces use the same capability vocabulary.
 
-Obsolete milestone scaffolding follows a proof-grade subtraction protocol:
+Obsolete experimental scaffolding follows a proof-grade subtraction protocol:
 
 1. census callers, external symbols, proof roots, probe references, and gates;
 2. quarantine it from supported project source paths;
 3. run the full capability gate without it; and
 4. delete it only when the evidence demonstrates zero remaining responsibility.
 
-## Migration slices
+## Implemented slices
 
 1. Record this decision and the clean-room evidence schema.
-2. Add the Alire/GPR build graph while retaining differential legacy builds.
-3. Extract target demonstrations and markers from product packages.
-4. Split kernel and RTS monoliths behind their existing typed boundaries.
-5. Rename and split platform contracts and target assembly.
+2. Add the Alire/GPR deterministic-library build while retaining target gates.
+3. Extract target conformance scenarios and markers from product packages.
+4. Establish `Flyology.Kernel` as the sole concurrent state authority and
+   `Flyology.RTS` as GNARL semantic glue.
+5. Consolidate platform contracts and target assembly by architecture.
 6. Consolidate compiler-facing units, probes, and evidence manifests.
-7. Replace milestone build/test entry points with capability gates.
-8. Quarantine and remove obsolete scaffolding after the full proof, model,
-   reproducibility, inspection, and target matrix passes.
+7. Replace chronological build/test entry points and ABI names with capability
+   gates and stable product profiles.
+8. Quarantine bootstrap/interrupt experiments under `tests/legacy/checkpoints/`
+   and reject them from supported product source paths.
 
-Each slice is a reviewed commit. A failed differential gate stops the migration;
-it is not papered over by weakening an older test.
+Each slice was committed independently. A failed differential gate stopped the
+reorganization; it was not papered over by weakening an existing test.
 
 ## Consequences
 
-For a transition period, the repository contains both historical milestone paths
-and the emerging responsibility-based projects. That temporary duplication is
-controlled by the migration plan and must decrease after each compatibility
-window. The result is a smaller conceptual API, independently buildable layers,
-clearer clean-room provenance, and a product whose source layout describes its
-actual ownership rather than its chronological development.
+The repository now has one responsibility-based product graph and a quarantined
+set of bootstrap/interrupt compatibility applications. The result is a smaller
+conceptual API, an independently buildable deterministic library, clearer
+clean-room provenance, and a product whose source layout describes actual
+ownership rather than chronological development. Checkpoint applications remain
+only while their isolated compatibility gates add evidence not covered by the
+product matrix; they are never linked into a supported product profile.

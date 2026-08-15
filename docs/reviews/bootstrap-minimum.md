@@ -17,7 +17,7 @@ The authoritative image gate built each target twice into independent output dir
 
 `GNATprove FSF 16.1.0` completed `Success: all checks proved (16 checks)` for the initial deterministic validation kernel. The proof covers checked extent arithmetic, Ada CPU/Core conversion, task-state transition legality, and wake-generation increment. The generated invocation header is in the ignored build output at `build/proof/gnatprove/gnatprove.out`.
 
-External inputs and checksums are pinned in `docs/external-inputs.md`. The target compilers intentionally have no default runtime. `runtime/bootstrap/system.ads` is the independently discovered clean-room minimum: an empty package declaration, which is the complete compiler-required surface for the owned bootstrap-minimum checkpoint no-op probe on both targets. Evidence is recorded under `docs/clean-room/`.
+External inputs and checksums are pinned in `docs/external-inputs.md`. The target compilers intentionally have no default runtime. `src/bootstrap/system.ads` is the independently discovered clean-room minimum: an empty package declaration, which is the complete compiler-required surface for the owned bootstrap-minimum checkpoint no-op probe on both targets. Evidence is recorded under `docs/clean-room/`.
 
 ## Findings and dispositions
 

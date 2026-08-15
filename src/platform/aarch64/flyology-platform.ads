@@ -63,7 +63,7 @@ package Flyology.Platform is
    with Import, Convention => C,
         External_Name => "flyology_platform_read_clock";
 
-   --  Raw foreign value.  Task_Core validates it before conversion to the
+   --  Raw foreign value.  Flyology.Kernel validates it before conversion to the
    --  constrained proof-domain frequency type.
    function Clock_Frequency return System.Address
    with Import, Convention => C,

@@ -77,7 +77,7 @@ entry-call and service hooks; simple/timed/conditional task entry calls;
 accept/select completion hooks; dynamic task abort/activation cleanup; delay;
 and dynamic-priority operations. Private controlled record layouts that the
 compiler does not expose remain deliberately unspecified. Implementations must
-bind these facades to the single Task_Core state authority and exact-token wait
+bind these facades to the single kernel state authority and exact-token wait
 arbitration rather than introduce a second scheduler or public task API.
 
 The native GNAT 15.3 expansion of the owned delay probe lowers relative
@@ -153,7 +153,7 @@ object avoids.
 The product representation owns a bounded 16-call queue using the proved
 exact-token FIFO wait-queue model. A closed barrier
 publishes the caller's exact task reference and wait generation while the one
-RTS lock is held, then uses Task_Core's atomic block-and-release handoff. The
+RTS lock is held, then uses kernel's atomic block-and-release handoff. The
 opening protected procedure evaluates barriers under the same lock, executes
 the selected action, removes exactly that call, enqueues the exact waiter once,
 releases the protected action, and only then sends the local or remote
@@ -246,7 +246,7 @@ The product demonstration creates the server with ordinary Ada syntax, pins it
 to the last configured Ada CPU, and calls it from the core-0 environment task.
 The implementation queues a bounded call record, blocks each participant with
 the common generation-tagged exact-wait mechanism, and performs both remote
-wakes through Task_Core. All four architecture/CPU-count cells require the
+wakes through the kernel. All four architecture/CPU-count cells require the
 returned `in out` value before emitting `FLYOLOGY:RTS:RENDEZVOUS:PASS`.
 
 For exceptional accept completion, the accepted call record remains owned by
@@ -265,13 +265,13 @@ the product emit `FLYOLOGY:RTS:EXCEPTION_ABORT:PASS`.
 
 This identity-only transfer is not full Exception_Occurrence copying.
 Asynchronous calls, entry families, requeue, and priority-ordered entry queues
-remain unsupported outside the bounded synchronization capability milestone outcome.
+remain unsupported outside the bounded synchronization capability outcome.
 
 The language-defined `Ada.Dynamic_Priorities` facade follows
 [Ada RM D.5.1](https://www.adaic.org/resources/add_content/standards/22rm/html/RM-D-5-1.html).
 The owned `dynamic_priority_probe.adb` confirms that both targets retain
 `Set_Priority`, `Get_Priority`, and `Current_Task` calls with the RM parameter
-ordering. Flyology maps these calls to Task_Core's base-priority field; a Ready
+ordering. Flyology maps these calls to kernel's base-priority field; a Ready
 task is removed and reinserted by the proved priority policy, and a remote
 target receives a reschedule request. The proved ceiling model defers the
 active effect of a base-priority change while a protected action is in
@@ -476,7 +476,7 @@ execute its post-select statement, both identities must be terminated and not
 callable, and only then is `FLYOLOGY:RTS:TERMINATE_ALTERNATIVE:PASS` emitted.
 Multiple accept alternatives, guarded alternatives, else/delay alternatives,
 timed selective wait, and priority queueing remain unsupported outside the
-bounded synchronization capability milestone outcome.
+bounded synchronization capability outcome.
 
 Normal task destruction now separates the stable language identity from its
 bounded execution slot. Completion is also explicitly two-phase: the task
@@ -486,7 +486,7 @@ whose live stack address is validated inside that dispatcher extent may change
 `Retiring` to `Terminated`, publish the standard identity state, decrement the
 master, or wake its owner. A different core therefore cannot reclaim a stack
 that still contains the terminating task's frames. After the owning master has
-observed every dependent termination, Task_Core verifies that the exact
+observed every dependent termination, the kernel verifies that the exact
 incarnation is terminated,
 not current, absent from every ready queue and timer table, has no active wait,
 and retains its stack canary. It then releases only the execution record,
@@ -527,7 +527,7 @@ enqueue the task twice. Delivery occurs only with abort depth zero: the runtime
 clears the pending request, marks delivery in progress to make duplicate abort
 requests idempotent, and raises a private bounded exception occurrence. The
 compiler cleanup marks completion, and the task-root handler contains the
-unwind before normal Task_Core termination, exact master notification, stack
+unwind before normal kernel termination, exact master notification, stack
 canary validation, and execution-slot reclamation.
 
 The SMP stress gate exposed the complementary abort-before-publication race: a

@@ -59,6 +59,7 @@ runtime library sources. Structured serial markers therefore describe a scenario
 assertion and do not enlarge the product API.
 
 The capability entry point configures one `scripts/build-image.sh` composition
-builder directly; milestone wrappers are compatibility clients only.
+builder directly. Capability verification scripts consume the same builder;
+there is no parallel numbered-stage product build graph.
 `scripts/verify-product-build.sh` rebuilds every profile in two independent
 output roots for both targets and requires identical ELF and FAT SHA-256 values.

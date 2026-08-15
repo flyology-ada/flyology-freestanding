@@ -18,7 +18,7 @@ suspended task's continuation.
 Each execution slot owns one complete-context record. Interrupt ingress first
 normalizes and validates the architecture frame and publishes the request
 epoch. It then makes one nonblocking attempt to enter the RTS critical section.
-On success, `Task_Core` accounts the current budget, asks the proved policy
+On success, `Flyology.Kernel` accounts the current budget, asks the proved policy
 kernel for a cause, copies the complete frame into the current task's slot,
 commits the checked Running-to-Ready transition, and returns the already-saved
 dispatcher context address. The architecture then abandons the exception frame
@@ -49,7 +49,7 @@ only when resuming the task.
 Timer expiry and reschedule IPI/SGI are both prompts into the same checked
 callback. A nested runtime critical section records the request but cannot
 switch. Scheduler policy returns ordering/selection and a preemption cause;
-only `Task_Core` changes ownership and only architecture code transfers state.
+only `Flyology.Kernel` changes ownership and only architecture code transfers state.
 Changing a Ready task's base priority removes the exact ready entry and
 reinserts it at the tail of its new active-priority queue with a fresh sequence;
 round-robin execution receives a new budget only on the next dispatch.

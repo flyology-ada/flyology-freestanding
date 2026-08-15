@@ -26,7 +26,7 @@ run had a 20-second timeout and rejected `FLYOLOGY:FAIL:` and `PANIC:`.
 GNATprove proved all 403 generated checks in 19 SPARK-analyzed deterministic
 units, with zero justified or unproved checks and no `Assume`. The report
 records 181 run-time checks, 45 assertions, 66 functional contracts, and 106
-termination checks. `Flyology.Task_Core`, imported task-primitives declarations,
+termination checks. `Flyology.Kernel`, imported task-primitives declarations,
 compiler-facing GNARL facades, assembly, the C unwinder, and the allocator's C
 metadata/critical-section facade remain outside SPARK behind typed boundaries.
 The production runtime directly calls the proved dispatcher, priority queue,
@@ -180,7 +180,7 @@ serialized SMP4 runs after removing the invalid scheduling assumption.
 ## Perspective review
 
 - Architecture and boundary integrity: GNARL owns language synchronization and
-  lifecycle; Task_Core owns task state, exact waits, timer tables, queues,
+  lifecycle; the kernel owns task state, exact waits, timer tables, queues,
   context handoff, and idle; scheduler policy owns ready ordering only;
   architecture owns clocks, local timers, interrupt frames, and notifications.
 - Systems/hardware correctness: x86 uses ordered TSC reads and calibrated

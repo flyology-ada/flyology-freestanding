@@ -40,7 +40,7 @@ target ABI; no assembly or C adapter is required.
 
 dispatching-domain capability retains the Ada 2022 public package shape, including range and `CPU_Set`
 creation, domain/CPU queries, assignment operations, and
-`Delay_Until_And_Set_CPU`. The product milestone closes only immutable initial
+`Delay_Until_And_Set_CPU`. The bounded product capability closes only immutable initial
 membership through task aspects and inheritance. Cross-domain reassignment is
 explicitly unsupported under ADR-0003 and must raise the language domain error
 rather than partially transferring ready, timer, protected-action, or context
@@ -73,7 +73,7 @@ evidence. GNATprove proves the deterministic domain transition kernel and its
 exact frame conditions. The bounded Ada host model checks representative
 creation and admission sequences. TLC explores domain creation, inheritance,
 specific and automatic placement, dispatch, and round-robin rotation across
-5,408 distinct states. None of those checks proves the concurrent `Task_Core`,
+5,408 distinct states. None of those checks proves concurrent `Flyology.Kernel`,
 compiler-facing facade, secondary-stack implementation, architecture context
 handoff, or hardware. Those boundaries are instead checked by both-target
 compiler probes, ELF/layout inspection, and bounded QEMU execution.

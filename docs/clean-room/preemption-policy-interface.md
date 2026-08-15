@@ -38,7 +38,7 @@ budgets, and returns only a preemption cause. The priority-ready policy owns
 head/tail ordering and next selection. A base-priority change of a Ready task
 removes the exact entry and reinserts it at the tail of the new active-priority
 queue with a fresh sequence; a round-robin budget is replenished only when the
-task is next dispatched. `Flyology.Task_Core` commits the one checked
+task is next dispatched. `Flyology.Kernel` commits the one checked
 Running-to-Ready transition and owns task-local complete-context storage.
 Architecture interrupt entry captures the enabled machine state and returns
 either to the interrupted instruction or to the already-saved dispatcher
@@ -81,7 +81,7 @@ and reloaded by the loop rather than treated as a constant canary.
 This is a fixed QEMU/GNAT product claim only. x86 enables x87/SSE with
 `XCR0=3`; AVX/AVX-512/AMX are disabled. AArch64 enables base FP/SIMD only;
 SVE/SME are disabled. Proof covers deterministic policy and arithmetic
-kernels, not concurrent `Task_Core`, interrupt assembly, timer hardware, or
+kernels, not concurrent `Flyology.Kernel`, interrupt assembly, timer hardware, or
 the QEMU execution itself.
 
 Reference: Ada RM D.2.3 (Preemptive Dispatching) and D.2.5 (Round Robin

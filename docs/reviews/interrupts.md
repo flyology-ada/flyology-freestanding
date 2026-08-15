@@ -82,7 +82,7 @@ The two architecture entries remain separate because their exception frames, con
 - interrupt-substrate checkpoint captures and restores complete enabled interrupt state and posts dispatch requests, but it does not switch Ada task contexts from interrupt return. Real interrupt-driven preemption is preemption capability.
 - Sticky reason bits over-approximate historical causes. They are safe against lost requests but must be refined before reason-specific quantum accounting in preemption capability.
 - The assembler layout tables duplicate the numeric save/restore offsets. The current gate catches Ada/table drift and frame canaries catch exercised corruption, but shared assembler constants or disassembly validation should remove this residual drift risk before preemption capability.
-- `verify-m2-reproducible.sh` performs two same-host rebuilds in the same output roots. It proves deterministic output under the pinned environment, not an independently provisioned clean-room builder.
+- `verify-interrupts-reproducible.sh` performs two same-host rebuilds in separate output roots. It proves deterministic output under the pinned environment, not an independently provisioned clean-room builder.
 - No ordinary Ada task declarations, GNARL lifecycle semantics, dynamic allocation, exception propagation, synchronization, delay, or reclamation are claimed.
 - Shellcheck was unavailable. `sh -n`, warnings-as-errors, proof, layout, ELF, reproducibility, and all QEMU gates did run.
 

@@ -7,7 +7,7 @@ manifest="$repository/docs/clean-room/interfaces.toml"
 test -f "$manifest"
 
 schema_version=$(awk -F ' *= *' '$1 == "schema_version" { print $2 }' "$manifest")
-test "$schema_version" = 1
+test "$schema_version" = 2
 
 ids=$(awk -F ' *= *' '$1 == "id" { gsub(/^"|"$/, "", $2); print $2 }' "$manifest")
 test -n "$ids"
@@ -25,7 +25,8 @@ for status in $statuses; do
     esac
 done
 
-for key in methodology toolchain_lock record probe implementation gate; do
+for key in methodology toolchain_lock record probe implementation \
+    implementation_inventory gate; do
     awk -F ' *= *' -v key="$key" '$1 == key {
         value = $2
         gsub(/^"|"$/, "", value)
@@ -39,7 +40,30 @@ for key in methodology toolchain_lock record probe implementation gate; do
     done
 done
 
-expected_fields='id compiler architectures record probe implementation gate status claims proof_scope'
+awk -F ' *= *' '$1 == "implementation_inventory" {
+    value = $2
+    gsub(/^"|"$/, "", value)
+    print value
+}' "$manifest" |
+while IFS= read -r inventory_path; do
+    test -n "$inventory_path"
+    while IFS= read -r implementation_path; do
+        case "$implementation_path" in
+            ''|'#'*) continue ;;
+        esac
+        if [ ! -f "$repository/$implementation_path" ]; then
+            echo "clean-room implementation path does not exist: $implementation_path" >&2
+            exit 1
+        fi
+        if ! git -C "$repository" ls-files --error-unmatch \
+            "$implementation_path" >/dev/null 2>&1; then
+            echo "clean-room implementation path is not tracked: $implementation_path" >&2
+            exit 1
+        fi
+    done < "$repository/$inventory_path"
+done
+
+expected_fields='id compiler architectures record probe implementation implementation_inventory gate status claims proof_scope'
 awk -v expected="$expected_fields" '
     function fail(message) {
         print message > "/dev/stderr"

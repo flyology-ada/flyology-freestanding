@@ -58,7 +58,7 @@ fi
 if rg -n 'Flyology\.(M[0-9]_Architecture|M[0-9]_Configuration|M[0-9]_Hook)' \
     "$repository/src" "$repository/config" "$repository/tests/target" \
     >/dev/null; then
-    echo 'milestone-named product configuration or platform unit found' >&2
+    echo 'numbered-stage product configuration or platform unit found' >&2
     exit 1
 fi
 
@@ -66,13 +66,13 @@ if find "$repository" \
     \( -path "$repository/.git" -o -path "$repository/build" \) -prune \
     -o -print | sed "s#^$repository/##" | \
     rg '(^|[/_.-])m[0-9]([/_.-]|$)' >/dev/null; then
-    echo 'milestone name found in the maintained filesystem' >&2
+    echo 'numbered-stage name found in the maintained filesystem' >&2
     exit 1
 fi
 
 if rg -n '^procedure Flyology_M[0-9]' \
     "$repository/tests/target/scenarios" >/dev/null; then
-    echo 'milestone-named conformance main found' >&2
+    echo 'numbered-stage conformance main found' >&2
     exit 1
 fi
 
@@ -84,7 +84,13 @@ if rg -n 'FLYOLOGY_M[0-9]|flyology_m[0-9]|FLYOLOGY:M[0-9]:|\bm[0-9]_' \
     "$repository/scripts/inspect-image.sh" \
     "$repository/scripts/run-image.sh" \
     "$repository/scripts/run-product.sh" >/dev/null; then
-    echo 'milestone identifier found in the current product surface' >&2
+    echo 'numbered-stage identifier found in the current product surface' >&2
+    exit 1
+fi
+
+if git -C "$repository" ls-files -z | xargs -0 rg -n -i \
+    '(^|[^[:alnum:]])m[0-9]([^[:digit:]]|$)' >/dev/null; then
+    echo 'numbered-stage identifier found in maintained content' >&2
     exit 1
 fi
 

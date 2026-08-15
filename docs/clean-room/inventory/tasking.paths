@@ -1,0 +1,17 @@
+# Compiler facade plus the exact semantic/state boundaries used by ordinary tasking.
+src/gnarl/s-taskin.ads
+src/gnarl/s-taskin.adb
+src/gnarl/s-tassta.ads
+src/gnarl/s-tassta.adb
+src/gnarl/s-soflin.ads
+src/gnarl/s-soflin.adb
+src/gnarl/s-multip.ads
+src/gnarl/s-multip.adb
+src/gnarl/a-taside.ads
+src/gnarl/a-taside.adb
+src/gnarl/a-taidco.ads
+src/gnarl/a-taidco.adb
+src/rts/flyology-rts.ads
+src/rts/flyology-rts.adb
+src/kernel/flyology-kernel.ads
+src/kernel/flyology-kernel.adb

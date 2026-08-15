@@ -18,7 +18,7 @@ SMP4 dispatching-domain capability campaign five times. Every QEMU run had a 20-
 `FLYOLOGY:FAIL:` and `PANIC:`.
 
 The manifest is the SHA-256 of the sorted SHA-256 list for every regular file
-under `arch`, `formal`, `probes`, `runtime`, `scripts`, and `tests`. It identifies
+under `src`, `formal`, `probes`, `config`, `scripts`, and `tests`. It identifies
 the exact implementation, formal models, probes, and gates independently of
 this review and the roadmap status edit; the unchanged Git base is the commit
 listed above.
@@ -34,7 +34,7 @@ initialization, all-or-none creation with exact frame conditions, placement for
 both compiler automatic-CPU sentinels and specific CPUs, and explicit/inherited
 admission. It also reruns the deterministic dispatcher, policy, ready-position,
 wait, timer, lifecycle, ceiling, termination, abort-closure, and allocator
-arithmetic kernels. Concurrent `Flyology.Task_Core`, imported task-primitives
+arithmetic kernels. Concurrent `Flyology.Kernel`, imported task-primitives
 declarations, compiler-facing GNARL facades, secondary-stack machinery,
 architecture assembly, hardware, the C unwinder, and C allocator synchronization
 remain outside SPARK behind checked boundaries.
@@ -104,7 +104,7 @@ run proves 476/476 checks.
 ## Perspective review
 
 - Architecture and boundary integrity: GNARL retains language semantics;
-  `Task_Core` owns task/domain state and context handoff; each domain selects
+  `Flyology.Kernel` owns task/domain state and context handoff; each domain selects
   one scheduler policy; architecture code only captures/restores frames and
   performs interrupt notification/transfer.
 - Ada/compiler compatibility: application code uses ordinary task declarations,

@@ -2,16 +2,16 @@
 
 Flyology Barebones is a freestanding GNAT Ada tasking runtime for the fixed QEMU x86-64 `q35` and AArch64 `virt` virtual-hardware contracts. It aims to supply the runtime core, full-GNARL tasking integration, SMP dispatcher, synchronization primitives, scheduler policies, and architecture support from which a system can be built. It is not an operating-system distribution.
 
-The first release is not complete. The independently gated milestones in
-[ROADMAP.md](ROADMAP.md) are historical capability checkpoints. The runtime is
-now being productized around responsibility-owned components under
+The first release is not complete. [ROADMAP.md](ROADMAP.md) records the
+independently gated capabilities. The runtime is organized around
+responsibility-owned components under
 [ADR-0010](docs/adr/0010-productize-the-runtime.md); no capability is complete
 until its build, proof, review, and QEMU evidence is recorded.
 
 ## Product constraints
 
 - Ordinary Ada task declarations and GNARL own language-level tasking semantics.
-- x86-64 and AArch64 remain supported together from the first boot milestone onward.
+- x86-64 and AArch64 remain supported together from the first boot capability onward.
 - Every applicable QEMU gate covers one and four virtual CPUs.
 - SMP, remote rescheduling, and scheduling domains are part of the first-release architecture.
 - Networking, storage, filesystems, TLS, framebuffer UI, general ACPI/DTB discovery, and broad physical-server claims are out of scope through dispatching-domain capability.
@@ -19,10 +19,12 @@ until its build, proof, review, and QEMU evidence is recorded.
 ## Repository map
 
 - `ARCHITECTURE.md` — normative layering and invariants.
-- `ROADMAP.md` — milestone gates and current status.
+- `ROADMAP.md` — capability gates and current status.
 - `docs/adr/` — durable design decisions.
-- `docs/reviews/` — evidence-based milestone reviews.
+- `docs/reviews/` — evidence-based capability reviews.
 - `docs/clean-room/` — normative compiler-interface methodology and evidence.
+- `docs/primitives.md` — responsibility catalog and boundary of the reusable
+  deterministic primitive library.
 - `docs/build.md` — Alire primitive-library and freestanding image builds.
 - `src/kernel/` — the single concurrent task-state, ready-queue, dispatcher,
   timer, and context-transfer authority (`Flyology.Kernel`).
@@ -39,7 +41,7 @@ until its build, proof, review, and QEMU evidence is recorded.
   Limine request, and linker implementations.
 - `config/` — named restriction, scheduler-policy, scheduling-domain, and
   product capability selections; configuration is not runtime state.
-- `scripts/` — authoritative build, test, proof, and reproducibility entry points (introduced during bootstrap-minimum checkpoint).
+- `scripts/` — authoritative build, test, proof, and reproducibility entry points.
 - `tests/legacy/checkpoints/` — quarantined bootstrap and interrupt-substrate
   checkpoint applications,
   retained temporarily for compatibility gates and never linked by product

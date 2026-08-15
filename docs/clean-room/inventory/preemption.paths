@@ -1,0 +1,15 @@
+# Standard policy facade, deterministic policy, configuration, and state authority.
+src/gnarl/s-finpri.ads
+src/gnarl/s-finpri.adb
+src/gnarl/s-finroo.ads
+src/gnarl/s-finroo.adb
+src/gnarl/a-dynpri.ads
+src/gnarl/a-dynpri.adb
+src/primitives/flyology-priority_queue_model.ads
+src/primitives/flyology-priority_queue_model.adb
+src/primitives/flyology-preemption_model.ads
+src/primitives/flyology-preemption_model.adb
+src/kernel/flyology-kernel.ads
+src/kernel/flyology-kernel.adb
+config/scheduler/fifo/flyology-scheduler_configuration.ads
+config/scheduler/round_robin/flyology-scheduler_configuration.ads

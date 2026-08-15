@@ -7,6 +7,8 @@ implementation source.
 - [Methodology](methodology.md) is the normative discovery, implementation, and
   upgrade procedure.
 - [Interface manifest](interfaces.toml) is the machine-readable evidence index.
+- `inventory/*.paths` maps each evidence set to the exact original
+  implementation units that accept or realize the boundary.
 - [Bootstrap minimum](bootstrap-minimum-compiler-interface.md) records the
   minimal package `System` boundary.
 - [Bootstrap elaboration](bootstrap-elaboration-interface.md) records binder
@@ -22,4 +24,4 @@ implementation source.
 
 The records preserve when and how evidence was discovered, but are indexed by
 the capability they support. ADR-0004 and ADR-0006 define the clean-room
-decision; ADR-0010 defines the responsibility-based product migration.
+decision; ADR-0010 defines the responsibility-based product structure.

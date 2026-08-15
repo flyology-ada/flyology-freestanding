@@ -35,11 +35,10 @@ mutable scheduling or task state.
 The responsibility-based product source and build structure is defined by
 [ADR-0010](docs/adr/0010-productize-the-runtime.md). The state-owning kernel is
 in `src/kernel/`, the reusable deterministic algorithms are in
-`src/primitives/`, and the GNARL semantic runtime is in `src/rts/`.
-Milestone-named paths are transitional historical structure, not additional
-architectural layers. During the migration, they may remain in supported
-project source paths only while a differential build or compatibility gate
-still requires them.
+`src/primitives/`, and the GNARL semantic runtime is in `src/rts/`. Numbered
+development-stage names are forbidden in maintained paths, product symbols,
+configuration, tests, and evidence records; capability names are the only
+supported vocabulary.
 
 ## Identity and topology
 

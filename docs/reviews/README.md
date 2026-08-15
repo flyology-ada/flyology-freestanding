@@ -1,6 +1,6 @@
-# Milestone reviews
+# Capability reviews
 
-Each milestone review is written after its gates run and contains:
+Each capability review is written after its gates run and contains:
 
 - exact commit, tool versions, commands, targets, CPU counts, and artifact hashes;
 - cited code, tests, proof outputs, and diagnostic transcripts;
@@ -9,4 +9,4 @@ Each milestone review is written after its gates run and contains:
 - fixes and rerun evidence for every blocker; and
 - a candid residual-risk and unsupported-claims section.
 
-A review template is not evidence and does not close a milestone.
+A review template is not evidence and does not close a capability.

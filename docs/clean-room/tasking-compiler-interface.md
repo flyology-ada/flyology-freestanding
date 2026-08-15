@@ -30,11 +30,11 @@ protected objects, delays, and task attributes are not established by this
 probe. tasking capability closes only the normal activation/completion/master path. Abnormal
 and unactivated cleanup is an explicit synchronization capability gate and remains fail-closed here.
 
-## First product checkpoint
+## Product implementation
 
-The first clean-room implementation of this observed surface lives under
-`src/gnarl/` (moved mechanically from the historical `src/gnarl/` path during
-productization). It uses compiler-created task objects only: the staging facade
+The clean-room implementation of this observed surface lives under `src/gnarl/`
+and delegates through `Flyology.RTS` to `Flyology.Kernel`. It uses
+compiler-created task objects only: the staging facade
 creates dormant bounded TCBs, activation publishes a whole lexical chain,
 the core dispatcher selects ready work, and the compiler wrapper reports
 activation and normal completion. There is no public task-creation, spawn, or
@@ -67,4 +67,4 @@ For this normal-path checkpoint, `__gnat_personality_v0` and `_Unwind_Resume`
 are deliberate fail-closed architecture entries: reaching either terminates
 with a structured boot failure. This is not exception propagation or abnormal
 task cleanup support. Those entries must be replaced by real semantics before
-any later milestone claims such behavior.
+any later capability claims such behavior.

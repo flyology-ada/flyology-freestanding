@@ -1,0 +1,17 @@
+# Dispatching-domain facade, deterministic admission, configuration, and state authority.
+src/gnarl/s-mudido.ads
+src/gnarl/s-mudido.adb
+src/gnarl/a-taidfl.ads
+src/gnarl/a-taidfl.adb
+src/gnarl/a-retide.ads
+src/gnarl/a-retide.adb
+src/gnarl/s-secsta.ads
+src/gnarl/s-secsta.adb
+src/gnarl/s-stoele.ads
+src/primitives/flyology-domain_model.ads
+src/primitives/flyology-domain_model.adb
+src/rts/flyology-rts.ads
+src/rts/flyology-rts.adb
+src/kernel/flyology-kernel.ads
+src/kernel/flyology-kernel.adb
+config/domains/on/flyology-domain_configuration.ads

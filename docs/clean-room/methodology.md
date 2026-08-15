@@ -31,7 +31,8 @@ Every supported compiler-facing interface set has an entry in
 - the exact compiler family and supported target architectures;
 - the human-readable observation record;
 - the owned probe or authoritative discovery gate;
-- the implementation root;
+- the implementation root and an exact tracked inventory of implementation
+  units participating in the boundary;
 - the regression gate that enforces the observation; and
 - a semantic status: `supported`, `bounded`, `fail_closed`, or `historical`.
 
@@ -91,7 +92,9 @@ upgrade gate.
 
 `scripts/check-clean-room.sh` validates the manifest schema at repository
 hygiene time: identifiers are unique, statuses are from the closed vocabulary,
-and every referenced record, probe, implementation root, and gate exists. Later
-productization slices will extend it with the generated interface inventory and
-source evidence annotations; the schema is versioned so such additions are
-reviewed rather than inferred.
+every referenced record, probe, implementation root, inventory, and gate
+exists, and every non-comment path in an implementation inventory resolves to a
+tracked source file. The inventories prevent a broad directory reference from
+silently expanding a clean-room claim when an unrelated compiler facade is
+added. Generated symbol/relocation inventories remain enforced by the cited
+probe and final-image inspection scripts.

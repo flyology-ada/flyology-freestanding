@@ -1,0 +1,9 @@
+# Original implementation units for binder startup, terminal checks, and Limine records.
+src/bootstrap/flyology-binder_support.ads
+src/bootstrap/flyology-binder_support.adb
+src/bootstrap/s-stalib.ads
+src/bootstrap/s-stalib.adb
+src/platform/x86_64/entry.S
+src/platform/x86_64/limine_requests.S
+src/platform/aarch64/entry.S
+src/platform/aarch64/limine_requests.S
