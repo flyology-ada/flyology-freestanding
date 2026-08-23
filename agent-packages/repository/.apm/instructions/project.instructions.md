@@ -1,0 +1,25 @@
+---
+description: Preserve Flyology Freestanding's project-specific repository rules and verification workflow.
+---
+
+# Flyology Freestanding contributor rules
+
+- This repository is the only permitted edit scope. Do not modify any other Flyology Freestanding checkout.
+- Flyology Freestanding is a freestanding GNAT Ada tasking runtime, not an OS distribution.
+- Preserve ordinary Ada task declarations and full-GNARL architecture. Do not add a public spawn, fiber, or alternate task dialect.
+- Keep GNARL semantics, task primitives/dispatcher, scheduler policy, architecture code, and Limine boot responsibilities separate.
+- Treat SMP as foundational. Applicable gates cover x86-64 QEMU q35 and AArch64 QEMU virt with both `-smp 1` and `-smp 4`.
+- Never treat Limine processor IDs, LAPIC IDs, or MPIDR values as dense `Core_Id` values.
+- Scheduler policies select tasks but never transfer contexts. Voluntary switching and interrupt-time preemption are distinct mechanisms feeding one checked task-state model.
+- Prefer Ada and SPARK for deterministic policy and validation. Keep assembly narrow and architecture-specific; use C only for an unavoidable documented ABI boundary.
+- Validate all boot data, arithmetic, capacities, alignment, memory types, and state transitions. Fail closed on unsupported states.
+- Every QEMU test has a timeout and structured markers. A successful boot alone is not a behavioral test.
+- Do not claim milestone completion, proof, hardware coverage, or hosted CI unless the recorded gate was actually run.
+- Generated files, downloaded inputs, toolchains, firmware, images, and build outputs stay out of version control.
+- Do not copy or adapt GNAT runtime sources. Implement compiler-compatible GNARL/GNULL interfaces clean-room from the Ada RM, public compiler documentation, generated expansion/binder output, and black-box tests. Record interface-discovery evidence. Original work is dual MIT/Apache-2.0.
+- Before each milestone advance, write a concrete review under `docs/reviews/`, fix blockers, and update ADRs when assumptions change.
+- Use `rg` for discovery and `apply_patch` for hand edits. Preserve unrelated changes.
+- Before each commit, run `git diff --check`, inspect every staged path, and keep `main` buildable.
+- Commit messages use the repository `Problem:` / `Solution:` format specified in the project brief.
+- Never weaken tests, proofs, or fail-closed checks merely to make a gate pass.
+- Use `gh` only outside the sandbox. Do not create or publish a GitHub repository unless explicitly requested.
