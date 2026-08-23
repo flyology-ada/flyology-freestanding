@@ -1,3 +1,6 @@
+/.agents/
+/.claude/rules/
+/.claude/skills/
 # Build and generated artifacts
 /build/
 /obj/
@@ -25,3 +28,4 @@ b~*.ads
 .DS_Store
 *.swp
 *.swo
+apm_modules/
